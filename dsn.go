@@ -22,7 +22,7 @@ const (
 func ParseDSNString(dsn string) (fireboltSettings, error) {
 
 	expected_prefix := "firebolt://"
-	if dsn[:len(expected_prefix)] != expected_prefix {
+	if len(dsn) < len(expected_prefix) || dsn[:len(expected_prefix)] != expected_prefix {
 		return fireboltSettings{}, errors.New("Wrong argument")
 	}
 
