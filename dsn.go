@@ -5,7 +5,6 @@ import "errors"
 type fireboltSettings struct {
 	username     string
 	password     string
-	hostname     string
 	database     string
 	engine_name  string
 	account_name string

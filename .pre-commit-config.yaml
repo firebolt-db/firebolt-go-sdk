@@ -1,0 +1,17 @@
+repos:
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.0.1
+    hooks:
+      - id: check-merge-conflict
+
+  - repo: https://github.com/dnephin/pre-commit-golang
+    rev: master
+    hooks:
+    - id: go-fmt
+    - id: go-vet
+    - id: validate-toml
+    - id: golangci-lint
+    - id: go-unit-tests
+    - id: go-build
+    - id: go-mod-tidy
