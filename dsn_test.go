@@ -53,6 +53,8 @@ func TestDSNHappyPath(t *testing.T) {
 }
 
 func TestDSNFailed(t *testing.T) {
+	runDSNTestFail(t, "")
+	runDSNTestFail(t, "firebolt://")
 	runDSNTestFail(t, "firebolt://user:yury_db")
 	runDSNTestFail(t, "jdbc://user:yury_db@db_name")
 	runDSNTestFail(t, "firebolt://yury_db@dn_name")
