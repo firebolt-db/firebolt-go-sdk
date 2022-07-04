@@ -17,7 +17,13 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &fireboltConnection{*client}, nil
+
+	engineUrl, err := client.GetEngineUrlByName(settings.engine_name, settings.account_name)
+	if err != nil {
+		return nil, err
+	}
+
+	return &fireboltConnection{*client, settings.database, engineUrl}, nil
 }
 
 func init() {
