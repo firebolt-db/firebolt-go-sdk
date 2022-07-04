@@ -1,0 +1,39 @@
+name: Nightly code check
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 10 * * *' # 5 am UTC every day
+jobs:
+  code-check:
+    uses: ./.github/workflows/code-check.yml
+  tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false # finish all jobs even if one fails
+      max-parallel: 2
+      matrix: 
+        os: ['ubuntu-latest']
+        python-version: ['1.15', '1.16', '1.17', '1.18']
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+      
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: ${{ matrix.python-version }}
+    
+      - name: Run integration tests
+        env:
+          USER_NAME: ${{ secrets.FIREBOLT_USERNAME }}
+          PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
+          DATABASE_NAME: "FOOBAR"
+#          ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
+#          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
+#          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
+#          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
+#          API_ENDPOINT: "api.app.firebolt.io"
+#          ACCOUNT_NAME: "firebolt"
+        run: |
+          go test . -v
+
