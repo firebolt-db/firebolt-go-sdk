@@ -1,0 +1,46 @@
+name: Integration tests
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    secrets:
+      FIREBOLT_USERNAME:
+        required: true
+      FIREBOLT_PASSWORD:
+        required: true
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.17.0'
+
+#      - name: Setup database and engine
+#        id: setup
+#        uses: firebolt-db/integration-testing-setup@master
+#        with:
+#          firebolt-username: ${{ secrets.FIREBOLT_USERNAME }}
+#          firebolt-password: ${{ secrets.FIREBOLT_PASSWORD }}
+#          api-endpoint: "api.app.firebolt.io"
+#          region: "us-east-1"
+#          instance-type: "B2"
+
+      - name: Run integration tests
+        env:
+          USER_NAME: ${{ secrets.FIREBOLT_USERNAME }}
+          PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
+          DATABASE_NAME: ${{ "FOOBAR" }}
+#          ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
+#          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
+#          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
+#          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
+#          API_ENDPOINT: "api.app.firebolt.io"
+#          ACCOUNT_NAME: "firebolt"
+        run: |
+          go test . -v
