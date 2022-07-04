@@ -35,7 +35,7 @@ jobs:
         env:
           USER_NAME: ${{ secrets.FIREBOLT_USERNAME }}
           PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
-          DATABASE_NAME: ${{ "FOOBAR" }}
+          DATABASE_NAME: "FOOBAR"
 #          ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
 #          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
 #          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
