@@ -5,7 +5,9 @@ import (
 )
 
 type fireboltConnection struct {
-	client Client
+	client       Client
+	databaseName string
+	engineUrl    string
 }
 
 func (c *fireboltConnection) Prepare(query string) (driver.Stmt, error) {

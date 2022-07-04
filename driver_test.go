@@ -14,8 +14,10 @@ func init() {
 	username := os.Getenv("USER_NAME")
 	password := os.Getenv("PASSWORD")
 	database := os.Getenv("DATABASE_NAME")
+	engineName := os.Getenv("ENGINE_NAME")
+	accountName := os.Getenv("ACCOUNT_NAME")
 
-	dsn = fmt.Sprintf("firebolt://%s:%s@%s", username, password, database)
+	dsn = fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", username, password, database, engineName, accountName)
 }
 
 func TestDriverOpen(t *testing.T) {
@@ -51,5 +53,4 @@ func TestDriverOpenConnection(t *testing.T) {
 	if _, err = db.Conn(ctx); err != nil {
 		t.Errorf("connection is not established correctly")
 	}
-
 }
