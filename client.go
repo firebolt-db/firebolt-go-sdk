@@ -34,7 +34,11 @@ func Authenticate(username, password string) (*Client, error) {
 	}
 
 	var authResp AuthenticationResponse
-	json.Unmarshal(resp, &authResp)
+	err = json.Unmarshal(resp, &authResp)
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
 	c.AccessToken = authResp.AccessToken
 
 	return &c, nil

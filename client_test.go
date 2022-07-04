@@ -17,6 +17,9 @@ func setup() (string, error) {
 }
 
 func TestAuthHappyPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
 	dsn, _ := setup()
 	config, _ := ParseDSNString(dsn)
 	client, err := Authenticate(config.username, config.password)
