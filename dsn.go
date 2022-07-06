@@ -3,11 +3,11 @@ package fireboltgosdk
 import "errors"
 
 type fireboltSettings struct {
-	username     string
-	password     string
-	database     string
-	engine_name  string
-	account_name string
+	username    string
+	password    string
+	database    string
+	engineName  string
+	accountName string
 }
 
 const (
@@ -21,15 +21,15 @@ const (
 
 func ParseDSNString(dsn string) (fireboltSettings, error) {
 
-	expected_prefix := "firebolt://"
-	if len(dsn) < len(expected_prefix) || dsn[:len(expected_prefix)] != expected_prefix {
+	const expectedPrefix = "firebolt://"
+	if len(dsn) < len(expectedPrefix) || dsn[:len(expectedPrefix)] != expectedPrefix {
 		return fireboltSettings{}, errors.New("Wrong argument")
 	}
 
 	var result fireboltSettings
 	var keyword string
 	state := usernameState
-	for i := len(expected_prefix); i < len(dsn); i++ {
+	for i := len(expectedPrefix); i < len(dsn); i++ {
 		isSpecialChar := true
 		if dsn[i] == '\\' {
 			i++
@@ -65,7 +65,7 @@ func ParseDSNString(dsn string) (fireboltSettings, error) {
 			if char == '?' {
 				state = accountKeywordState
 			} else {
-				result.engine_name += string(char)
+				result.engineName += string(char)
 			}
 
 		case state == accountKeywordState:
@@ -79,11 +79,11 @@ func ParseDSNString(dsn string) (fireboltSettings, error) {
 			}
 
 		case state == accountKeywordValue:
-			result.account_name += string(dsn[i])
+			result.accountName += string(dsn[i])
 		}
 	}
 	if state != accountKeywordValue && state != engineState && state != databaseState {
-		return fireboltSettings{}, errors.New("Wrong argument")
+		return fireboltSettings{}, errors.New("wrong argument")
 	}
 	return result, nil
 }

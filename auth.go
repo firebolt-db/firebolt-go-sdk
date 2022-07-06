@@ -19,7 +19,7 @@ func Authenticate(username, password string) (*Client, error) {
 	jsonData, _ := json.Marshal(values)
 
 	var c Client
-	resp, err := c.Request("POST", LoginUrl, nil, string(jsonData))
+	resp, err := c.Request("POST", HostNameURL+LoginUrl, nil, string(jsonData))
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
