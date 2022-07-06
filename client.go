@@ -131,7 +131,7 @@ func (c *Client) GetEngineUrlById(engineId string, accountId string) (string, er
 	if err = json.Unmarshal(response, &engineByIdResponse); err != nil {
 		return "", err
 	}
-	return engineByIdResponse.Engine.Endpoint, nil
+	return fmt.Sprintf("https://%s", engineByIdResponse.Engine.Endpoint), nil
 }
 
 func (c *Client) GetEngineUrlByName(engineName string, accountName string) (string, error) {
