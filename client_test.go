@@ -56,7 +56,7 @@ func TestGetEngineUrlByName(t *testing.T) {
 		t.Errorf("GetAccountIdByName failed with: %s", err)
 	}
 
-	engineId, err := client.GetEngineIdByName(config.engine_name, accountId)
+	engineId, err := client.GetEngineIdByName(config.engineName, accountId)
 	if err != nil {
 		t.Errorf("GetEngineIdByName failed with: %s", err)
 	}
@@ -67,6 +67,25 @@ func TestGetEngineUrlByName(t *testing.T) {
 	engineUrl, err := client.GetEngineUrlById(engineId, accountId)
 	if err != nil {
 		t.Errorf("GetEngineUrlById failed with: %s", err)
+	}
+	if len(engineUrl) == 0 {
+		t.Errorf("GetEngineUrlById succeed but returned a zero length account id")
+	}
+}
+
+func TestGetEngineUrlByDatabase(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+	config, _ := ParseDSNString(dsn)
+	client, err := Authenticate(config.username, config.password)
+	if err != nil {
+		t.Errorf("Authentication failed with: %s", err)
+	}
+
+	engineUrl, err := client.GetEngineUrlByDatabase(config.database, config.accountName)
+	if err != nil {
+		t.Errorf("GetEngineUrlByDatabase failed with: %s", err)
 	}
 	if len(engineUrl) == 0 {
 		t.Errorf("GetEngineUrlById succeed but returned a zero length account id")

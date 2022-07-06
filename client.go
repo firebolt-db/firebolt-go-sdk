@@ -77,7 +77,7 @@ func (c *Client) GetAccountIdByName(accountName string) (string, error) {
 	params := make(map[string]string)
 	params["account_name"] = accountName
 
-	response, err := c.Request("GET", AccountIdByNameURL, params, "")
+	response, err := c.Request("GET", HostNameURL+AccountIdByNameURL, params, "")
 	if err != nil {
 		return "", err
 	}
@@ -101,7 +101,7 @@ func (c *Client) GetEngineIdByName(engineName string, accountId string) (string,
 	params := make(map[string]string)
 	params["engine_name"] = engineName
 
-	response, err := c.Request("GET", fmt.Sprintf(EngineIdByNameURL, accountId), params, "")
+	response, err := c.Request("GET", fmt.Sprintf(HostNameURL+EngineIdByNameURL, accountId), params, "")
 	if err != nil {
 		return "", err
 	}
@@ -122,7 +122,7 @@ func (c *Client) GetEngineUrlById(engineId string, accountId string) (string, er
 	}
 
 	params := make(map[string]string)
-	response, err := c.Request("GET", fmt.Sprintf(EngineByIdURL, accountId, engineId), params, "")
+	response, err := c.Request("GET", fmt.Sprintf(HostNameURL+EngineByIdURL, accountId, engineId), params, "")
 	if err != nil {
 		return "", err
 	}
@@ -151,4 +151,28 @@ func (c *Client) GetEngineUrlByName(engineName string, accountName string) (stri
 	}
 
 	return engineUrl, nil
+}
+
+func (c *Client) GetEngineUrlByDatabase(databaseName string, accountName string) (string, error) {
+	accountId, err := c.GetAccountIdByName(accountName)
+	if err != nil {
+		return "", err
+	}
+
+	type EngineUrlByDatabaseResponse struct {
+		EngineUrl string `json:"engine_url"`
+	}
+
+	params := make(map[string]string)
+	params["database_name"] = databaseName
+	response, err := c.Request("GET", fmt.Sprintf(HostNameURL+EngineUrlByDatabaseNameURL, accountId), params, "")
+	if err != nil {
+		return "", err
+	}
+
+	var engineUrlByDatabaseResponse EngineUrlByDatabaseResponse
+	if err = json.Unmarshal(response, &engineUrlByDatabaseResponse); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("https://%s", engineUrlByDatabaseResponse.EngineUrl), nil
 }

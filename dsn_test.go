@@ -23,8 +23,8 @@ func runDSNTest(t *testing.T, input string, expectedSettings fireboltSettings) {
 		t.Errorf("got %s want %s", settings.database, expectedSettings.database)
 	}
 
-	if settings.engine_name != expectedSettings.engine_name {
-		t.Errorf("got %s want %s", settings.engine_name, expectedSettings.engine_name)
+	if settings.engineName != expectedSettings.engineName {
+		t.Errorf("got %s want %s", settings.engineName, expectedSettings.engineName)
 	}
 }
 
@@ -40,13 +40,13 @@ func TestDSNHappyPath(t *testing.T) {
 		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name"})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name",
-		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engine_name: "engine_name"})
+		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engineName: "engine_name"})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name?account_name=firebolt_account",
-		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engine_name: "engine_name", account_name: "firebolt_account"})
+		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engineName: "engine_name", accountName: "firebolt_account"})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name?account_name=firebolt_account",
-		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", account_name: "firebolt_account"})
+		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", accountName: "firebolt_account"})
 
 	runDSNTest(t, "firebolt://user@fire\\:bolt.io:passwo\\@rd@db_name",
 		fireboltSettings{username: "user@fire:bolt.io", password: "passwo@rd", database: "db_name"})
