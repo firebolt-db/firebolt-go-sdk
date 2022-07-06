@@ -3,7 +3,6 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/json"
 )
 
 type Column struct {
@@ -20,8 +19,10 @@ type QueryResponse struct {
 }
 
 type fireboltStmt struct {
-	client *Client
-	query  string
+	client       *Client
+	query        string
+	databaseName string
+	engineUrl    string
 }
 
 func (stmt fireboltStmt) Close() error {
@@ -34,22 +35,11 @@ func (stmt fireboltStmt) NumInput() int {
 
 func (stmt fireboltStmt) Exec(args []driver.Value) (driver.Result, error) {
 	params := make(map[string]string)
-	params["database"] = "yury_test_db"
+	params["database"] = stmt.databaseName
 	params["output_format"] = "FB_JSONCompactLimited"
 
-	var url_str = "https://yury-test-db-general-purpose.firebolt.us-east-1.app.firebolt.io/"
-
-	body, err := stmt.client.Request("POST", url_str, params, stmt.query)
-	if err != nil {
-		return FireboltResult{}, nil
-	}
-
-	var response QueryResponse
-	if err = json.Unmarshal(body, &response); err != nil {
-		return FireboltResult{}, nil
-	}
-
-	return FireboltResult{}, nil
+	_, err := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
+	return FireboltResult{}, err
 }
 
 func (stmt fireboltStmt) Query(args []driver.Value) (driver.Rows, error) {

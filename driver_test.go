@@ -8,14 +8,23 @@ import (
 	"testing"
 )
 
-var dsn string
+var (
+	dsn         string
+	username    string
+	password    string
+	database    string
+	engineUrl   string
+	engineName  string
+	accountName string
+)
 
 func init() {
-	username := os.Getenv("USER_NAME")
-	password := os.Getenv("PASSWORD")
-	database := os.Getenv("DATABASE_NAME")
-	engineName := os.Getenv("ENGINE_NAME")
-	accountName := os.Getenv("ACCOUNT_NAME")
+	username = os.Getenv("USER_NAME")
+	password = os.Getenv("PASSWORD")
+	database = os.Getenv("DATABASE_NAME")
+	engineName = os.Getenv("ENGINE_NAME")
+	engineUrl = os.Getenv("ENGINE_URL")
+	accountName = os.Getenv("ACCOUNT_NAME")
 
 	dsn = fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", username, password, database, engineName, accountName)
 }
@@ -51,6 +60,21 @@ func TestDriverOpenConnection(t *testing.T) {
 
 	ctx := context.TODO()
 	if _, err = db.Conn(ctx); err != nil {
+		t.Errorf("connection is not established correctly")
+	}
+}
+
+func TestDriverExecStatement(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	db, err := sql.Open("firebolt", dsn)
+	if err != nil {
+		t.Errorf("failed unexpectedly")
+	}
+
+	if _, err = db.Exec("SELECT 1"); err != nil {
 		t.Errorf("connection is not established correctly")
 	}
 }

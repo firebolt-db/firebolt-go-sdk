@@ -11,7 +11,7 @@ type fireboltConnection struct {
 }
 
 func (c *fireboltConnection) Prepare(query string) (driver.Stmt, error) {
-	return fireboltStmt{client: &c.client, query: query}, nil
+	return fireboltStmt{client: &c.client, query: query, databaseName: c.databaseName, engineUrl: c.engineUrl}, nil
 }
 
 func (c *fireboltConnection) Close() error {
