@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 )
 
 type Column struct {
@@ -34,22 +35,33 @@ func (stmt fireboltStmt) NumInput() int {
 }
 
 func (stmt fireboltStmt) Exec(args []driver.Value) (driver.Result, error) {
+	return stmt.ExecContext(context.TODO(), make([]driver.NamedValue, 0))
+}
+
+func (stmt fireboltStmt) Query(args []driver.Value) (driver.Rows, error) {
+	return stmt.QueryContext(context.TODO(), make([]driver.NamedValue, 0))
+}
+
+func (stmt fireboltStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	params := make(map[string]string)
+	params["database"] = stmt.databaseName
+	params["output_format"] = "FB_JSONCompactLimited"
+
+	response, _ := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
+
+	var queryResponse QueryResponse
+	if err := json.Unmarshal(response, &queryResponse); err != nil {
+		return nil, err
+	}
+
+	return &fireboltRows{queryResponse, 0}, nil
+}
+
+func (stmt fireboltStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
 	params := make(map[string]string)
 	params["database"] = stmt.databaseName
 	params["output_format"] = "FB_JSONCompactLimited"
 
 	_, err := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
 	return FireboltResult{}, err
-}
-
-func (stmt fireboltStmt) Query(args []driver.Value) (driver.Rows, error) {
-	return nil, nil
-}
-
-func (stmt fireboltStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	return nil, nil
-}
-
-func (stmt fireboltStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	return nil, nil
 }

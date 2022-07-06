@@ -34,6 +34,8 @@ func (f *fireboltRows) Next(dest []driver.Value) error {
 	for i, column := range f.response.Meta {
 		val := f.response.Data[f.cursorPosition][i]
 		switch column.Type {
+		case "UInt32":
+			dest[i] = uint32(val.(float64))
 		case "Int32":
 			dest[i] = int32(val.(float64))
 		case "Int64":
