@@ -63,3 +63,18 @@ func TestDriverOpenConnection(t *testing.T) {
 		t.Errorf("connection is not established correctly")
 	}
 }
+
+func TestDriverExecStatement(t *testing.T) {
+	if testing.Short() {
+		t.Skip()
+	}
+
+	db, err := sql.Open("firebolt", dsn)
+	if err != nil {
+		t.Errorf("failed unexpectedly")
+	}
+
+	if _, err = db.Exec("SELECT 1"); err != nil {
+		t.Errorf("connection is not established correctly")
+	}
+}
