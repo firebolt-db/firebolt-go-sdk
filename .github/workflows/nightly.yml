@@ -22,7 +22,10 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.python-version }}
-    
+   
+      - name: Install go tools
+        run: go get golang.org/x/tools/cmd/cover
+ 
       - name: Setup database and engine
         id: setup
         uses: firebolt-db/integration-testing-setup@master
