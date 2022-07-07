@@ -39,9 +39,9 @@ jobs:
           PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
-#          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
-#          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
-#          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
+          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
+          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
+          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
 #          API_ENDPOINT: "api.app.firebolt.io"
           ACCOUNT_NAME: "firebolt"
         run: |
