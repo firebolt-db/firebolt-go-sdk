@@ -31,8 +31,16 @@ func checkErrorResponse(response []byte) error {
 	return err
 }
 
+func makeCanonicalUrl(url string) string {
+	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+		return url
+	} else {
+		return fmt.Sprintf("https://%s", url)
+	}
+}
+
 func (c *Client) Request(method string, url string, params map[string]string, bodyStr string) ([]byte, error) {
-	req, _ := http.NewRequest(method, url, strings.NewReader(bodyStr))
+	req, _ := http.NewRequest(method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
 
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
@@ -174,5 +182,5 @@ func (c *Client) GetEngineUrlByDatabase(databaseName string, accountName string)
 	if err = json.Unmarshal(response, &engineUrlByDatabaseResponse); err != nil {
 		return "", err
 	}
-	return fmt.Sprintf("https://%s", engineUrlByDatabaseResponse.EngineUrl), nil
+	return engineUrlByDatabaseResponse.EngineUrl, nil
 }
