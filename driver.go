@@ -19,8 +19,8 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 		return nil, fmt.Errorf("error during authentication: %v", err)
 	}
 
-	//getting engineUrl either by using engineName if available,
-	//if not using default engine for the database
+	// getting engineUrl either by using engineName if available,
+	// if not using default engine for the database
 	var engineUrl string
 	if settings.engineName != "" {
 		engineUrl, err = client.GetEngineUrlByName(settings.engineName, settings.accountName)

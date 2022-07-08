@@ -13,80 +13,64 @@ type fireboltSettings struct {
 	accountName string
 }
 
-const (
-	usernameState = iota
-	passwordState
-	databaseState
-	engineState
-	accountKeywordState
-	accountKeywordValue
-)
+// splits string into two string, when first split char is encountered
+// return two strings:
+//    - first string before the encountered character, with removed backtick escape
+//    - second string is remaining string, including the character on which it was split
+func splitString(str string, splitChars []uint8) (string, string) {
+	var res string
+	for i := 0; i < len(str); i++ {
+		if str[i] == '\\' {
+			res += string(str[i+1])
+			i += 1
+			continue
+		}
+		for _, v := range splitChars {
+			if str[i] == v {
+				return res, str[i:]
+			}
+		}
+		res += string(str[i])
+	}
+	return res, ""
+}
+
+func parseRemainingDSN(dsn string, expectedPrefix string, stopChars []uint8) (string, string, error) {
+	if !strings.HasPrefix(dsn, expectedPrefix) {
+		return "", dsn, fmt.Errorf("expected prefix not found: %s", expectedPrefix)
+	}
+
+	dsn = dsn[len(expectedPrefix):]
+	res, dsn := splitString(dsn, stopChars)
+	return res, dsn, nil
+}
 
 func ParseDSNString(dsn string) (*fireboltSettings, error) {
 
-	const expectedPrefix = "firebolt://"
-	if !strings.HasPrefix(dsn, expectedPrefix) {
-		return nil, fmt.Errorf("dsn missing '%s' prefix", expectedPrefix)
-	}
-
 	var result fireboltSettings
-	var keyword string
-	state := usernameState
-	for i := len(expectedPrefix); i < len(dsn); i++ {
-		isSpecialChar := true
-		if dsn[i] == '\\' {
-			i++
-			isSpecialChar = false
-		}
-		char := dsn[i]
+	var err error
 
-		switch {
-		case state == usernameState:
-			if char == ':' && isSpecialChar {
-				state = passwordState
-			} else {
-				result.username += string(char)
-			}
-
-		case state == passwordState:
-			if char == '@' && isSpecialChar {
-				state = databaseState
-			} else {
-				result.password += string(char)
-			}
-
-		case state == databaseState:
-			if char == '/' && isSpecialChar {
-				state = engineState
-			} else if char == '?' && isSpecialChar {
-				state = accountKeywordState
-			} else {
-				result.database += string(char)
-			}
-
-		case state == engineState:
-			if char == '?' {
-				state = accountKeywordState
-			} else {
-				result.engineName += string(char)
-			}
-
-		case state == accountKeywordState:
-			if dsn[i] == '=' && keyword != "account_name" {
-				return nil, fmt.Errorf("dsn contains an unknown argument: '%s'", keyword)
-			} else if dsn[i] == '=' {
-				state = accountKeywordValue
-				keyword = ""
-			} else {
-				keyword += string(dsn[i])
-			}
-
-		case state == accountKeywordValue:
-			result.accountName += string(dsn[i])
-		}
+	result.username, dsn, err = parseRemainingDSN(dsn, "firebolt://", []uint8{':'})
+	if err != nil {
+		return nil, err
 	}
-	if state != accountKeywordValue && state != engineState && state != databaseState {
-		return nil, fmt.Errorf("dsn is not complete")
+
+	result.password, dsn, err = parseRemainingDSN(dsn, ":", []uint8{'@'})
+	if err != nil {
+		return nil, err
 	}
+
+	result.database, dsn, err = parseRemainingDSN(dsn, "@", []uint8{'/', '?'})
+	if err != nil {
+		return nil, err
+	}
+
+	result.engineName, dsn, _ = parseRemainingDSN(dsn, "/", []uint8{'?'})
+	result.accountName, dsn, _ = parseRemainingDSN(dsn, "?account_name", []uint8{})
+
+	if len(dsn) != 0 {
+		return nil, fmt.Errorf("unparsed characters were found: %s", dsn)
+	}
+
 	return &result, nil
 }
