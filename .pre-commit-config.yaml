@@ -10,6 +10,8 @@ repos:
     hooks:
     - id: go-fmt
     - id: go-vet
+    - id: go-imports
+    - id: go-cyclo
     - id: validate-toml
     - id: golangci-lint
     - id: go-unit-tests
