@@ -1,6 +1,7 @@
 package fireboltgosdk
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -213,4 +214,12 @@ func request(accessToken string, method string, url string, params map[string]st
 	}
 
 	return body, nil
+}
+
+// jsonStrictUnmarshall unmarshalls json into object, and returns an error
+// if some fields are missing, or extra fields are present
+func jsonStrictUnmarshall(data []byte, v any) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(v)
 }

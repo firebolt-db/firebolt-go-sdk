@@ -25,6 +25,7 @@ func mockRows() driver.Rows {
 	return &fireboltRows{response, 0}
 }
 
+// TestRowsColumns checks, that correct column names are returned
 func TestRowsColumns(t *testing.T) {
 	rows := mockRows()
 
@@ -34,6 +35,7 @@ func TestRowsColumns(t *testing.T) {
 	}
 }
 
+// TestRowsClose checks Close method, and inability to use rows afterward
 func TestRowsClose(t *testing.T) {
 	rows := mockRows()
 	if rows.Close() != nil {
@@ -46,6 +48,7 @@ func TestRowsClose(t *testing.T) {
 	}
 }
 
+// TestRowsNext check Next method
 func TestRowsNext(t *testing.T) {
 	rows := mockRows()
 	var dest = make([]driver.Value, 10)

@@ -1,7 +1,6 @@
 package fireboltgosdk
 
 type FireboltResult struct {
-	str string
 }
 
 // LastInsertId returns last inserted ID, not supported by firebolt

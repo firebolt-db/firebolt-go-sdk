@@ -52,6 +52,7 @@ func TestDSNHappyPath(t *testing.T) {
 		fireboltSettings{username: "user@fire:bolt.io", password: "passwo@rd", database: "db_name"})
 }
 
+// TestDSNFailed test different failure scenarios for ParseDSNString
 func TestDSNFailed(t *testing.T) {
 	runDSNTestFail(t, "")
 	runDSNTestFail(t, "firebolt://")
@@ -59,4 +60,24 @@ func TestDSNFailed(t *testing.T) {
 	runDSNTestFail(t, "jdbc://user:yury_db@db_name")
 	runDSNTestFail(t, "firebolt://yury_db@dn_name")
 	runDSNTestFail(t, "firebolt://yury_db:password@dn_name?account=fi")
+}
+
+func runTestSplitString(t *testing.T, str string, stopChars []uint8, expectedFirst, expectedSecond string) {
+	first, second := splitString(str, stopChars)
+	if first != expectedFirst {
+		t.Errorf("splitString result is not as expected: %s != %s", first, expectedFirst)
+	}
+	if second != expectedSecond {
+		t.Errorf("splitString result is not as expected: %s != %s", second, expectedSecond)
+	}
+}
+
+//TestSplitString tests several possible scenarios for SplitString function
+func TestSplitString(t *testing.T) {
+	runTestSplitString(t, "some_str", []uint8{}, "some_str", "")
+	runTestSplitString(t, "some_str", []uint8{'r'}, "some_st", "r")
+	runTestSplitString(t, "some_str", []uint8{'s', 'o', 'm'}, "", "some_str")
+	runTestSplitString(t, "", []uint8{'s', 'o', 'm'}, "", "")
+	runTestSplitString(t, "", []uint8{}, "", "")
+	runTestSplitString(t, "some_str", []uint8{'_'}, "some", "_str")
 }

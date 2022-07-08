@@ -7,48 +7,35 @@ import (
 	"testing"
 )
 
+// TestExecStmt checks simple SELECT 1 exec
 func TestExecStmt(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
-	client, err := Authenticate(username, password)
-	if err != nil {
-		t.Errorf("auth failed with %v", err)
-	}
+	markIntegrationTest(t)
 
-	stmt := fireboltStmt{client: client, query: "SELECT 1", engineUrl: engineUrl, databaseName: database}
-	_, err = stmt.Exec(nil)
-	if err != nil {
+	stmt := fireboltStmt{client: clientMock, query: "SELECT 1", engineUrl: engineUrlMock, databaseName: databaseMock}
+	if _, err := stmt.Exec(nil); err != nil {
 		t.Errorf("firebolt statement failed with %v", err)
 	}
 }
 
+// TestExecWrongStmt checks, that an error is returned on wrong query
 func TestExecWrongStmt(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
-	client, err := Authenticate(username, password)
-	if err != nil {
-		t.Errorf("auth failed with %v", err)
-	}
+	markIntegrationTest(t)
 
-	stmt := fireboltStmt{client: client, query: "INSERT INTO", engineUrl: engineUrl, databaseName: database}
-	_, err = stmt.Exec(nil)
-	if err == nil {
+	stmt := fireboltStmt{client: clientMock, query: "INSERT INTO", engineUrl: engineUrlMock, databaseName: databaseMock}
+	if _, err := stmt.Exec(nil); err == nil {
 		t.Errorf("firebolt statement didn't fail, but should")
 	}
 }
 
+// TestQueryStmt checks simple SELECT query
 func TestQueryStmt(t *testing.T) {
-	if testing.Short() {
-		t.Skip()
-	}
-	client, err := Authenticate(username, password)
-	if err != nil {
-		t.Errorf("auth failed with %v", err)
-	}
+	markIntegrationTest(t)
 
-	stmt := fireboltStmt{client: client, query: "SELECT 3213212 as \"const\", 2.3 as \"float\", 'some_text' as \"text\"", engineUrl: engineUrl, databaseName: database}
+	stmt := fireboltStmt{client: clientMock,
+		query:        "SELECT 3213212 as \"const\", 2.3 as \"float\", 'some_text' as \"text\"",
+		engineUrl:    engineUrlMock,
+		databaseName: databaseMock,
+	}
 	rows, err := stmt.Query(nil)
 	if err != nil {
 		t.Errorf("firebolt statement failed with %v", err)
