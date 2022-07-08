@@ -218,7 +218,7 @@ func request(accessToken string, method string, url string, params map[string]st
 
 // jsonStrictUnmarshall unmarshalls json into object, and returns an error
 // if some fields are missing, or extra fields are present
-func jsonStrictUnmarshall(data []byte, v any) error {
+func jsonStrictUnmarshall(data []byte, v interface{}) error {
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	return decoder.Decode(v)
