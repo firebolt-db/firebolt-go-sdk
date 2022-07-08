@@ -3,7 +3,6 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql/driver"
-	"encoding/json"
 	"fmt"
 )
 
@@ -27,53 +26,58 @@ type fireboltStmt struct {
 	engineUrl    string
 }
 
-func (stmt fireboltStmt) Close() error {
+// Close the statement makes it unusable anymore
+func (stmt *fireboltStmt) Close() error {
+	stmt.client = nil
+	stmt.query = ""
+	stmt.databaseName = ""
+	stmt.engineUrl = ""
 	return nil
 }
 
-func (stmt fireboltStmt) NumInput() int {
+// NumInput returns -1, parametrized queries are not implemented
+func (stmt *fireboltStmt) NumInput() int {
 	return -1
 }
 
-func (stmt fireboltStmt) Exec(args []driver.Value) (driver.Result, error) {
+// Exec calls ExecContext with dummy context
+func (stmt *fireboltStmt) Exec(args []driver.Value) (driver.Result, error) {
+	if len(args) != 0 {
+		panic("Prepared statements are not implemented")
+	}
 	return stmt.ExecContext(context.TODO(), make([]driver.NamedValue, 0))
 }
 
-func (stmt fireboltStmt) Query(args []driver.Value) (driver.Rows, error) {
+// Query calls QueryContext with dummy context
+func (stmt *fireboltStmt) Query(args []driver.Value) (driver.Rows, error) {
+	if len(args) != 0 {
+		panic("Prepared statements are not implemented")
+	}
 	return stmt.QueryContext(context.TODO(), make([]driver.NamedValue, 0))
 }
 
-func (stmt fireboltStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	params := make(map[string]string)
-	params["database"] = stmt.databaseName
-	params["output_format"] = "FB_JSONCompactLimited"
-
-	response, err := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
-	if err != nil {
-		return nil, fmt.Errorf("error ducting query execution: %v", err)
+// QueryContext sends the query to the engine and returns fireboltRows
+func (stmt *fireboltStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
+	if len(args) != 0 {
+		panic("Prepared statements are not implemented")
 	}
 
 	var queryResponse QueryResponse
-	if err = json.Unmarshal(response, &queryResponse); err != nil {
-		return nil, fmt.Errorf("error ducting unmarshalling query response: %v", err)
+	if err := stmt.client.Query(stmt.engineUrl, stmt.databaseName, stmt.query, &queryResponse); err != nil {
+		return nil, fmt.Errorf("error during query execution: %v", err)
 	}
 
 	return &fireboltRows{queryResponse, 0}, nil
 }
 
-func (stmt fireboltStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	params := make(map[string]string)
-	params["database"] = stmt.databaseName
-	params["output_format"] = "FB_JSONCompactLimited"
-
-	var queryResponse QueryResponse
-	response, err := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
-	if err != nil {
-		return nil, fmt.Errorf("error ducting query execution: %v", err)
+// ExecContext sends the query to the engine and returns empty fireboltResult
+func (stmt *fireboltStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
+	if len(args) != 0 {
+		panic("Prepared statements are not implemented")
 	}
-
-	if err = json.Unmarshal(response, &queryResponse); err != nil {
-		return nil, fmt.Errorf("error during unmarshalling query response: %v", err)
+	var queryResponse QueryResponse
+	if err := stmt.client.Query(stmt.engineUrl, stmt.databaseName, stmt.query, &queryResponse); err != nil {
+		return nil, fmt.Errorf("error during query execution: %v", err)
 	}
 
 	return &FireboltResult{}, nil

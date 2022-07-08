@@ -14,6 +14,7 @@ type fireboltRows struct {
 	cursorPosition int
 }
 
+// Columns returns a list of Meta names in response
 func (f *fireboltRows) Columns() []string {
 	numColumns := len(f.response.Meta)
 	result := make([]string, 0, numColumns)
@@ -25,11 +26,13 @@ func (f *fireboltRows) Columns() []string {
 	return result
 }
 
+// Close makes the rows unusable
 func (f *fireboltRows) Close() error {
 	f.cursorPosition = len(f.response.Data)
 	return nil
 }
 
+// Next fetches the values of the next row, returns io.EOF if it was the end
 func (f *fireboltRows) Next(dest []driver.Value) error {
 	if f.cursorPosition == len(f.response.Data) {
 		return io.EOF
@@ -46,6 +49,8 @@ func (f *fireboltRows) Next(dest []driver.Value) error {
 	return nil
 }
 
+// parseValue treating the val according to the column type and casts it to one of the go native types:
+// uint8, uint32, uint64, int32, int64, float32, float64, string, Time or []driver.Value for arrays
 func parseValue(columnType string, val interface{}) (driver.Value, error) {
 	switch columnType {
 	case "UInt8":

@@ -85,7 +85,7 @@ func TestGetEngineUrlByDatabase(t *testing.T) {
 
 	engineUrl, err := client.GetEngineUrlByDatabase(config.database, config.accountName)
 	if err != nil {
-		t.Errorf("GetEngineUrlByDatabase failed with: %s", err)
+		t.Errorf("GetEngineUrlByDatabase failed with: %v, %s", err, config.accountName)
 	}
 	if len(engineUrl) == 0 {
 		t.Errorf("GetEngineUrlById succeed but returned a zero length account id")

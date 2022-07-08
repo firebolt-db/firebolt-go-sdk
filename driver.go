@@ -9,6 +9,7 @@ import (
 type FireboltDriver struct {
 }
 
+// Open parses the dsn string, and if correct tries to establish a connection
 func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	settings, err := ParseDSNString(dsn)
 	if err != nil {
@@ -31,9 +32,10 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 		return nil, fmt.Errorf("error during getting engine url: %v", err)
 	}
 
-	return &fireboltConnection{*client, settings.database, engineUrl}, nil
+	return &fireboltConnection{client, settings.database, engineUrl}, nil
 }
 
+// init registers a firebolt driver
 func init() {
 	sql.Register("firebolt", &FireboltDriver{})
 }
