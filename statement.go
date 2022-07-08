@@ -54,7 +54,7 @@ func (stmt fireboltStmt) QueryContext(ctx context.Context, args []driver.NamedVa
 	}
 
 	var queryResponse QueryResponse
-	if err := json.Unmarshal(response, &queryResponse); err != nil {
+	if err = json.Unmarshal(response, &queryResponse); err != nil {
 		return nil, fmt.Errorf("error ducting unmarshalling query response: %v", err)
 	}
 
@@ -66,6 +66,15 @@ func (stmt fireboltStmt) ExecContext(ctx context.Context, args []driver.NamedVal
 	params["database"] = stmt.databaseName
 	params["output_format"] = "FB_JSONCompactLimited"
 
-	_, err := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
-	return &FireboltResult{}, err
+	var queryResponse QueryResponse
+	response, err := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
+	if err != nil {
+		return nil, fmt.Errorf("error ducting query execution: %v", err)
+	}
+
+	if err = json.Unmarshal(response, &queryResponse); err != nil {
+		return nil, fmt.Errorf("error during unmarshalling query response: %v", err)
+	}
+
+	return &FireboltResult{}, nil
 }
