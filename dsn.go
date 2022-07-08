@@ -1,6 +1,9 @@
 package fireboltgosdk
 
-import "errors"
+import (
+	"fmt"
+	"strings"
+)
 
 type fireboltSettings struct {
 	username    string
@@ -19,11 +22,11 @@ const (
 	accountKeywordValue
 )
 
-func ParseDSNString(dsn string) (fireboltSettings, error) {
+func ParseDSNString(dsn string) (*fireboltSettings, error) {
 
 	const expectedPrefix = "firebolt://"
-	if len(dsn) < len(expectedPrefix) || dsn[:len(expectedPrefix)] != expectedPrefix {
-		return fireboltSettings{}, errors.New("Wrong argument")
+	if !strings.HasPrefix(dsn, expectedPrefix) {
+		return nil, fmt.Errorf("dsn missing '%s' prefix", expectedPrefix)
 	}
 
 	var result fireboltSettings
@@ -70,7 +73,7 @@ func ParseDSNString(dsn string) (fireboltSettings, error) {
 
 		case state == accountKeywordState:
 			if dsn[i] == '=' && keyword != "account_name" {
-				return fireboltSettings{}, errors.New("Unknown argument")
+				return nil, fmt.Errorf("dsn contains an unknown argument: '%s'", keyword)
 			} else if dsn[i] == '=' {
 				state = accountKeywordValue
 				keyword = ""
@@ -83,7 +86,7 @@ func ParseDSNString(dsn string) (fireboltSettings, error) {
 		}
 	}
 	if state != accountKeywordValue && state != engineState && state != databaseState {
-		return fireboltSettings{}, errors.New("wrong argument")
+		return nil, fmt.Errorf("dsn is not complete")
 	}
-	return result, nil
+	return &result, nil
 }

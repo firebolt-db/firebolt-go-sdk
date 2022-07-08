@@ -38,7 +38,7 @@ func (f *fireboltRows) Next(dest []driver.Value) error {
 	for i, column := range f.response.Meta {
 		var err error
 		if dest[i], err = parseValue(column.Type, f.response.Data[f.cursorPosition][i]); err != nil {
-			return fmt.Errorf("error during fetching Next result: %s", err)
+			return fmt.Errorf("error during fetching Next result: %v", err)
 		}
 	}
 

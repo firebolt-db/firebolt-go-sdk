@@ -24,15 +24,16 @@ func checkErrorResponse(response []byte) error {
 	}
 
 	var errorResponse ErrorResponse
-	err := json.Unmarshal(response, &errorResponse)
-	if err == nil && errorResponse.Code != 0 {
+
+	if err := json.Unmarshal(response, &errorResponse); err == nil && errorResponse.Code != 0 {
+		// return error only if error response was unmarshalled correctly and error code is not zero
 		return errors.New(errorResponse.Message)
 	}
-	return err
+	return nil
 }
 
 func makeCanonicalUrl(url string) string {
-	if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
+	if strings.HasPrefix(url, "https://") {
 		return url
 	} else {
 		return fmt.Sprintf("https://%s", url)
@@ -59,7 +60,7 @@ func (c *Client) Request(method string, url string, params map[string]string, bo
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Println(err)
-		return nil, err
+		return nil, fmt.Errorf("error during a request execution: %v", err)
 	}
 
 	defer resp.Body.Close()
@@ -67,11 +68,11 @@ func (c *Client) Request(method string, url string, params map[string]string, bo
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
-		return nil, err
+		return nil, fmt.Errorf("error during reading a request response: %v", err)
 	}
 
 	if err = checkErrorResponse(body); err != nil {
-		return body, err
+		return nil, fmt.Errorf("request returned an error: %v", err)
 	}
 
 	return body, nil
@@ -87,12 +88,12 @@ func (c *Client) GetAccountIdByName(accountName string) (string, error) {
 
 	response, err := c.Request("GET", HostNameURL+AccountIdByNameURL, params, "")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting getting account id by name request: %v", err)
 	}
 
 	var accountIdByNameResponse AccountIdByNameResponse
 	if err = json.Unmarshal(response, &accountIdByNameResponse); err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting unmarshalling account id by name response: %v", err)
 	}
 	return accountIdByNameResponse.AccountId, nil
 }
@@ -111,12 +112,12 @@ func (c *Client) GetEngineIdByName(engineName string, accountId string) (string,
 
 	response, err := c.Request("GET", fmt.Sprintf(HostNameURL+EngineIdByNameURL, accountId), params, "")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting getting engine id by name request: %v", err)
 	}
 
 	var engineIdByNameResponse EngineIdByNameResponse
 	if err = json.Unmarshal(response, &engineIdByNameResponse); err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting unmarshalling engine id by name response: %v", err)
 	}
 	return engineIdByNameResponse.EngineId.EngineId, nil
 }
@@ -132,12 +133,12 @@ func (c *Client) GetEngineUrlById(engineId string, accountId string) (string, er
 	params := make(map[string]string)
 	response, err := c.Request("GET", fmt.Sprintf(HostNameURL+EngineByIdURL, accountId, engineId), params, "")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting getting engine url by id request: %v", err)
 	}
 
 	var engineByIdResponse EngineByIdResponse
 	if err = json.Unmarshal(response, &engineByIdResponse); err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting unmarshalling engine url by id response: %v", err)
 	}
 	return fmt.Sprintf("https://%s", engineByIdResponse.Engine.Endpoint), nil
 }
@@ -145,17 +146,17 @@ func (c *Client) GetEngineUrlById(engineId string, accountId string) (string, er
 func (c *Client) GetEngineUrlByName(engineName string, accountName string) (string, error) {
 	accountId, err := c.GetAccountIdByName(accountName)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting getting account id by name: %v", err)
 	}
 
 	engineId, err := c.GetEngineIdByName(engineName, accountId)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting getting engine id by name: %v", err)
 	}
 
 	engineUrl, err := c.GetEngineUrlById(engineId, accountId)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting getting engine url by id: %v", err)
 	}
 
 	return engineUrl, nil
@@ -175,12 +176,12 @@ func (c *Client) GetEngineUrlByDatabase(databaseName string, accountName string)
 	params["database_name"] = databaseName
 	response, err := c.Request("GET", fmt.Sprintf(HostNameURL+EngineUrlByDatabaseNameURL, accountId), params, "")
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting getting engine url by database request: %v", err)
 	}
 
 	var engineUrlByDatabaseResponse EngineUrlByDatabaseResponse
 	if err = json.Unmarshal(response, &engineUrlByDatabaseResponse); err != nil {
-		return "", err
+		return "", fmt.Errorf("error duting unmarshalling engine url by database response: %v", err)
 	}
 	return engineUrlByDatabaseResponse.EngineUrl, nil
 }

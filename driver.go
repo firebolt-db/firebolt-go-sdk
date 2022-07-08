@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"database/sql"
 	"database/sql/driver"
+	"fmt"
 )
 
 type FireboltDriver struct {
@@ -15,7 +16,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	}
 	client, err := Authenticate(settings.username, settings.password)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error during authentication: %v", err)
 	}
 
 	//getting engineUrl either by using engineName if available,
@@ -27,7 +28,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 		engineUrl, err = client.GetEngineUrlByDatabase(settings.database, settings.accountName)
 	}
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error during getting engine url: %v", err)
 	}
 
 	return &fireboltConnection{*client, settings.database, engineUrl}, nil
