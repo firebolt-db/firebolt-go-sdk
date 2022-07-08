@@ -2,6 +2,7 @@ package fireboltgosdk
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 )
 
@@ -22,14 +23,14 @@ func Authenticate(username, password string) (*Client, error) {
 	resp, err := c.Request("POST", HostNameURL+LoginUrl, nil, string(jsonData))
 	if err != nil {
 		log.Fatal(err)
-		return nil, err
+		return nil, fmt.Errorf("authentication request failed: %v", err)
 	}
 
 	var authResp AuthenticationResponse
 	err = json.Unmarshal(resp, &authResp)
 	if err != nil {
 		log.Fatal(err)
-		return nil, err
+		return nil, fmt.Errorf("failed to unmarhal authenication response: %v", err)
 	}
 	c.AccessToken = authResp.AccessToken
 

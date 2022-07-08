@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 )
 
 type Column struct {
@@ -47,11 +48,14 @@ func (stmt fireboltStmt) QueryContext(ctx context.Context, args []driver.NamedVa
 	params["database"] = stmt.databaseName
 	params["output_format"] = "FB_JSONCompactLimited"
 
-	response, _ := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
+	response, err := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
+	if err != nil {
+		return nil, fmt.Errorf("error ducting query execution: %v", err)
+	}
 
 	var queryResponse QueryResponse
 	if err := json.Unmarshal(response, &queryResponse); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error ducting unmarshalling query response: %v", err)
 	}
 
 	return &fireboltRows{queryResponse, 0}, nil
@@ -63,5 +67,5 @@ func (stmt fireboltStmt) ExecContext(ctx context.Context, args []driver.NamedVal
 	params["output_format"] = "FB_JSONCompactLimited"
 
 	_, err := stmt.client.Request("POST", stmt.engineUrl, params, stmt.query)
-	return FireboltResult{}, err
+	return &FireboltResult{}, err
 }
