@@ -3,7 +3,8 @@ package fireboltgosdk
 import (
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
+	"io/ioutil"
+	"log"
 )
 
 type FireboltDriver struct {
@@ -11,13 +12,17 @@ type FireboltDriver struct {
 
 // Open parses the dsn string, and if correct tries to establish a connection
 func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
+	log.Println("Opening firebolt driver")
+
 	settings, err := ParseDSNString(dsn)
 	if err != nil {
 		return nil, err
 	}
+
+	log.Println("dsn parsed correctly, trying to authenticate")
 	client, err := Authenticate(settings.username, settings.password)
 	if err != nil {
-		return nil, fmt.Errorf("error during authentication: %v", err)
+		return nil, ConstructNestedError("error during authentication", err)
 	}
 
 	// getting engineUrl either by using engineName if available,
@@ -26,16 +31,19 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	if settings.engineName != "" {
 		engineUrl, err = client.GetEngineUrlByName(settings.engineName, settings.accountName)
 	} else {
+		log.Println("engine name not set, trying to get a default engine")
 		engineUrl, err = client.GetEngineUrlByDatabase(settings.database, settings.accountName)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("error during getting engine url: %v", err)
+		return nil, ConstructNestedError("error during getting engine url", err)
 	}
 
+	log.Printf("firebolt connection is created")
 	return &fireboltConnection{client, settings.database, engineUrl}, nil
 }
 
 // init registers a firebolt driver
 func init() {
+	log.SetOutput(ioutil.Discard)
 	sql.Register("firebolt", &FireboltDriver{})
 }

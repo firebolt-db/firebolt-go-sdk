@@ -41,7 +41,7 @@ func (f *fireboltRows) Next(dest []driver.Value) error {
 	for i, column := range f.response.Meta {
 		var err error
 		if dest[i], err = parseValue(column.Type, f.response.Data[f.cursorPosition][i]); err != nil {
-			return fmt.Errorf("error during fetching Next result: %v", err)
+			return ConstructNestedError("error during fetching Next result", err)
 		}
 	}
 
@@ -49,12 +49,17 @@ func (f *fireboltRows) Next(dest []driver.Value) error {
 	return nil
 }
 
-// parseValue treating the val according to the column type and casts it to one of the go native types:
-// uint8, uint32, uint64, int32, int64, float32, float64, string, Time or []driver.Value for arrays
-func parseValue(columnType string, val interface{}) (driver.Value, error) {
+// parseSingleValue parses all columns types except arrays
+func parseSingleValue(columnType string, val interface{}) (driver.Value, error) {
 	switch columnType {
 	case "UInt8":
 		return uint8(val.(float64)), nil
+	case "Int8":
+		return int8(val.(float64)), nil
+	case "UInt16":
+		return uint16(val.(float64)), nil
+	case "Int16":
+		return int16(val.(float64)), nil
 	case "UInt32":
 		return uint32(val.(float64)), nil
 	case "Int32":
@@ -76,6 +81,12 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		return time.Parse("2006-01-02", val.(string))
 	}
 
+	return nil, fmt.Errorf("type not known: %s", columnType)
+}
+
+// parseValue treating the val according to the column type and casts it to one of the go native types:
+// uint8, uint32, uint64, int32, int64, float32, float64, string, Time or []driver.Value for arrays
+func parseValue(columnType string, val interface{}) (driver.Value, error) {
 	const (
 		arrayPrefix = "Array("
 		arraySuffix = ")"
@@ -91,5 +102,5 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		return res, nil
 	}
 
-	return nil, fmt.Errorf("type not known: %s", columnType)
+	return parseSingleValue(columnType, val)
 }

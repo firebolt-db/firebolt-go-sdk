@@ -3,7 +3,6 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql/driver"
-	"fmt"
 )
 
 type Column struct {
@@ -64,7 +63,7 @@ func (stmt *fireboltStmt) QueryContext(ctx context.Context, args []driver.NamedV
 
 	var queryResponse QueryResponse
 	if err := stmt.client.Query(stmt.engineUrl, stmt.databaseName, stmt.query, &queryResponse); err != nil {
-		return nil, fmt.Errorf("error during query execution: %v", err)
+		return nil, ConstructNestedError("error during query execution", err)
 	}
 
 	return &fireboltRows{queryResponse, 0}, nil
@@ -77,7 +76,7 @@ func (stmt *fireboltStmt) ExecContext(ctx context.Context, args []driver.NamedVa
 	}
 	var queryResponse QueryResponse
 	if err := stmt.client.Query(stmt.engineUrl, stmt.databaseName, stmt.query, &queryResponse); err != nil {
-		return nil, fmt.Errorf("error during query execution: %v", err)
+		return nil, ConstructNestedError("error during query execution", err)
 	}
 
 	return &FireboltResult{}, nil

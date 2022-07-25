@@ -58,19 +58,19 @@ func ParseDSNString(dsn string) (*fireboltSettings, error) {
 	// parse username
 	result.username, dsn, err = parseRemainingDSN(dsn, "firebolt://", []uint8{':'})
 	if err != nil {
-		return nil, err
+		return nil, ConstructNestedError("error during username parsing", err)
 	}
 
 	// parse password
 	result.password, dsn, err = parseRemainingDSN(dsn, ":", []uint8{'@'})
 	if err != nil {
-		return nil, err
+		return nil, ConstructNestedError("error during password parsing", err)
 	}
 
 	// parse database
 	result.database, dsn, err = parseRemainingDSN(dsn, "@", []uint8{'/', '?'})
 	if err != nil {
-		return nil, err
+		return nil, ConstructNestedError("error during database parsing", err)
 	}
 
 	// parse engine and account names

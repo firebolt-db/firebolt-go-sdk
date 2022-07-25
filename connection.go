@@ -2,7 +2,7 @@ package fireboltgosdk
 
 import (
 	"database/sql/driver"
-	"fmt"
+	"errors"
 )
 
 type fireboltConnection struct {
@@ -17,7 +17,7 @@ func (c *fireboltConnection) Prepare(query string) (driver.Stmt, error) {
 	if c.client != nil && len(c.databaseName) != 0 && len(c.engineUrl) != 0 {
 		return &fireboltStmt{client: c.client, query: query, databaseName: c.databaseName, engineUrl: c.engineUrl}, nil
 	}
-	return nil, fmt.Errorf("fireboltConnection isn't properly initialized")
+	return nil, errors.New("fireboltConnection isn't properly initialized")
 }
 
 // Close closes the connection, and make the fireboltConnection unusable

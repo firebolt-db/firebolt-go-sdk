@@ -17,6 +17,7 @@ type Client struct {
 
 // GetAccountIdByName returns account ID based on account name
 func (c *Client) GetAccountIdByName(accountName string) (string, error) {
+	log.Printf("get account id by name: %s", accountName)
 	type AccountIdByNameResponse struct {
 		AccountId string `json:"account_id"`
 	}
@@ -26,18 +27,20 @@ func (c *Client) GetAccountIdByName(accountName string) (string, error) {
 
 	response, err := request(c.AccessToken, "GET", HostNameURL+AccountIdByNameURL, params, "")
 	if err != nil {
-		return "", fmt.Errorf("error during getting account id by name request: %v", err)
+		return "", ConstructNestedError("error during getting account id by name request", err)
 	}
 
 	var accountIdByNameResponse AccountIdByNameResponse
 	if err = json.Unmarshal(response, &accountIdByNameResponse); err != nil {
-		return "", fmt.Errorf("error during unmarshalling account id by name response: %v", err)
+		return "", ConstructNestedError("error during unmarshalling account id by name response", err)
 	}
 	return accountIdByNameResponse.AccountId, nil
 }
 
 // GetEngineIdByName returns engineId based on engineName and accountId
 func (c *Client) GetEngineIdByName(engineName string, accountId string) (string, error) {
+	log.Printf("get engine id by name '%s' and account id '%s'", engineName, accountId)
+
 	type EngineIdByNameInnerResponse struct {
 		AccountId string `json:"account_id"`
 		EngineId  string `json:"engine_id"`
@@ -51,18 +54,20 @@ func (c *Client) GetEngineIdByName(engineName string, accountId string) (string,
 
 	response, err := request(c.AccessToken, "GET", fmt.Sprintf(HostNameURL+EngineIdByNameURL, accountId), params, "")
 	if err != nil {
-		return "", fmt.Errorf("error during getting engine id by name request: %v", err)
+		return "", ConstructNestedError("error during getting engine id by name request", err)
 	}
 
 	var engineIdByNameResponse EngineIdByNameResponse
 	if err = json.Unmarshal(response, &engineIdByNameResponse); err != nil {
-		return "", fmt.Errorf("error during unmarshalling engine id by name response: %v", err)
+		return "", ConstructNestedError("error during unmarshalling engine id by name response", err)
 	}
 	return engineIdByNameResponse.EngineId.EngineId, nil
 }
 
 // GetEngineUrlById returns engine url based on engineId and accountId
 func (c *Client) GetEngineUrlById(engineId string, accountId string) (string, error) {
+	log.Printf("get engine url by id '%s' and account id '%s'", engineId, accountId)
+
 	type EngineResponse struct {
 		Endpoint string `json:"endpoint"`
 	}
@@ -73,31 +78,33 @@ func (c *Client) GetEngineUrlById(engineId string, accountId string) (string, er
 	params := make(map[string]string)
 	response, err := request(c.AccessToken, "GET", fmt.Sprintf(HostNameURL+EngineByIdURL, accountId, engineId), params, "")
 	if err != nil {
-		return "", fmt.Errorf("error during getting engine url by id request: %v", err)
+		return "", ConstructNestedError("error during getting engine url by id request", err)
 	}
 
 	var engineByIdResponse EngineByIdResponse
 	if err = json.Unmarshal(response, &engineByIdResponse); err != nil {
-		return "", fmt.Errorf("error during unmarshalling engine url by id response: %v", err)
+		return "", ConstructNestedError("error during unmarshalling engine url by id response", err)
 	}
 	return fmt.Sprintf("https://%s", engineByIdResponse.Engine.Endpoint), nil
 }
 
 // GetEngineUrlByName return engine URL based on engineName and accountName
 func (c *Client) GetEngineUrlByName(engineName string, accountName string) (string, error) {
+	log.Printf("get engine url by name '%s' and account name '%s'", engineName, accountName)
+
 	accountId, err := c.GetAccountIdByName(accountName)
 	if err != nil {
-		return "", fmt.Errorf("error during getting account id by name: %v", err)
+		return "", ConstructNestedError("error during getting account id by name", err)
 	}
 
 	engineId, err := c.GetEngineIdByName(engineName, accountId)
 	if err != nil {
-		return "", fmt.Errorf("error during getting engine id by name: %v", err)
+		return "", ConstructNestedError("error during getting engine id by name", err)
 	}
 
 	engineUrl, err := c.GetEngineUrlById(engineId, accountId)
 	if err != nil {
-		return "", fmt.Errorf("error during getting engine url by id: %v", err)
+		return "", ConstructNestedError("error during getting engine url by id", err)
 	}
 
 	return engineUrl, nil
@@ -105,6 +112,7 @@ func (c *Client) GetEngineUrlByName(engineName string, accountName string) (stri
 
 // GetEngineUrlByDatabase return URL of the default engine based on databaseName and accountName
 func (c *Client) GetEngineUrlByDatabase(databaseName string, accountName string) (string, error) {
+	log.Printf("get engine url by database name '%s' and account name '%s'", databaseName, accountName)
 	accountId, err := c.GetAccountIdByName(accountName)
 	if err != nil {
 		return "", err
@@ -118,30 +126,34 @@ func (c *Client) GetEngineUrlByDatabase(databaseName string, accountName string)
 	params["database_name"] = databaseName
 	response, err := request(c.AccessToken, "GET", fmt.Sprintf(HostNameURL+EngineUrlByDatabaseNameURL, accountId), params, "")
 	if err != nil {
-		return "", fmt.Errorf("error during getting engine url by database request: %v", err)
+		return "", ConstructNestedError("error during getting engine url by database request", err)
 	}
 
 	var engineUrlByDatabaseResponse EngineUrlByDatabaseResponse
 	if err = json.Unmarshal(response, &engineUrlByDatabaseResponse); err != nil {
-		return "", fmt.Errorf("error during unmarshalling engine url by database response: %v", err)
+		return "", ConstructNestedError("error during unmarshalling engine url by database response", err)
 	}
 	return engineUrlByDatabaseResponse.EngineUrl, nil
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
 func (c *Client) Query(engineUrl, databaseName, query string, queryResponse *QueryResponse) error {
+	log.Printf("Query engine '%s' with '%s'", engineUrl, query)
+
 	params := make(map[string]string)
 	params["database"] = databaseName
 	params["output_format"] = "FB_JSONCompactLimited"
 
 	response, err := request(c.AccessToken, "POST", engineUrl, params, query)
 	if err != nil {
-		return fmt.Errorf("error during query execution: %v", err)
+		return ConstructNestedError("error during query execution", err)
 	}
 
 	if err = json.Unmarshal(response, &queryResponse); err != nil {
-		return fmt.Errorf("error during unmarshalling query response: %v", err)
+		return ConstructNestedError("error during unmarshalling query response", err)
 	}
+
+	log.Printf("Query was successful")
 	return nil
 }
 
@@ -198,7 +210,7 @@ func request(accessToken string, method string, url string, params map[string]st
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Println(err)
-		return nil, fmt.Errorf("error during a request execution: %v", err)
+		return nil, ConstructNestedError("error during a request execution", err)
 	}
 
 	defer resp.Body.Close()
@@ -206,11 +218,11 @@ func request(accessToken string, method string, url string, params map[string]st
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		log.Println(err)
-		return nil, fmt.Errorf("error during reading a request response: %v", err)
+		return nil, ConstructNestedError("error during reading a request response", err)
 	}
 
 	if err = checkErrorResponse(body); err != nil {
-		return nil, fmt.Errorf("request returned an error: %v", err)
+		return nil, ConstructNestedError("request returned an error", err)
 	}
 
 	return body, nil
