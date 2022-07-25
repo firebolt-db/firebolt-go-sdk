@@ -13,7 +13,7 @@ jobs:
       max-parallel: 2
       matrix: 
         os: ['ubuntu-latest']
-        python-version: ['1.15', '1.16', '1.17', '1.18']
+        go-version: ['1.18']
     steps:
       - name: Check out code
         uses: actions/checkout@v2
@@ -21,7 +21,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: ${{ matrix.python-version }}
+          go-version: ${{ matrix.go-version }}
    
       - name: Install go tools
         run: go get golang.org/x/tools/cmd/cover
