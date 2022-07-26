@@ -36,14 +36,14 @@ func runDSNTestFail(t *testing.T, input string) {
 }
 
 func TestDSNHappyPath(t *testing.T) {
-	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name?account_name=firebolt_account",
-		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", accountName: "firebolt_account"})
+	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name",
+		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name"})
 
-	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name?account_name=firebolt_account",
-		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engineName: "engine_name", accountName: "firebolt_account"})
+	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name",
+		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engineName: "engine_name"})
 
-	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name?account_name=firebolt_account",
-		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engineName: "engine_name", accountName: "firebolt_account"})
+	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name",
+		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engineName: "engine_name"})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name?account_name=firebolt_account",
 		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", accountName: "firebolt_account"})
@@ -59,7 +59,6 @@ func TestDSNFailed(t *testing.T) {
 	runDSNTestFail(t, "firebolt://user:yury_db")
 	runDSNTestFail(t, "jdbc://user:yury_db@db_name")
 	runDSNTestFail(t, "firebolt://yury_db@dn_name?account_name=firebolt_account")
-	runDSNTestFail(t, "firebolt://yury_db:password@dn_name")
 	runDSNTestFail(t, "firebolt://yury_db:password@dn_name?account=fi")
 }
 

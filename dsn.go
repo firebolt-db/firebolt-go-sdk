@@ -48,7 +48,7 @@ func parseRemainingDSN(dsn string, expectedPrefix string, stopChars []uint8) (st
 	return res, dsn, nil
 }
 
-// ParseDSNString parses a dsn in a format: firebolt://username:password@db_name[/engine_name]?account_name=firebolt
+// ParseDSNString parses a dsn in a format: firebolt://username:password@db_name[/engine_name][?account_name=organization]
 // returns a settings object where all parsed values are populated
 // returns an error if required fields couldn't be parsed or if after parsing some characters were left unparsed
 func ParseDSNString(dsn string) (*fireboltSettings, error) {
@@ -73,14 +73,9 @@ func ParseDSNString(dsn string) (*fireboltSettings, error) {
 		return nil, ConstructNestedError("error during database parsing", err)
 	}
 
-	// parse engine name
+	// parse engine and account names
 	result.engineName, dsn, _ = parseRemainingDSN(dsn, "/", []uint8{'?'})
-
-	// parse account name
-	result.accountName, dsn, err = parseRemainingDSN(dsn, "?account_name=", []uint8{})
-	if err != nil {
-		return nil, ConstructNestedError("error during account name parsing", err)
-	}
+	result.accountName, dsn, _ = parseRemainingDSN(dsn, "?account_name=", []uint8{})
 
 	if len(dsn) != 0 {
 		return nil, fmt.Errorf("unparsed characters were found: %s", dsn)
