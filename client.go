@@ -88,14 +88,34 @@ func (c *Client) GetEngineUrlById(engineId string, accountId string) (string, er
 	return fmt.Sprintf("https://%s", engineByIdResponse.Engine.Endpoint), nil
 }
 
-// GetEngineUrlByName return engine URL based on engineName and accountName
-func (c *Client) GetEngineUrlByName(engineName string, accountName string) (string, error) {
-	log.Printf("get engine url by name '%s' and account name '%s'", engineName, accountName)
-
-	accountId, err := c.GetAccountIdByName(accountName)
-	if err != nil {
-		return "", ConstructNestedError("error during getting account id by name", err)
+// GetDefaultAccount returns an id of the default account
+func (c *Client) GetDefaultAccountId() (string, error) {
+	type AccountResponse struct {
+		Id   string `json:"id"`
+		Name string `json:"name"`
 	}
+	type DefaultAccountResponse struct {
+		Account AccountResponse `json:"account"`
+	}
+
+	params := make(map[string]string)
+	response, err := request(c.AccessToken, "GET", fmt.Sprintf(HostNameURL+DefaultAccountURL), params, "")
+
+	if err != nil {
+		return "", ConstructNestedError("error during getting default account id request", err)
+	}
+
+	var defaultAccountResponse DefaultAccountResponse
+	if err = json.Unmarshal(response, &defaultAccountResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling default account response", err)
+	}
+
+	return defaultAccountResponse.Account.Id, nil
+}
+
+// GetEngineUrlByName return engine URL based on engineName and accountName
+func (c *Client) GetEngineUrlByName(engineName string, accountId string) (string, error) {
+	log.Printf("get engine url by name '%s' and account id '%s'", engineName, accountId)
 
 	engineId, err := c.GetEngineIdByName(engineName, accountId)
 	if err != nil {
@@ -111,12 +131,8 @@ func (c *Client) GetEngineUrlByName(engineName string, accountName string) (stri
 }
 
 // GetEngineUrlByDatabase return URL of the default engine based on databaseName and accountName
-func (c *Client) GetEngineUrlByDatabase(databaseName string, accountName string) (string, error) {
-	log.Printf("get engine url by database name '%s' and account name '%s'", databaseName, accountName)
-	accountId, err := c.GetAccountIdByName(accountName)
-	if err != nil {
-		return "", err
-	}
+func (c *Client) GetEngineUrlByDatabase(databaseName string, accountId string) (string, error) {
+	log.Printf("get engine url by database name '%s' and account name '%s'", databaseName, accountId)
 
 	type EngineUrlByDatabaseResponse struct {
 		EngineUrl string `json:"engine_url"`

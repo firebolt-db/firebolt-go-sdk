@@ -8,7 +8,7 @@ import (
 func TestGetAccountId(t *testing.T) {
 	markIntegrationTest(t)
 
-	accountId, err := clientMock.GetAccountIdByName("firebolt")
+	accountId, err := clientMock.GetAccountIdByName(accountNameMock)
 	if err != nil {
 		t.Errorf("GetAccountIdByName failed with: %s", err)
 	}
@@ -52,7 +52,8 @@ func TestGetEnginePropsByName(t *testing.T) {
 func TestGetEngineUrlByName(t *testing.T) {
 	markIntegrationTest(t)
 
-	engineUrl, err := clientMock.GetEngineUrlByName(engineNameMock, accountNameMock)
+	accountId, _ := clientMock.GetDefaultAccountId()
+	engineUrl, err := clientMock.GetEngineUrlByName(engineNameMock, accountId)
 	if err != nil {
 		t.Errorf("GetEngineUrlByName returned an error: %v", err)
 	}
@@ -71,7 +72,8 @@ func TestGetEngineUrlByName(t *testing.T) {
 func TestGetEngineUrlByDatabase(t *testing.T) {
 	markIntegrationTest(t)
 
-	engineUrl, err := clientMock.GetEngineUrlByDatabase(databaseMock, accountNameMock)
+	accountId, _ := clientMock.GetAccountIdByName(accountNameMock)
+	engineUrl, err := clientMock.GetEngineUrlByDatabase(databaseMock, accountId)
 	if err != nil {
 		t.Errorf("GetEngineUrlByDatabase failed with: %v, %s", err, accountNameMock)
 	}
@@ -97,5 +99,25 @@ func TestQuery(t *testing.T) {
 	}
 	if queryResponse.Rows != 1 {
 		t.Errorf("Query response has an invalid number of rows %d != %d", queryResponse.Rows, 1)
+	}
+}
+
+func TestGetDefaultAccountId(t *testing.T) {
+	markIntegrationTest(t)
+
+	var defaultAccountId, accountIdFromName string
+	var err error
+
+	if defaultAccountId, err = clientMock.GetDefaultAccountId(); err != nil {
+		t.Errorf("getting default id returned an error: %v", err)
+	}
+
+	if accountIdFromName, err = clientMock.GetAccountIdByName(accountNameMock); err != nil {
+		t.Errorf("getting account id by name resulted into an error: %v", err)
+	}
+
+	if defaultAccountId != accountIdFromName {
+		t.Errorf("default account id is not equal to account id returned by name: '%s' != '%s'",
+			defaultAccountId, accountIdFromName)
 	}
 }
