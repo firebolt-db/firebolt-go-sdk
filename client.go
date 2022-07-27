@@ -162,11 +162,11 @@ func (c *Client) Query(engineUrl, databaseName, query string, queryResponse *Que
 
 	response, err := request(c.AccessToken, "POST", engineUrl, params, query)
 	if err != nil {
-		return ConstructNestedError("error during query execution", err)
+		return ConstructNestedError("error during query request", err)
 	}
 
 	if err = json.Unmarshal(response, &queryResponse); err != nil {
-		return ConstructNestedError("error during unmarshalling query response", err)
+		return ConstructNestedError("wrong response", errors.New(string(response)))
 	}
 
 	log.Printf("Query was successful")
