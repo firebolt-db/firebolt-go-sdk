@@ -32,7 +32,7 @@ func (c *Client) GetAccountIdByName(accountName string) (string, error) {
 
 	var accountIdByNameResponse AccountIdByNameResponse
 	if err = json.Unmarshal(response, &accountIdByNameResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling account id by name response", err)
+		return "", ConstructNestedError("error during unmarshalling account id by name response", errors.New(string(response)))
 	}
 	return accountIdByNameResponse.AccountId, nil
 }
@@ -59,7 +59,7 @@ func (c *Client) GetEngineIdByName(engineName string, accountId string) (string,
 
 	var engineIdByNameResponse EngineIdByNameResponse
 	if err = json.Unmarshal(response, &engineIdByNameResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling engine id by name response", err)
+		return "", ConstructNestedError("error during unmarshalling engine id by name response", errors.New(string(response)))
 	}
 	return engineIdByNameResponse.EngineId.EngineId, nil
 }
@@ -83,7 +83,7 @@ func (c *Client) GetEngineUrlById(engineId string, accountId string) (string, er
 
 	var engineByIdResponse EngineByIdResponse
 	if err = json.Unmarshal(response, &engineByIdResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling engine url by id response", err)
+		return "", ConstructNestedError("error during unmarshalling engine url by id response", errors.New(string(response)))
 	}
 	return fmt.Sprintf("https://%s", engineByIdResponse.Engine.Endpoint), nil
 }
@@ -107,7 +107,7 @@ func (c *Client) GetDefaultAccountId() (string, error) {
 
 	var defaultAccountResponse DefaultAccountResponse
 	if err = json.Unmarshal(response, &defaultAccountResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling default account response", err)
+		return "", ConstructNestedError("error during unmarshalling default account response", errors.New(string(response)))
 	}
 
 	return defaultAccountResponse.Account.Id, nil
@@ -147,7 +147,7 @@ func (c *Client) GetEngineUrlByDatabase(databaseName string, accountId string) (
 
 	var engineUrlByDatabaseResponse EngineUrlByDatabaseResponse
 	if err = json.Unmarshal(response, &engineUrlByDatabaseResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling engine url by database response", err)
+		return "", ConstructNestedError("error during unmarshalling engine url by database response", errors.New(string(response)))
 	}
 	return engineUrlByDatabaseResponse.EngineUrl, nil
 }
