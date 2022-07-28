@@ -9,8 +9,6 @@ import (
 	"log"
 	"net/http"
 	"strings"
-
-	"golang.org/x/exp/maps"
 )
 
 type Client struct {
@@ -162,7 +160,9 @@ func (c *Client) Query(engineUrl, databaseName, query string, setStatements *map
 	params["database"] = databaseName
 	params["output_format"] = "FB_JSONCompactLimited"
 	if setStatements != nil {
-		maps.Copy(params, *setStatements)
+		for setKey, setValue := range *setStatements {
+			params[setKey] = setValue
+		}
 	}
 
 	response, err := request(c.AccessToken, "POST", engineUrl, params, query)
