@@ -94,11 +94,25 @@ func TestQuery(t *testing.T) {
 	markIntegrationTest(t)
 
 	var queryResponse QueryResponse
-	if err := clientMock.Query(engineUrlMock, databaseMock, "SELECT 1", &queryResponse); err != nil {
+	if err := clientMock.Query(engineUrlMock, databaseMock, "SELECT 1", nil, &queryResponse); err != nil {
 		t.Errorf("Query returned an error: %v", err)
 	}
 	if queryResponse.Rows != 1 {
 		t.Errorf("Query response has an invalid number of rows %d != %d", queryResponse.Rows, 1)
+	}
+}
+
+// TestQuery with set statements
+func TestQuerySetStatements(t *testing.T) {
+	markIntegrationTest(t)
+
+	query := "SELECT * FROM information_schema.tables"
+	var queryResponse QueryResponse
+	if err := clientMock.Query(engineUrlMock, databaseMock, query, &map[string]string{"use_standard_sql": "1"}, &queryResponse); err != nil {
+		t.Errorf("Query returned an error: %v", err)
+	}
+	if err := clientMock.Query(engineUrlMock, databaseMock, query, &map[string]string{"use_standard_sql": "0"}, &queryResponse); err == nil {
+		t.Errorf("Query didn't return an error, but should")
 	}
 }
 
