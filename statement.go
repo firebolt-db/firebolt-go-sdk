@@ -19,18 +19,18 @@ type QueryResponse struct {
 }
 
 type fireboltStmt struct {
-	client       *Client
-	query        string
-	databaseName string
-	engineUrl    string
+	execer  driver.ExecerContext
+	queryer driver.QueryerContext
+
+	query string
 }
 
 // Close the statement makes it unusable anymore
 func (stmt *fireboltStmt) Close() error {
-	stmt.client = nil
+	stmt.execer = nil
+	stmt.queryer = nil
+
 	stmt.query = ""
-	stmt.databaseName = ""
-	stmt.engineUrl = ""
 	return nil
 }
 
@@ -57,27 +57,10 @@ func (stmt *fireboltStmt) Query(args []driver.Value) (driver.Rows, error) {
 
 // QueryContext sends the query to the engine and returns fireboltRows
 func (stmt *fireboltStmt) QueryContext(ctx context.Context, args []driver.NamedValue) (driver.Rows, error) {
-	if len(args) != 0 {
-		panic("Prepared statements are not implemented")
-	}
-
-	var queryResponse QueryResponse
-	if err := stmt.client.Query(stmt.engineUrl, stmt.databaseName, stmt.query, &queryResponse); err != nil {
-		return nil, ConstructNestedError("error during query execution", err)
-	}
-
-	return &fireboltRows{queryResponse, 0}, nil
+	return stmt.queryer.QueryContext(ctx, stmt.query, args)
 }
 
 // ExecContext sends the query to the engine and returns empty fireboltResult
 func (stmt *fireboltStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 0 {
-		panic("Prepared statements are not implemented")
-	}
-	var queryResponse QueryResponse
-	if err := stmt.client.Query(stmt.engineUrl, stmt.databaseName, stmt.query, &queryResponse); err != nil {
-		return nil, ConstructNestedError("error during query execution", err)
-	}
-
-	return &FireboltResult{}, nil
+	return stmt.execer.ExecContext(ctx, stmt.query, args)
 }

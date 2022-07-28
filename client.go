@@ -9,6 +9,8 @@ import (
 	"log"
 	"net/http"
 	"strings"
+
+	"golang.org/x/exp/maps"
 )
 
 type Client struct {
@@ -153,12 +155,15 @@ func (c *Client) GetEngineUrlByDatabase(databaseName string, accountId string) (
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
-func (c *Client) Query(engineUrl, databaseName, query string, queryResponse *QueryResponse) error {
+func (c *Client) Query(engineUrl, databaseName, query string, setStatements *map[string]string, queryResponse *QueryResponse) error {
 	log.Printf("Query engine '%s' with '%s'", engineUrl, query)
 
 	params := make(map[string]string)
 	params["database"] = databaseName
 	params["output_format"] = "FB_JSONCompactLimited"
+	if setStatements != nil {
+		maps.Copy(params, *setStatements)
+	}
 
 	response, err := request(c.AccessToken, "POST", engineUrl, params, query)
 	if err != nil {

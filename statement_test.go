@@ -1,59 +1,89 @@
 package fireboltgosdk
 
 import (
+	"context"
 	"database/sql/driver"
-	"io"
-	"reflect"
 	"testing"
 )
 
-// TestExecStmt checks simple SELECT 1 exec
+type driverExecerMock struct {
+	callCount int
+	lastQuery string
+}
+
+func (c *driverExecerMock) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	c.callCount += 1
+	c.lastQuery = query
+	return nil, nil
+}
+
+type driverQueryerMock struct {
+	callCount int
+	lastQuery string
+}
+
+func (c *driverQueryerMock) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	c.callCount += 1
+	c.lastQuery = query
+	return nil, nil
+}
+
+// TestExecStmt tests that Exec and ExecContext actually calls execer
 func TestExecStmt(t *testing.T) {
-	markIntegrationTest(t)
+	var queryer driverQueryerMock
+	var execer driverExecerMock
+	sql := "SELECT 1 UNION SELECT 2"
 
-	stmt := fireboltStmt{client: clientMock, query: "SELECT 1", engineUrl: engineUrlMock, databaseName: databaseMock}
-	if _, err := stmt.Exec(nil); err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
-	}
+	stmt := fireboltStmt{queryer: &queryer, execer: &execer, query: sql}
+
+	_, err := stmt.Query(nil)
+
+	assert(err == nil, t, "queryer returned an error, but shouldn't")
+	assert(queryer.callCount == 1, t, "queryer wasn't called")
+	assert(queryer.lastQuery == sql, t, "queryer was called with wrong sql")
+
+	_, err = stmt.QueryContext(context.TODO(), nil)
+	assert(err == nil, t, "queryer returned an error, but shouldn't")
+
+	assert(queryer.callCount == 2, t, "queryer wasn't called")
+	assert(queryer.lastQuery == sql, t, "queryer was called with wrong sql")
+
+	assert(execer.callCount == 0, t, "execer was called, but shouldn't")
 }
 
-// TestExecWrongStmt checks, that an error is returned on wrong query
-func TestExecWrongStmt(t *testing.T) {
-	markIntegrationTest(t)
-
-	stmt := fireboltStmt{client: clientMock, query: "INSERT INTO", engineUrl: engineUrlMock, databaseName: databaseMock}
-	if _, err := stmt.Exec(nil); err == nil {
-		t.Errorf("firebolt statement didn't fail, but should")
-	}
-}
-
-// TestQueryStmt checks simple SELECT query
+// TestQueryStmt tests that Query and QueryContext actually calls queryer
 func TestQueryStmt(t *testing.T) {
-	markIntegrationTest(t)
+	var queryer driverQueryerMock
+	var execer driverExecerMock
+	sql := "SELECT 1 UNION SELECT 2"
 
-	stmt := fireboltStmt{client: clientMock,
-		query:        "SELECT 3213212 as \"const\", 2.3 as \"float\", 'some_text' as \"text\"",
-		engineUrl:    engineUrlMock,
-		databaseName: databaseMock,
-	}
-	rows, err := stmt.Query(nil)
-	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
-	}
+	stmt := fireboltStmt{queryer: &queryer, execer: &execer, query: sql}
 
-	columnNames := []string{"const", "float", "text"}
-	if !reflect.DeepEqual(rows.Columns(), columnNames) {
-		t.Errorf("column lists are not equal")
-	}
+	_, err := stmt.Exec(nil)
 
-	dest := make([]driver.Value, 3)
-	err = rows.Next(dest)
-	if err != nil {
-		t.Errorf("Next returned an error, but shouldn't")
-	}
-	assert(dest[0] == uint32(3213212), t, "dest[0] is not equal")
-	assert(dest[1] == float64(2.3), t, "dest[1] is not equal")
-	assert(dest[2] == "some_text", t, "dest[2] is not equal")
+	assert(err == nil, t, "execer returned an error, but shouldn't")
+	assert(execer.callCount == 1, t, "execer wasn't called")
+	assert(execer.lastQuery == sql, t, "execer was called with wrong sql")
 
-	assert(rows.Next(dest) == io.EOF, t, "end of data didn't return io.EOF")
+	_, err = stmt.ExecContext(context.TODO(), nil)
+	assert(err == nil, t, "execer returned an error, but shouldn't")
+
+	assert(execer.callCount == 2, t, "execer wasn't called")
+	assert(execer.lastQuery == sql, t, "execer was called with wrong sql")
+
+	assert(queryer.callCount == 0, t, "queryer was called, but shouldn't")
+}
+
+// TestCloseStmt checks, that closing connection resets all variable, and makes statement not usable
+func TestCloseStmt(t *testing.T) {
+	var queryer driverQueryerMock
+	var execer driverExecerMock
+	sql := "SELECT 1 UNION SELECT 2"
+
+	stmt := fireboltStmt{queryer: &queryer, execer: &execer, query: sql}
+	stmt.Close()
+
+	assert(stmt.execer == nil, t, "execer wasn't reset by stmt")
+	assert(stmt.queryer == nil, t, "queryer wasn't reset by stmt")
+	assert(stmt.query == "", t, "query wasn't reset by stmt")
 }
