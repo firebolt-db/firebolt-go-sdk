@@ -16,12 +16,12 @@ type AuthenticationResponse struct {
 
 // Authenticate sends an authentication request, and returns a newly constructed client object
 func Authenticate(username, password string) (*Client, error) {
-	log.Printf("Start authentication into '%s' using '%s'", HostNameURL, LoginUrl)
+	log.Printf("Start authentication into '%s' using '%s'", GetHostNameURL(), LoginUrl)
 
 	values := map[string]string{"username": username, "password": password}
 	jsonData, _ := json.Marshal(values)
 
-	resp, err := request("", "POST", HostNameURL+LoginUrl, nil, string(jsonData))
+	resp, err := request("", "POST", GetHostNameURL()+LoginUrl, nil, string(jsonData))
 	if err != nil {
 		return nil, ConstructNestedError("authentication request failed", err)
 	}
