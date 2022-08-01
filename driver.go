@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"io/ioutil"
 	"log"
+	"strings"
 )
 
 type FireboltDriver struct {
@@ -43,7 +44,11 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	// if not using default engine for the database
 	var engineUrl string
 	if settings.engineName != "" {
-		engineUrl, err = client.GetEngineUrlByName(settings.engineName, accountId)
+		if strings.Contains(settings.engineName, ".") {
+			engineUrl, err = makeCanonicalUrl(settings.engineName), nil
+		} else {
+			engineUrl, err = client.GetEngineUrlByName(settings.engineName, accountId)
+		}
 	} else {
 		log.Println("engine name not set, trying to get a default engine")
 		engineUrl, err = client.GetEngineUrlByDatabase(settings.database, accountId)
