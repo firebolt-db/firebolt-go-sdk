@@ -77,7 +77,7 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 	case "DateTime":
 		// Go doesn't use yyyy-mm-dd layout. Instead, it uses the value: Mon Jan 2 15:04:05 MST 2006
 		return time.Parse("2006-01-02 15:04:05", val.(string))
-	case "Date":
+	case "Date", "Date32":
 		return time.Parse("2006-01-02", val.(string))
 	}
 
@@ -89,15 +89,15 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 func parseValue(columnType string, val interface{}) (driver.Value, error) {
 	const (
 		arrayPrefix = "Array("
-		arraySuffix = ")"
+		suffix      = ")"
 	)
 
-	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, arraySuffix) {
+	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, suffix) {
 		s := reflect.ValueOf(val)
 		res := make([]driver.Value, s.Len())
 
 		for i := 0; i < s.Len(); i++ {
-			res[i], _ = parseValue(columnType[len(arrayPrefix):len(columnType)-len(arraySuffix)], s.Index(i).Interface())
+			res[i], _ = parseValue(columnType[len(arrayPrefix):len(columnType)-len(suffix)], s.Index(i).Interface())
 		}
 		return res, nil
 	}

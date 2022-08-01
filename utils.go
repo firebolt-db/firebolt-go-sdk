@@ -2,12 +2,14 @@ package fireboltgosdk
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
+	"os"
 	"strings"
 )
 
 func ConstructNestedError(message string, err error) error {
-	log.Printf("%s: %v", message, err)
+	infolog.Printf("%s: %v", message, err)
 	return fmt.Errorf("%s: %v", message, err)
 }
 
@@ -15,7 +17,7 @@ func ConstructNestedError(message string, err error) error {
 // or returns an error, if it isn't a set statement
 func parseSetStatement(query string) (string, string, error) {
 	query = strings.TrimSpace(query)
-	if strings.HasPrefix(query, "SET") {
+	if strings.HasPrefix(strings.ToUpper(query), "SET") {
 		query = strings.TrimSpace(query[len("SET"):])
 		splitQuery := strings.Split(query, "=")
 		if len(splitQuery) != 2 {
@@ -29,4 +31,10 @@ func parseSetStatement(query string) (string, string, error) {
 		return "", "", fmt.Errorf("Either key or value is empty")
 	}
 	return "", "", fmt.Errorf("Not a set statement")
+}
+
+var infolog = log.New(os.Stderr, "[firebolt-go-sdk]", log.Ldate|log.Ltime|log.Lshortfile)
+
+func init() {
+	infolog.SetOutput(ioutil.Discard)
 }

@@ -62,9 +62,9 @@ func main() {
 
 
 ### DSN (Data source name)
-All information for the connection should be specifying using the DSN string. The firebolt dsn string has the following format:  
+All information for the connection should be specified using the DSN string. The firebolt dsn string has the following format:  
 ```
-firebolt://username:password@database[/engine_name]?account_name=account_name
+firebolt://username:password@database[/engine_name][?account_name=account_name]
 ```
 
 - **username** - the email address you use to log in to Firebolt.

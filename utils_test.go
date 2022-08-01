@@ -28,6 +28,8 @@ func TestParseSetStatementSuccess(t *testing.T) {
 	runParseSetStatementSuccess(t, "SET advanced_mode=1", "advanced_mode", "1")
 	runParseSetStatementSuccess(t, "     SET advanced_mode=1  ", "advanced_mode", "1")
 	runParseSetStatementSuccess(t, "     SET      advanced_mode      =       1  ", "advanced_mode", "1")
+	runParseSetStatementSuccess(t, "set advanced_mode=1", "advanced_mode", "1")
+	runParseSetStatementSuccess(t, "sEt advanced_mode=1", "advanced_mode", "1")
 }
 
 func TestParseSetStatementFail(t *testing.T) {

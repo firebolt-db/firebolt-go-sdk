@@ -60,10 +60,10 @@ func TestGetEngineUrlByName(t *testing.T) {
 	if makeCanonicalUrl(engineUrl) != makeCanonicalUrl(engineUrlMock) {
 		t.Errorf("Returned engine url is not equal to a mocked engine url %s != %s", engineUrl, engineUrlMock)
 	}
-	if _, err = clientMock.GetEngineUrlByName("not_existing_engine", accountNameMock); err == nil {
+	if res, err := clientMock.GetEngineUrlByName("not_existing_engine", accountNameMock); err == nil || res != "" {
 		t.Errorf("GetEngineUrlByName didn't return an error with not existing engine")
 	}
-	if _, err = clientMock.GetEngineUrlByName(engineNameMock, "not_existing_account"); err == nil {
+	if res, err := clientMock.GetEngineUrlByName(engineNameMock, "not_existing_account"); err == nil || res != "" {
 		t.Errorf("GetEngineUrlByName didn't return an error with not existing account")
 	}
 }
@@ -93,12 +93,16 @@ func TestGetEngineUrlByDatabase(t *testing.T) {
 func TestQuery(t *testing.T) {
 	markIntegrationTest(t)
 
-	var queryResponse QueryResponse
-	if err := clientMock.Query(engineUrlMock, databaseMock, "SELECT 1", nil, &queryResponse); err != nil {
+	queryResponse, err := clientMock.Query(engineUrlMock, databaseMock, "SELECT 1", nil)
+	if err != nil {
 		t.Errorf("Query returned an error: %v", err)
 	}
 	if queryResponse.Rows != 1 {
 		t.Errorf("Query response has an invalid number of rows %d != %d", queryResponse.Rows, 1)
+	}
+
+	if queryResponse.Data[0][0].(float64) != 1 {
+		t.Errorf("queryResponse data is not correct")
 	}
 }
 
@@ -107,11 +111,10 @@ func TestQuerySetStatements(t *testing.T) {
 	markIntegrationTest(t)
 
 	query := "SELECT * FROM information_schema.tables"
-	var queryResponse QueryResponse
-	if err := clientMock.Query(engineUrlMock, databaseMock, query, &map[string]string{"use_standard_sql": "1"}, &queryResponse); err != nil {
+	if _, err := clientMock.Query(engineUrlMock, databaseMock, query, &map[string]string{"use_standard_sql": "1"}); err != nil {
 		t.Errorf("Query returned an error: %v", err)
 	}
-	if err := clientMock.Query(engineUrlMock, databaseMock, query, &map[string]string{"use_standard_sql": "0"}, &queryResponse); err == nil {
+	if _, err := clientMock.Query(engineUrlMock, databaseMock, query, &map[string]string{"use_standard_sql": "0"}); err == nil {
 		t.Errorf("Query didn't return an error, but should")
 	}
 }
