@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"runtime"
 	"strings"
 )
 
@@ -214,7 +215,8 @@ func checkErrorResponse(response []byte) error {
 func request(accessToken string, method string, url string, params map[string]string, bodyStr string) ([]byte, error) {
 	req, _ := http.NewRequest(method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
 
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+	// adding sdk usage tracking
+	req.Header.Set("User-Agent", fmt.Sprintf("GoSDK/%s (Go %s; %s)", sdkVersion, runtime.Version(), runtime.GOOS))
 
 	if len(accessToken) > 0 {
 		var bearer = "Bearer " + accessToken
