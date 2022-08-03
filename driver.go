@@ -1,6 +1,7 @@
 package fireboltgosdk
 
 import (
+	"context"
 	"database/sql"
 	"database/sql/driver"
 )
@@ -29,9 +30,9 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	var accountId string
 	if settings.accountName == "" {
 		infolog.Println("account name not specified, trying to get a default account id")
-		accountId, err = client.GetDefaultAccountId()
+		accountId, err = client.GetDefaultAccountId(context.TODO())
 	} else {
-		accountId, err = client.GetAccountIdByName(settings.accountName)
+		accountId, err = client.GetAccountIdByName(context.TODO(), settings.accountName)
 	}
 	if err != nil {
 		return nil, ConstructNestedError("error during getting account id", err)
@@ -41,10 +42,10 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	// if not using default engine for the database
 	var engineUrl string
 	if settings.engineName != "" {
-		engineUrl, err = client.GetEngineUrlByName(settings.engineName, accountId)
+		engineUrl, err = client.GetEngineUrlByName(context.TODO(), settings.engineName, accountId)
 	} else {
 		infolog.Println("engine name not set, trying to get a default engine")
-		engineUrl, err = client.GetEngineUrlByDatabase(settings.database, accountId)
+		engineUrl, err = client.GetEngineUrlByDatabase(context.TODO(), settings.database, accountId)
 	}
 	if err != nil {
 		return nil, ConstructNestedError("error during getting engine url", err)

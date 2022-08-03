@@ -47,11 +47,16 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 	if len(args) != 0 {
 		return nil, fmt.Errorf("Prepared statements are not implemented")
 	}
-	if processSetStatement(c, query) {
-		return &fireboltRows{QueryResponse{}, 0}, nil
+
+	if isSetStatement, err := processSetStatement(ctx, c, query); isSetStatement {
+		if err == nil {
+			return &fireboltRows{QueryResponse{}, 0}, nil
+		} else {
+			return nil, ConstructNestedError("statement recognized as an invalid set statement", err)
+		}
 	}
 
-	queryResponse, err := c.client.Query(c.engineUrl, c.databaseName, query, &c.setStatements)
+	queryResponse, err := c.client.Query(ctx, c.engineUrl, c.databaseName, query, &c.setStatements)
 	if err != nil {
 		return nil, ConstructNestedError("error during query execution", err)
 	}
@@ -61,12 +66,17 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 
 // processSetStatement is an internal function for checking whether query is a valid set statement
 // and updating set statement map of the fireboltConnection
-func processSetStatement(c *fireboltConnection, query string) bool {
-	if setKey, setValue, err := parseSetStatement(query); err == nil {
-		if _, err := c.client.Query(c.engineUrl, c.databaseName, "SELECT 1", &map[string]string{setKey: setValue}); err == nil {
-			c.setStatements[setKey] = setValue
-			return true
-		}
+func processSetStatement(ctx context.Context, c *fireboltConnection, query string) (bool, error) {
+	setKey, setValue, err := parseSetStatement(query)
+	if err != nil {
+		// if parsing of set statement returned an error, we will not handle the request as a set statement
+		return false, nil
 	}
-	return false
+
+	_, err = c.client.Query(ctx, c.engineUrl, c.databaseName, "SELECT 1", &map[string]string{setKey: setValue})
+	if err == nil {
+		c.setStatements[setKey] = setValue
+		return true, nil
+	}
+	return true, err
 }

@@ -19,12 +19,12 @@ func parseSetStatement(query string) (string, string, error) {
 	query = strings.TrimSpace(query)
 	if strings.HasPrefix(strings.ToUpper(query), "SET") {
 		query = strings.TrimSpace(query[len("SET"):])
-		splitQuery := strings.Split(query, "=")
-		if len(splitQuery) != 2 {
-			return "", "", fmt.Errorf("not a valid set statement, found more then 1 '=' sign")
+		key, value, found := strings.Cut(query, "=")
+		if !found {
+			return "", "", fmt.Errorf("not a valid set statement, didn't find '=' sign")
 		}
-		key := strings.TrimSpace(splitQuery[0])
-		value := strings.TrimSpace(splitQuery[1])
+		key = strings.TrimSpace(key)
+		value = strings.TrimSpace(value)
 		if key != "" && value != "" {
 			return key, value, nil
 		}

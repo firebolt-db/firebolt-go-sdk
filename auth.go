@@ -1,6 +1,7 @@
 package fireboltgosdk
 
 import (
+	"context"
 	"encoding/json"
 )
 
@@ -17,9 +18,12 @@ func Authenticate(username, password string) (*Client, error) {
 	infolog.Printf("Start authentication into '%s' using '%s'", HostNameURL, LoginUrl)
 
 	values := map[string]string{"username": username, "password": password}
-	jsonData, _ := json.Marshal(values)
+	jsonData, err := json.Marshal(values)
+	if err != nil {
+		return nil, ConstructNestedError("error during json marshalling", err)
+	}
 
-	resp, err := request("", "POST", HostNameURL+LoginUrl, nil, string(jsonData))
+	resp, err := request(context.TODO(), "", "POST", HostNameURL+LoginUrl, nil, string(jsonData))
 	if err != nil {
 		return nil, ConstructNestedError("authentication request failed", err)
 	}

@@ -119,7 +119,7 @@ func TestDriverOpenConnection(t *testing.T) {
 
 	ctx := context.TODO()
 	if _, err = db.Conn(ctx); err != nil {
-		t.Errorf("connection is not established correctly")
+		t.Errorf("connection is not established correctly: %v", err)
 	}
 }
 
