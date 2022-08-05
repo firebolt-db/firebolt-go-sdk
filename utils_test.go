@@ -36,5 +36,4 @@ func TestParseSetStatementFail(t *testing.T) {
 	runParseSetStatementFail(t, "SET ==")
 	runParseSetStatementFail(t, "SET =1")
 	runParseSetStatementFail(t, "SET advanced_mode=")
-
 }

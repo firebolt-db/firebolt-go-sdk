@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"fmt"
 	"log"
+	"os"
 	"strings"
 )
 
@@ -29,4 +30,12 @@ func parseSetStatement(query string) (string, string, error) {
 		return "", "", fmt.Errorf("Either key or value is empty")
 	}
 	return "", "", fmt.Errorf("Not a set statement")
+}
+
+// GetHostNameURL returns a hostname url, either default or overwritten with the environment variable
+func GetHostNameURL() string {
+	if val := os.Getenv("FIREBOLT_ENDPOINT"); val != "" {
+		return makeCanonicalUrl(val)
+	}
+	return "https://api.app.firebolt.io"
 }

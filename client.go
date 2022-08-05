@@ -25,7 +25,7 @@ func (c *Client) GetAccountIdByName(accountName string) (string, error) {
 	params := make(map[string]string)
 	params["account_name"] = accountName
 
-	response, err := request(c.AccessToken, "GET", HostNameURL+AccountIdByNameURL, params, "")
+	response, err := request(c.AccessToken, "GET", GetHostNameURL()+AccountIdByNameURL, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting account id by name request", err)
 	}
@@ -52,7 +52,7 @@ func (c *Client) GetEngineIdByName(engineName string, accountId string) (string,
 	params := make(map[string]string)
 	params["engine_name"] = engineName
 
-	response, err := request(c.AccessToken, "GET", fmt.Sprintf(HostNameURL+EngineIdByNameURL, accountId), params, "")
+	response, err := request(c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+EngineIdByNameURL, accountId), params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine id by name request", err)
 	}
@@ -76,7 +76,7 @@ func (c *Client) GetEngineUrlById(engineId string, accountId string) (string, er
 	}
 
 	params := make(map[string]string)
-	response, err := request(c.AccessToken, "GET", fmt.Sprintf(HostNameURL+EngineByIdURL, accountId, engineId), params, "")
+	response, err := request(c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+EngineByIdURL, accountId, engineId), params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by id request", err)
 	}
@@ -99,7 +99,7 @@ func (c *Client) GetDefaultAccountId() (string, error) {
 	}
 
 	params := make(map[string]string)
-	response, err := request(c.AccessToken, "GET", fmt.Sprintf(HostNameURL+DefaultAccountURL), params, "")
+	response, err := request(c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+DefaultAccountURL), params, "")
 
 	if err != nil {
 		return "", ConstructNestedError("error during getting default account id request", err)
@@ -140,7 +140,7 @@ func (c *Client) GetEngineUrlByDatabase(databaseName string, accountId string) (
 
 	params := make(map[string]string)
 	params["database_name"] = databaseName
-	response, err := request(c.AccessToken, "GET", fmt.Sprintf(HostNameURL+EngineUrlByDatabaseNameURL, accountId), params, "")
+	response, err := request(c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+EngineUrlByDatabaseNameURL, accountId), params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by database request", err)
 	}
