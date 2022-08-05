@@ -45,6 +45,12 @@ func TestDSNHappyPath(t *testing.T) {
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name",
 		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engineName: "engine_name"})
 
+	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_url.firebolt.io",
+		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engineName: "engine_url.firebolt.io"})
+
+	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/https:\\/\\/engine_url.firebolt.io",
+		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", engineName: "https://engine_url.firebolt.io"})
+
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name?account_name=firebolt_account",
 		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name", accountName: "firebolt_account"})
 
