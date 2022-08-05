@@ -1,7 +1,6 @@
 package fireboltgosdk
 
 const (
-	HostNameURL                = "https://api.app.firebolt.io"
 	LoginUrl                   = "/auth/v1/login"
 	DefaultAccountURL          = "/iam/v2/account"
 	AccountIdByNameURL         = "/iam/v2/accounts:getIdByName"

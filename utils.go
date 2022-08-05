@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"time"
 
@@ -73,7 +74,7 @@ func formatValue(value driver.Value) (string, error) {
 		res := value.(string)
 		res = strings.Replace(res, "\\", "\\\\", -1)
 		res = strings.Replace(res, "'", "\\'", -1)
-		return "'" + res + "'", nil
+		return fmt.Sprintf("'%s'", res), nil
 	case int64, uint64, int32, uint32, int16, uint16, int8, uint8, int, uint:
 		return fmt.Sprintf("%d", value), nil
 	case float64, float32:
@@ -85,8 +86,16 @@ func formatValue(value driver.Value) (string, error) {
 			return "0", nil
 		}
 	case time.Time:
-		return "'" + value.(time.Time).Format("2006-01-02 15:04:05") + "'", nil
+		return fmt.Sprintf("'%s'", value.(time.Time).Format("2006-01-02 15:04:05")), nil
 	default:
 		return "", fmt.Errorf("not supported type: %v", v)
 	}
+}
+
+// GetHostNameURL returns a hostname url, either default or overwritten with the environment variable
+func GetHostNameURL() string {
+	if val := os.Getenv("FIREBOLT_ENDPOINT"); val != "" {
+		return makeCanonicalUrl(val)
+	}
+	return "https://api.app.firebolt.io"
 }

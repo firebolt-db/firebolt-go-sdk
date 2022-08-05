@@ -64,13 +64,13 @@ func main() {
 ### DSN (Data source name)
 All information for the connection should be specifying using the DSN string. The firebolt dsn string has the following format:  
 ```
-firebolt://username:password@database[/engine_name]?account_name=account_name
+firebolt://username:password@database[/engine_url]?account_name=account_name
 ```
 
 - **username** - the email address you use to log in to Firebolt.
 - **password** - your password to log in to Firebolt.
 - **database** - the Firebolt database to connect to.
-- **engine_name** - the name of the engine to run SQL on. If omitted, the default engine for the database is used. 
+- **engine_url** - the url of the engine to run SQL on. Alternatively engine_name could be specified here, in this case, the engine url will be retrieved automatically. If omitted, the default engine for the database is used. 
 - **account_name** - the Firebolt account to log in to.
 
 You need to escape some characters with double backslashes, e.g. if you have a `@` sign in the password, you should write `\\@`.
