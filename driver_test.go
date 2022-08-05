@@ -33,10 +33,6 @@ func init() {
 	engineUrlMock = os.Getenv("ENGINE_URL")
 	accountNameMock = os.Getenv("ACCOUNT_NAME")
 
-	if apiEndpoint := os.Getenv("API_ENDPOINT"); apiEndpoint != "" {
-		os.Setenv("FIREBOLT_ENDPOINT", apiEndpoint)
-	}
-
 	dsnMock = fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", usernameMock, passwordMock, databaseMock, engineNameMock, accountNameMock)
 	dsnEngineUrlMock = fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", usernameMock, passwordMock, databaseMock, engineUrlMock, accountNameMock)
 	dsnDefaultEngineMock = fmt.Sprintf("firebolt://%s:%s@%s?account_name=%s", usernameMock, passwordMock, databaseMock, accountNameMock)
