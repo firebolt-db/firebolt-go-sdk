@@ -107,6 +107,7 @@ func TestFormatValue(t *testing.T) {
 	runTestFormatValue(t, true, "1")
 	runTestFormatValue(t, false, "0")
 	runTestFormatValue(t, -10, "-10")
+	runTestFormatValue(t, nil, "NULL")
 	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 0, loc), "'2022-01-10 01:03:02'")
 
 	// not passing, but should: runTestFormatValue(t, 1.1234567, "1.1234567")
