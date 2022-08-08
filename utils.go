@@ -26,12 +26,12 @@ func parseSetStatement(query string) (string, string, error) {
 	query = strings.TrimSpace(query)
 	if strings.HasPrefix(strings.ToUpper(query), "SET") {
 		query = strings.TrimSpace(query[len("SET"):])
-		key, value, found := strings.Cut(query, "=")
-		if !found {
+		values := strings.Split(query, "=")
+		if len(values) < 2 {
 			return "", "", fmt.Errorf("not a valid set statement, didn't find '=' sign")
 		}
-		key = strings.TrimSpace(key)
-		value = strings.TrimSpace(value)
+		key := strings.TrimSpace(values[0])
+		value := strings.TrimSpace(values[1])
 		if key != "" && value != "" {
 			return key, value, nil
 		}
