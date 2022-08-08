@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"runtime"
 	"strings"
 )
 
@@ -216,7 +215,7 @@ func request(accessToken string, method string, url string, params map[string]st
 	req, _ := http.NewRequest(method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
 
 	// adding sdk usage tracking
-	req.Header.Set("User-Agent", fmt.Sprintf("GoSDK/%s (Go %s; %s)", sdkVersion, runtime.Version(), runtime.GOOS))
+	req.Header.Set("User-Agent", ConstructUserAgentString())
 
 	if len(accessToken) > 0 {
 		var bearer = "Bearer " + accessToken
