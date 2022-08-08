@@ -37,8 +37,9 @@ func (c *fireboltConnection) Begin() (driver.Tx, error) {
 
 // ExecContext sends the query to the engine and returns empty fireboltResult
 func (c *fireboltConnection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	if len(args) != 0 {
-		panic("Prepared statements are not implemented")
+	query, err := prepareStatement(query, args)
+	if err != nil {
+		return nil, ConstructNestedError("error during preparing a statement", err)
 	}
 	if processSetStatement(c, query) {
 		return &FireboltResult{}, nil
@@ -54,8 +55,9 @@ func (c *fireboltConnection) ExecContext(ctx context.Context, query string, args
 
 // QueryContext sends the query to the engine and returns fireboltRows
 func (c *fireboltConnection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if len(args) != 0 {
-		panic("Prepared statements are not implemented")
+	query, err := prepareStatement(query, args)
+	if err != nil {
+		return nil, ConstructNestedError("error during preparing a statement", err)
 	}
 	if processSetStatement(c, query) {
 		return &fireboltRows{QueryResponse{}, 0}, nil
