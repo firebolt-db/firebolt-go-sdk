@@ -2,6 +2,8 @@ package fireboltgosdk
 
 import (
 	"database/sql/driver"
+	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -111,5 +113,19 @@ func TestFormatValue(t *testing.T) {
 
 	// not passing, but should: runTestFormatValue(t, 1.1234567, "1.1234567")
 	// not passing, but should: runTestFormatValue(t, 1.123, "1.123")
+}
 
+func TestConstructUserAgentString(t *testing.T) {
+	os.Setenv("FIREBOLT_GO_DRIVERS", "GORM/0.0.1")
+	os.Setenv("FIREBOLT_GO_CLIENTS", "Client1/0.2.3 Client2/0.3.4")
+
+	userAgentString := ConstructUserAgentString()
+
+	assert(strings.Contains(userAgentString, sdkVersion), t, "sdk Version is not in userAgent string")
+	assert(strings.Contains(userAgentString, "GoSDK"), t, "sdk name is not in userAgent string")
+	assert(strings.Contains(userAgentString, "GORM/0.0.1"), t, "drivers is not in userAgent string")
+	assert(strings.Contains(userAgentString, "Client1/0.2.3 Client2/0.3.4"), t, "clients are not in userAgent string")
+
+	os.Unsetenv("FIREBOLT_GO_DRIVERS")
+	os.Unsetenv("FIREBOLT_GO_CLIENTS")
 }

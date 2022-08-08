@@ -6,9 +6,12 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"regexp"
+	"runtime"
 	"strings"
 	"time"
 
+	"github.com/matishsiao/goInfo"
 	"github.com/xwb1989/sqlparser"
 )
 
@@ -105,4 +108,27 @@ func GetHostNameURL() string {
 		return makeCanonicalUrl(val)
 	}
 	return "https://api.app.firebolt.io"
+}
+
+// ConstructUserAgentString returns a string with go, GoSDK and os type and versions
+// additionally user can set "FIREBOLT_GO_DRIVERS" and "FIREBOLT_GO_CLIENTS" env variable,
+// and they will be concatenated with the final user-agent string
+func ConstructUserAgentString() string {
+	osNameVersion := runtime.GOOS
+	if gi, err := goInfo.GetInfo(); err == nil {
+		osNameVersion += " " + gi.Core
+	}
+
+	var isStringAllowed = regexp.MustCompile(`^[\w\d._\-/ ]+$`).MatchString
+
+	goDrivers := os.Getenv("FIREBOLT_GO_DRIVERS")
+	if !isStringAllowed(goDrivers) {
+		goDrivers = ""
+	}
+	goClients := os.Getenv("FIREBOLT_GO_CLIENTS")
+	if !isStringAllowed(goClients) {
+		goClients = ""
+	}
+
+	return strings.TrimSpace(fmt.Sprintf("%s GoSDK/%s (Go %s; %s) %s", goClients, sdkVersion, runtime.Version(), osNameVersion, goDrivers))
 }

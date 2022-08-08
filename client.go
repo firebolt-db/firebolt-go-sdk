@@ -206,6 +206,9 @@ func checkErrorResponse(response []byte) error {
 func request(ctx context.Context, accessToken string, method string, url string, params map[string]string, bodyStr string) ([]byte, error) {
 	req, _ := http.NewRequestWithContext(ctx, method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
 
+	// adding sdk usage tracking
+	req.Header.Set("User-Agent", ConstructUserAgentString())
+
 	if len(accessToken) > 0 {
 		var bearer = "Bearer " + accessToken
 		req.Header.Add("Authorization", bearer)
