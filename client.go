@@ -24,7 +24,7 @@ func (c *Client) GetAccountIdByName(ctx context.Context, accountName string) (st
 
 	params := map[string]string{"account_name": accountName}
 
-	response, err := request(ctx, c.AccessToken, "GET", HostNameURL+AccountIdByNameURL, params, "")
+	response, err := request(ctx, c.AccessToken, "GET", GetHostNameURL()+AccountIdByNameURL, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting account id by name request", err)
 	}
@@ -49,7 +49,7 @@ func (c *Client) GetEngineIdByName(ctx context.Context, engineName string, accou
 	}
 
 	params := map[string]string{"engine_name": engineName}
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(HostNameURL+EngineIdByNameURL, accountId), params, "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+EngineIdByNameURL, accountId), params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine id by name request", err)
 	}
@@ -72,7 +72,7 @@ func (c *Client) GetEngineUrlById(ctx context.Context, engineId string, accountI
 		Engine EngineResponse `json:"engine"`
 	}
 
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(HostNameURL+EngineByIdURL, accountId, engineId), make(map[string]string), "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+EngineByIdURL, accountId, engineId), make(map[string]string), "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by id request", err)
 	}
@@ -94,8 +94,7 @@ func (c *Client) GetDefaultAccountId(ctx context.Context) (string, error) {
 		Account AccountResponse `json:"account"`
 	}
 
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(HostNameURL+DefaultAccountURL), make(map[string]string), "")
-
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+DefaultAccountURL), make(map[string]string), "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting default account id request", err)
 	}
@@ -134,7 +133,7 @@ func (c *Client) GetEngineUrlByDatabase(ctx context.Context, databaseName string
 	}
 
 	params := map[string]string{"database_name": databaseName}
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(HostNameURL+EngineUrlByDatabaseNameURL, accountId), params, "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+EngineUrlByDatabaseNameURL, accountId), params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by database request", err)
 	}

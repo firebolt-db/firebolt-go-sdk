@@ -44,8 +44,10 @@ func (c *fireboltConnection) ExecContext(ctx context.Context, query string, args
 
 // QueryContext sends the query to the engine and returns fireboltRows
 func (c *fireboltConnection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	if len(args) != 0 {
-		return nil, fmt.Errorf("Prepared statements are not implemented")
+
+	query, err := prepareStatement(query, args)
+	if err != nil {
+		return nil, ConstructNestedError("error during preparing a statement", err)
 	}
 
 	if isSetStatement, err := processSetStatement(ctx, c, query); isSetStatement {

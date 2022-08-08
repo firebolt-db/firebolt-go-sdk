@@ -12,6 +12,7 @@ import (
 
 var (
 	dsnMock               string
+	dsnEngineUrlMock      string
 	dsnDefaultEngineMock  string
 	dsnDefaultAccountMock string
 	usernameMock          string
@@ -33,6 +34,7 @@ func init() {
 	accountNameMock = os.Getenv("ACCOUNT_NAME")
 
 	dsnMock = fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", usernameMock, passwordMock, databaseMock, engineNameMock, accountNameMock)
+	dsnEngineUrlMock = fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", usernameMock, passwordMock, databaseMock, engineUrlMock, accountNameMock)
 	dsnDefaultEngineMock = fmt.Sprintf("firebolt://%s:%s@%s?account_name=%s", usernameMock, passwordMock, databaseMock, accountNameMock)
 	dsnDefaultAccountMock = fmt.Sprintf("firebolt://%s:%s@%s", usernameMock, passwordMock, databaseMock)
 
@@ -134,6 +136,11 @@ func runTestDriverExecStatement(t *testing.T, dsn string) {
 	if _, err = db.Exec("SELECT 1"); err != nil {
 		t.Errorf("connection is not established correctly")
 	}
+}
+
+// TestDriverOpenEngineUrl checks opening driver with a default engine
+func TestDriverOpenEngineUrl(t *testing.T) {
+	runTestDriverExecStatement(t, dsnEngineUrlMock)
 }
 
 // TestDriverOpenDefaultEngine checks opening driver with a default engine
