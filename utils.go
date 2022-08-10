@@ -89,7 +89,7 @@ func formatValue(value driver.Value) (string, error) {
 			return "0", nil
 		}
 	case time.Time:
-		return fmt.Sprintf("'%s'", value.(time.Time).Format("2006-01-02 15:04:05")), nil
+		return fmt.Sprintf("'%s'", value.(time.Time).Format("2006-01-02 15:04:05 -07:00")), nil
 	case nil:
 		return "NULL", nil
 	default:

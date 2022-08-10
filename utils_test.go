@@ -95,7 +95,7 @@ func runTestFormatValue(t *testing.T, value driver.Value, expected string) {
 }
 
 func TestFormatValue(t *testing.T) {
-	loc, _ := time.LoadLocation("UTC")
+	loc, _ := time.LoadLocation("Europe/Berlin")
 
 	runTestFormatValue(t, "", "''")
 	runTestFormatValue(t, "abcd", "'abcd'")
@@ -108,7 +108,7 @@ func TestFormatValue(t *testing.T) {
 	runTestFormatValue(t, false, "0")
 	runTestFormatValue(t, -10, "-10")
 	runTestFormatValue(t, nil, "NULL")
-	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 0, loc), "'2022-01-10 01:03:02'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 0, loc), "'2022-01-10 01:03:02 +01:00'")
 
 	// not passing, but should: runTestFormatValue(t, 1.1234567, "1.1234567")
 	// not passing, but should: runTestFormatValue(t, 1.123, "1.123")
