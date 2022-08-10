@@ -40,6 +40,7 @@ func (f *fireboltRows) Next(dest []driver.Value) error {
 
 	for i, column := range f.response.Meta {
 		var err error
+		//log.Printf("Rows.Next: %s, %v", column.Type, f.response.Data[f.cursorPosition][i])
 		if dest[i], err = parseValue(column.Type, f.response.Data[f.cursorPosition][i]); err != nil {
 			return ConstructNestedError("error during fetching Next result", err)
 		}
@@ -90,6 +91,7 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 // uint8, uint32, uint64, int32, int64, float32, float64, string, Time or []driver.Value for arrays
 func parseValue(columnType string, val interface{}) (driver.Value, error) {
 	const (
+		nullablePrefix   = "Nullable("
 		arrayPrefix      = "Array("
 		dateTime64Prefix = "DateTime64("
 		decimalPrefix    = "Decimal("
@@ -108,6 +110,13 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		return parseSingleValue("DateTime64", val)
 	} else if strings.HasPrefix(columnType, decimalPrefix) && strings.HasSuffix(columnType, suffix) {
 		return parseSingleValue("Float64", val)
+	} else if strings.HasPrefix(columnType, nullablePrefix) && strings.HasSuffix(columnType, suffix) {
+		if val == nil {
+			return nil, nil
+		}
+
+		return parseSingleValue(columnType[len(nullablePrefix):len(columnType)-len(suffix)], val)
 	}
+
 	return parseSingleValue(columnType, val)
 }

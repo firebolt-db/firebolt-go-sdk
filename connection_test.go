@@ -64,6 +64,28 @@ func TestConnectionQueryWrong(t *testing.T) {
 	}
 }
 
+// TestConnectionInsertQuery checks simple Insert works
+func TestConnectionInsertQuery(t *testing.T) {
+	markIntegrationTest(t)
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	createTableSQL := "CREATE FACT TABLE integration_tests (id INT, name STRING) PRIMARY INDEX id"
+	deleteTableSQL := "DROP TABLE IF EXISTS integration_tests"
+	insertSQL := "INSERT INTO integration_tests (id, name) VALUES (0, 'some_text')"
+
+	if _, err := conn.ExecContext(context.TODO(), createTableSQL, nil); err != nil {
+		t.Errorf("statement returned an error: %v", err)
+	}
+	if _, err := conn.ExecContext(context.TODO(), "SET firebolt_dont_wait_for_upload_to_s3=1", nil); err != nil {
+		t.Errorf("statement returned an error: %v", err)
+	}
+	if _, err := conn.ExecContext(context.TODO(), insertSQL, nil); err != nil {
+		t.Errorf("statement returned an error: %v", err)
+	}
+	if _, err := conn.ExecContext(context.TODO(), deleteTableSQL, nil); err != nil {
+		t.Errorf("statement returned an error: %v", err)
+	}
+}
+
 // TestConnectionQuery checks simple SELECT query
 func TestConnectionQuery(t *testing.T) {
 	markIntegrationTest(t)
