@@ -170,6 +170,11 @@ func (c *Client) Query(engineUrl, databaseName, query string, setStatements *map
 		return ConstructNestedError("error during query request", err)
 	}
 
+	if len(response) == 0 {
+		// response could be empty, which doesn't mean it is an error
+		return nil
+	}
+
 	if err = json.Unmarshal(response, &queryResponse); err != nil {
 		return ConstructNestedError("wrong response", errors.New(string(response)))
 	}
