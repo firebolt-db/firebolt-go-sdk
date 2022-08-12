@@ -81,5 +81,5 @@ jobs:
         
     - name: Run go list
       run: |
-        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@${{ steps.tag_generation.new_tag }}
+        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@${{ steps.tag_generation.outputs.new_tag }}
       shell: bash
