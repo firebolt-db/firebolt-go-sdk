@@ -22,7 +22,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 
 	// authenticating and getting access token
 	infolog.Println("dsn parsed correctly, trying to authenticate")
-	client, err := Authenticate(settings.username, settings.password)
+	client, err := Authenticate(settings.username, settings.password, GetHostNameURL())
 	if err != nil {
 		return nil, ConstructNestedError("error during authentication", err)
 	}

@@ -13,6 +13,7 @@ import (
 
 type Client struct {
 	AccessToken string
+	ApiEndpoint string
 }
 
 // GetAccountIdByName returns account ID based on account name
@@ -24,7 +25,7 @@ func (c *Client) GetAccountIdByName(ctx context.Context, accountName string) (st
 
 	params := map[string]string{"account_name": accountName}
 
-	response, err := request(ctx, c.AccessToken, "GET", GetHostNameURL()+AccountIdByNameURL, params, "")
+	response, err := request(ctx, c.AccessToken, "GET", c.ApiEndpoint+AccountIdByNameURL, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting account id by name request", err)
 	}
@@ -49,7 +50,7 @@ func (c *Client) GetEngineIdByName(ctx context.Context, engineName string, accou
 	}
 
 	params := map[string]string{"engine_name": engineName}
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+EngineIdByNameURL, accountId), params, "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine id by name request", err)
 	}
@@ -72,7 +73,8 @@ func (c *Client) GetEngineUrlById(ctx context.Context, engineId string, accountI
 		Engine EngineResponse `json:"engine"`
 	}
 
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+EngineByIdURL, accountId, engineId), make(map[string]string), "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), make(map[string]string), "")
+
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by id request", err)
 	}
@@ -94,7 +96,7 @@ func (c *Client) GetDefaultAccountId(ctx context.Context) (string, error) {
 		Account AccountResponse `json:"account"`
 	}
 
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+DefaultAccountURL), make(map[string]string), "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), make(map[string]string), "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting default account id request", err)
 	}
@@ -133,7 +135,7 @@ func (c *Client) GetEngineUrlByDatabase(ctx context.Context, databaseName string
 	}
 
 	params := map[string]string{"database_name": databaseName}
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(GetHostNameURL()+EngineUrlByDatabaseNameURL, accountId), params, "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by database request", err)
 	}
@@ -146,14 +148,12 @@ func (c *Client) GetEngineUrlByDatabase(ctx context.Context, databaseName string
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
-func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query string, setStatements *map[string]string) (*QueryResponse, error) {
+func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query string, setStatements map[string]string) (*QueryResponse, error) {
 	infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
 
 	params := map[string]string{"database": databaseName, "output_format": "JSONCompact"}
-	if setStatements != nil {
-		for setKey, setValue := range *setStatements {
-			params[setKey] = setValue
-		}
+	for setKey, setValue := range setStatements {
+		params[setKey] = setValue
 	}
 
 	response, err := request(ctx, c.AccessToken, "POST", engineUrl, params, query)
@@ -240,8 +240,11 @@ func request(ctx context.Context, accessToken string, method string, url string,
 		return nil, ConstructNestedError("error during reading a request response", err)
 	}
 
-	if err = checkErrorResponse(body); err != nil {
-		return nil, ConstructNestedError("request returned an error", err)
+	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
+		if err = checkErrorResponse(body); err != nil {
+			return nil, ConstructNestedError("request returned an error", err)
+		}
+		return nil, fmt.Errorf("request returned non ok status code: %d", resp.StatusCode)
 	}
 
 	return body, nil

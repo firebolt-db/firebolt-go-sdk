@@ -14,8 +14,8 @@ type AuthenticationResponse struct {
 }
 
 // Authenticate sends an authentication request, and returns a newly constructed client object
-func Authenticate(username, password string) (*Client, error) {
-	infolog.Printf("Start authentication into '%s' using '%s'", GetHostNameURL(), LoginUrl)
+func Authenticate(username, password, apiEndpoint string) (*Client, error) {
+	infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, LoginUrl)
 
 	values := map[string]string{"username": username, "password": password}
 	jsonData, err := json.Marshal(values)
@@ -23,7 +23,7 @@ func Authenticate(username, password string) (*Client, error) {
 		return nil, ConstructNestedError("error during json marshalling", err)
 	}
 
-	resp, err := request(context.TODO(), "", "POST", GetHostNameURL()+LoginUrl, nil, string(jsonData))
+	resp, err := request(context.TODO(), "", "POST", apiEndpoint+LoginUrl, nil, string(jsonData))
 	if err != nil {
 		return nil, ConstructNestedError("authentication request failed", err)
 	}
@@ -34,5 +34,5 @@ func Authenticate(username, password string) (*Client, error) {
 	}
 
 	infolog.Printf("Authentication was successful")
-	return &Client{AccessToken: authResp.AccessToken}, nil
+	return &Client{AccessToken: authResp.AccessToken, ApiEndpoint: apiEndpoint}, nil
 }

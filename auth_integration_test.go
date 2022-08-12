@@ -16,14 +16,14 @@ func TestAuthHappyPath(t *testing.T) {
 
 // TestAuthWrongCredential checks that authentication with wrong credentials returns an error
 func TestAuthWrongCredential(t *testing.T) {
-	if _, err := Authenticate(usernameMock, "wrong_password"); err == nil {
+	if _, err := Authenticate(usernameMock, "wrong_password", GetHostNameURL()); err == nil {
 		t.Errorf("Authentication with wrong credentials didn't return an error")
 	}
 }
 
 // TestAuthEmptyCredential checks that authentication with empty password returns an error
 func TestAuthEmptyCredential(t *testing.T) {
-	if _, err := Authenticate(usernameMock, ""); err == nil {
+	if _, err := Authenticate(usernameMock, "", GetHostNameURL()); err == nil {
 		t.Errorf("Authentication with empty password didn't return an error")
 	}
 }

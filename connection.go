@@ -58,7 +58,7 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 		}
 	}
 
-	queryResponse, err := c.client.Query(ctx, c.engineUrl, c.databaseName, query, &c.setStatements)
+	queryResponse, err := c.client.Query(ctx, c.engineUrl, c.databaseName, query, c.setStatements)
 	if err != nil {
 		return nil, ConstructNestedError("error during query execution", err)
 	}
@@ -75,7 +75,7 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 		return false, nil
 	}
 
-	_, err = c.client.Query(ctx, c.engineUrl, c.databaseName, "SELECT 1", &map[string]string{setKey: setValue})
+	_, err = c.client.Query(ctx, c.engineUrl, c.databaseName, "SELECT 1", map[string]string{setKey: setValue})
 	if err == nil {
 		c.setStatements[setKey] = setValue
 		return true, nil

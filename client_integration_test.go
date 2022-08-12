@@ -103,10 +103,10 @@ func TestQuery(t *testing.T) {
 // TestQuery with set statements
 func TestQuerySetStatements(t *testing.T) {
 	query := "SELECT * FROM information_schema.tables"
-	if _, err := clientMock.Query(context.TODO(), engineUrlMock, databaseMock, query, &map[string]string{"use_standard_sql": "1"}); err != nil {
+	if _, err := clientMock.Query(context.TODO(), engineUrlMock, databaseMock, query, map[string]string{"use_standard_sql": "1"}); err != nil {
 		t.Errorf("Query returned an error: %v", err)
 	}
-	if _, err := clientMock.Query(context.TODO(), engineUrlMock, databaseMock, query, &map[string]string{"use_standard_sql": "0"}); err == nil {
+	if _, err := clientMock.Query(context.TODO(), engineUrlMock, databaseMock, query, map[string]string{"use_standard_sql": "0"}); err == nil {
 		t.Errorf("Query didn't return an error, but should")
 	}
 }
