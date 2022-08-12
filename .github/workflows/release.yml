@@ -66,10 +66,10 @@ jobs:
       run: |
         # Bump version = <number> in version file
         sed -i "s/sdkVersion string = .*/sdkVersion string = \"${{ steps.tag_generation.outputs.new_version }}\"/g" version.go
+        cat version.go
 #        git add version.go
 #        git commit -m "Automatic version bump to ${{ steps.tag_generation.outputs.new_tag }}"
 #        git push origin main
-        cat version.go
       shell: bash
         
 #    - name: Publish tag on github
