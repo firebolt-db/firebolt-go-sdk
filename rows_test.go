@@ -19,7 +19,7 @@ func mockRows() driver.Rows {
 	resultJson := "{" +
 		"\"query\":{\"query_id\":\"16FF2A0300ECA753\"}," +
 		"\"meta\":[" +
-		"	{\"name\":\"int_col\",\"type\":\"Int32\"}," +
+		"	{\"name\":\"int_col\",\"type\":\"Nullable(Int32)\"}," +
 		"	{\"name\":\"bigint_col\",\"type\":\"Int64\"}," +
 		"	{\"name\":\"float_col\",\"type\":\"Float32\"}," +
 		"	{\"name\":\"double_col\",\"type\":\"Float64\"}," +
@@ -30,7 +30,7 @@ func mockRows() driver.Rows {
 		"	{\"name\":\"array_col\",\"type\":\"Array(Int32)\"}," +
 		"	{\"name\":\"nested_array_col\",\"type\":\"Array(Array(String))\"}]," +
 		"\"data\":[" +
-		"	[2,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",1,[1,2,3],[[]]]," +
+		"	[null,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",1,[1,2,3],[[]]]," +
 		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",1,[1,2,3],[[]]]," +
 		"	[3,5,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]]," +
 		"\"rows\":3," +
@@ -82,7 +82,7 @@ func TestRowsNext(t *testing.T) {
 	loc, _ := time.LoadLocation("UTC")
 
 	assert(err == nil, t, "Next shouldn't return an error")
-	assert(dest[0] == int32(2), t, "results not equal for int32")
+	assert(dest[0] == nil, t, "results not equal for int32")
 	assert(dest[1] == int64(1), t, "results not equal for int64")
 	assert(dest[2] == float32(0.312321), t, "results not equal for float32")
 	assert(dest[3] == float64(123213.321321), t, "results not equal for float64")

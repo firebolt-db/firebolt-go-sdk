@@ -162,6 +162,11 @@ func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query strin
 	}
 
 	var queryResponse QueryResponse
+	if len(response) == 0 {
+		// response could be empty, which doesn't mean it is an error
+		return &queryResponse, nil
+	}
+
 	if err = json.Unmarshal(response, &queryResponse); err != nil {
 		return nil, ConstructNestedError("wrong response", errors.New(string(response)))
 	}
