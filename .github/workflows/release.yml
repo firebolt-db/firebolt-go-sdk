@@ -1,0 +1,75 @@
+name: Release new version
+
+on:
+  workflow_dispatch:
+    inputs:
+      pre-release-tag:
+        required: false
+        description: 'Tag for pre-release (optional)'
+      major-release:
+        required: false
+        description: 'Trigger a major release (optional). Leave empty for regular release.'
+
+jobs:
+#  integration-tests:
+#    uses: ./.github/workflows/integration-tests.yml
+#    secrets:
+#      FIREBOLT_USERNAME: ${{ secrets.FIREBOLT_USERNAME }}
+#      FIREBOLT_PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
+
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+#    needs: integration-tests
+    steps:    
+    - name: Check out code
+      uses: actions/checkout@v2
+      with:
+        fetch-depth: 0 
+        token: ${{ secrets.RELEASE_PAT }}
+   
+    - name: Setup git config
+      run: |
+        git config user.name "GitHub Actions Bot"
+        git config user.email "<>"
+      shell: bash
+
+    - name: Checkout action repo
+      uses: actions/checkout@v2
+      with:
+        repository: firebolt-db/action-python-release
+        path: release_action
+
+    - name: Generate new version tag
+      id: tag_generation
+      run: |
+        OLD_TAG=$(git describe --tags --abbrev=0)
+        echo "Old tag was ${OLD_TAG}"
+        CHANGE_LOG=$(git log $OLD_TAG..HEAD --pretty=format:%s)
+        NEW_TAG=$(python3 release_action/scripts/generate_version_tag.py "${CHANGE_LOG}" $OLD_TAG --prerelease_tag "${{ inputs.pre-release-tag }}" --major_release "${{ inputs.major-release }}")
+        echo "::set-output name=new_tag::$NEW_TAG"
+      shell: bash
+
+    - name: Version bump
+      run: |
+        # Bump version = <number> in version file
+        sed -i "s/sdkVersion string = .*/sdkVersion string = \"${{ steps.tag_generation.outputs.new_tag }}\"/g" version.go
+#        git add version.go
+#        git commit -m "Automatic version bump to ${{ steps.tag_generation.outputs.new_tag }}"
+#        git push origin main
+#        cat version.go
+      shell: bash
+        
+#    - name: Publish tag on github
+#      run: |
+#        git tag ${{ steps.tag_generation.outputs.new_tag }}
+#        git push origin ${{ steps.tag_generation.outputs.new_tag }}
+#      shell: bash
+        
+#    - name: Release on github
+#      uses: softprops/action-gh-release@v1
+#      with:
+#        tag_name: ${{ steps.tag_generation.outputs.new_tag }}
+#        generate_release_notes: true
+#        prerelease: ${{ inputs.pre-release-tag != '' }} 
