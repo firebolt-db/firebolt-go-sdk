@@ -1,3 +1,6 @@
+//go:build integration
+// +build integration
+
 package fireboltgosdk
 
 import (
@@ -7,8 +10,6 @@ import (
 
 // TestGetAccountId test getting account ID with existing and not existing accounts
 func TestGetAccountId(t *testing.T) {
-	markIntegrationTest(t)
-
 	accountId, err := clientMock.GetAccountIdByName(context.TODO(), accountNameMock)
 	if err != nil {
 		t.Errorf("GetAccountIdByName failed with: %s", err)
@@ -25,8 +26,6 @@ func TestGetAccountId(t *testing.T) {
 
 // TestGetEnginePropsByName test getting engine url by name step by step
 func TestGetEnginePropsByName(t *testing.T) {
-	markIntegrationTest(t)
-
 	accountId, err := clientMock.GetAccountIdByName(context.TODO(), "firebolt")
 	if err != nil {
 		t.Errorf("GetAccountIdByName failed with: %s", err)
@@ -51,8 +50,6 @@ func TestGetEnginePropsByName(t *testing.T) {
 
 // TestGetEngineUrlByName test GetEngineUrlByName function and its failure scenarios
 func TestGetEngineUrlByName(t *testing.T) {
-	markIntegrationTest(t)
-
 	accountId, _ := clientMock.GetDefaultAccountId(context.TODO())
 	engineUrl, err := clientMock.GetEngineUrlByName(context.TODO(), engineNameMock, accountId)
 	if err != nil {
@@ -71,8 +68,6 @@ func TestGetEngineUrlByName(t *testing.T) {
 
 // TestGetEngineUrlByDatabase checks, that the url of the default engine returns properly
 func TestGetEngineUrlByDatabase(t *testing.T) {
-	markIntegrationTest(t)
-
 	accountId, _ := clientMock.GetAccountIdByName(context.TODO(), accountNameMock)
 	engineUrl, err := clientMock.GetEngineUrlByDatabase(context.TODO(), databaseMock, accountId)
 	if err != nil {
@@ -92,8 +87,6 @@ func TestGetEngineUrlByDatabase(t *testing.T) {
 
 // TestQuery tests simple query
 func TestQuery(t *testing.T) {
-	markIntegrationTest(t)
-
 	queryResponse, err := clientMock.Query(context.TODO(), engineUrlMock, databaseMock, "SELECT 1", nil)
 	if err != nil {
 		t.Errorf("Query returned an error: %v", err)
@@ -109,8 +102,6 @@ func TestQuery(t *testing.T) {
 
 // TestQuery with set statements
 func TestQuerySetStatements(t *testing.T) {
-	markIntegrationTest(t)
-
 	query := "SELECT * FROM information_schema.tables"
 	if _, err := clientMock.Query(context.TODO(), engineUrlMock, databaseMock, query, &map[string]string{"use_standard_sql": "1"}); err != nil {
 		t.Errorf("Query returned an error: %v", err)
@@ -121,8 +112,6 @@ func TestQuerySetStatements(t *testing.T) {
 }
 
 func TestGetDefaultAccountId(t *testing.T) {
-	markIntegrationTest(t)
-
 	var defaultAccountId, accountIdFromName string
 	var err error
 

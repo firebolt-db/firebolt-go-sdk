@@ -29,8 +29,7 @@ func Authenticate(username, password string) (*Client, error) {
 	}
 
 	var authResp AuthenticationResponse
-	err = jsonStrictUnmarshall(resp, &authResp)
-	if err != nil {
+	if err = jsonStrictUnmarshall(resp, &authResp); err != nil {
 		return nil, ConstructNestedError("failed to unmarshal authentication response with error", err)
 	}
 
