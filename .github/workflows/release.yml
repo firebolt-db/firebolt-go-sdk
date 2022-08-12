@@ -11,17 +11,17 @@ on:
         description: 'Trigger a major release (optional). Leave empty for regular release.'
 
 jobs:
-#  integration-tests:
-#    uses: ./.github/workflows/integration-tests.yml
-#    secrets:
-#      FIREBOLT_USERNAME: ${{ secrets.FIREBOLT_USERNAME }}
-#      FIREBOLT_PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yml
+    secrets:
+      FIREBOLT_USERNAME: ${{ secrets.FIREBOLT_USERNAME }}
+      FIREBOLT_PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
 
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-#    needs: integration-tests
+    needs: integration-tests
     steps:    
     - name: Check out code
       uses: actions/checkout@v2
@@ -79,9 +79,7 @@ jobs:
         git push origin ${{ steps.tag_generation.outputs.new_tag }}
       shell: bash
         
-#    - name: Release on github
-#      uses: softprops/action-gh-release@v1
-#      with:
-#        tag_name: ${{ steps.tag_generation.outputs.new_tag }}
-#        generate_release_notes: true
-#        prerelease: ${{ inputs.pre-release-tag != '' }} 
+    - name: Run go list
+      run: |
+        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@${{ steps.tag_generation.new_tag }}
+      shell: bash
