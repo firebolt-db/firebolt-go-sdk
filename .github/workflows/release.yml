@@ -61,6 +61,7 @@ jobs:
         NEW_VERSION=$(python3 release_action/scripts/generate_version_tag.py "${CHANGE_LOG}" $OLD_VERSION --prerelease_tag "${{ inputs.pre-release-tag }}" --major_release "${{ inputs.major-release }}")
         NEW_TAG="v"$NEW_VERSION
         echo "::set-output name=new_tag::$NEW_TAG"
+        echo "::set-output name=new_version::$NEW_VERSION"
       shell: bash
 
     - name: Version bump
