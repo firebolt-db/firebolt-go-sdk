@@ -68,17 +68,16 @@ jobs:
       run: |
         # Bump version = <number> in version file
         sed -i "s/sdkVersion string = .*/sdkVersion string = \"${{ steps.tag_generation.outputs.new_version }}\"/g" version.go
-        cat version.go
-#        git add version.go
-#        git commit -m "Automatic version bump to ${{ steps.tag_generation.outputs.new_tag }}"
-#        git push origin main
+        git add version.go
+        git commit -m "Automatic version bump to ${{ steps.tag_generation.outputs.new_tag }}"
+        git push origin main
       shell: bash
         
-#    - name: Publish tag on github
-#      run: |
-#        git tag ${{ steps.tag_generation.outputs.new_tag }}
-#        git push origin ${{ steps.tag_generation.outputs.new_tag }}
-#      shell: bash
+    - name: Publish tag on github
+      run: |
+        git tag ${{ steps.tag_generation.outputs.new_tag }}
+        git push origin ${{ steps.tag_generation.outputs.new_tag }}
+      shell: bash
         
 #    - name: Release on github
 #      uses: softprops/action-gh-release@v1
