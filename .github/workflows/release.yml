@@ -27,6 +27,17 @@ jobs:
       uses: actions/checkout@v2
       with:
         fetch-depth: 0 
+
+    - name: Set up Python 3.7
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.7
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install argparse build semver twine
+      shell: bash
    
     - name: Setup git config
       run: |
