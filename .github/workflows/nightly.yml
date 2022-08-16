@@ -48,7 +48,7 @@ jobs:
 #          API_ENDPOINT: "api.app.firebolt.io"
           ACCOUNT_NAME: "firebolt"
         run: |
-          go test . -v -coverprofile cover.out
+          go test . -v -coverprofile cover.out --tags=integration
 
       - name: Extract coverage percent
         id: coverage

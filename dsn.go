@@ -53,6 +53,7 @@ func parseRemainingDSN(dsn string, expectedPrefix string, stopChars []uint8) (st
 // returns an error if required fields couldn't be parsed or if after parsing some characters were left unparsed
 func ParseDSNString(dsn string) (*fireboltSettings, error) {
 	var result fireboltSettings
+
 	var err error
 
 	// parse username

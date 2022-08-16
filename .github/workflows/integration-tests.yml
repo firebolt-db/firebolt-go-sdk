@@ -43,4 +43,4 @@ jobs:
           API_ENDPOINT: "api.app.firebolt.io"
           ACCOUNT_NAME: "firebolt"
         run: |
-          go test . -v
+          go test . -v --tags=integration

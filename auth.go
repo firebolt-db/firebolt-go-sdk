@@ -1,11 +1,10 @@
 package fireboltgosdk
 
 import (
+	"context"
 	"encoding/json"
-	"log"
 )
 
-// AuthenticationResponse definition of the authentication response
 type AuthenticationResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -15,23 +14,25 @@ type AuthenticationResponse struct {
 }
 
 // Authenticate sends an authentication request, and returns a newly constructed client object
-func Authenticate(username, password string) (*Client, error) {
-	log.Printf("Start authentication into '%s' using '%s'", GetHostNameURL(), LoginUrl)
+func Authenticate(username, password, apiEndpoint string) (*Client, error) {
+	infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, LoginUrl)
 
 	values := map[string]string{"username": username, "password": password}
-	jsonData, _ := json.Marshal(values)
+	jsonData, err := json.Marshal(values)
+	if err != nil {
+		return nil, ConstructNestedError("error during json marshalling", err)
+	}
 
-	resp, err := request("", "POST", GetHostNameURL()+LoginUrl, nil, string(jsonData))
+	resp, err := request(context.TODO(), "", "POST", apiEndpoint+LoginUrl, nil, string(jsonData))
 	if err != nil {
 		return nil, ConstructNestedError("authentication request failed", err)
 	}
 
 	var authResp AuthenticationResponse
-	err = jsonStrictUnmarshall(resp, &authResp)
-	if err != nil {
+	if err = jsonStrictUnmarshall(resp, &authResp); err != nil {
 		return nil, ConstructNestedError("failed to unmarshal authentication response with error", err)
 	}
 
-	log.Printf("Authentication was successful")
-	return &Client{AccessToken: authResp.AccessToken}, nil
+	infolog.Printf("Authentication was successful")
+	return &Client{AccessToken: authResp.AccessToken, ApiEndpoint: apiEndpoint}, nil
 }
