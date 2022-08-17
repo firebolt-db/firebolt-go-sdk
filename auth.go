@@ -23,7 +23,8 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 		return nil, ConstructNestedError("error during json marshalling", err)
 	}
 
-	resp, err := request(context.TODO(), "", "POST", apiEndpoint+LoginUrl, nil, string(jsonData))
+	userAgent := ConstructUserAgentString()
+	resp, err := request(context.TODO(), "", "POST", apiEndpoint+LoginUrl, userAgent, nil, string(jsonData))
 	if err != nil {
 		return nil, ConstructNestedError("authentication request failed", err)
 	}
@@ -34,5 +35,5 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 	}
 
 	infolog.Printf("Authentication was successful")
-	return &Client{AccessToken: authResp.AccessToken, ApiEndpoint: apiEndpoint}, nil
+	return &Client{AccessToken: authResp.AccessToken, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 }

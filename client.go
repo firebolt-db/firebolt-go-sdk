@@ -14,6 +14,7 @@ import (
 type Client struct {
 	AccessToken string
 	ApiEndpoint string
+	UserAgent   string
 }
 
 // GetAccountIdByName returns account ID based on account name
@@ -25,7 +26,7 @@ func (c *Client) GetAccountIdByName(ctx context.Context, accountName string) (st
 
 	params := map[string]string{"account_name": accountName}
 
-	response, err := request(ctx, c.AccessToken, "GET", c.ApiEndpoint+AccountIdByNameURL, params, "")
+	response, err := request(ctx, c.AccessToken, "GET", c.ApiEndpoint+AccountIdByNameURL, c.UserAgent, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting account id by name request", err)
 	}
@@ -50,7 +51,7 @@ func (c *Client) GetEngineIdByName(ctx context.Context, engineName string, accou
 	}
 
 	params := map[string]string{"engine_name": engineName}
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), params, "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), c.UserAgent, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine id by name request", err)
 	}
@@ -73,7 +74,7 @@ func (c *Client) GetEngineUrlById(ctx context.Context, engineId string, accountI
 		Engine EngineResponse `json:"engine"`
 	}
 
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), make(map[string]string), "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), c.UserAgent, make(map[string]string), "")
 
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by id request", err)
@@ -96,7 +97,7 @@ func (c *Client) GetDefaultAccountId(ctx context.Context) (string, error) {
 		Account AccountResponse `json:"account"`
 	}
 
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), make(map[string]string), "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), c.UserAgent, make(map[string]string), "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting default account id request", err)
 	}
@@ -135,7 +136,7 @@ func (c *Client) GetEngineUrlByDatabase(ctx context.Context, databaseName string
 	}
 
 	params := map[string]string{"database_name": databaseName}
-	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), params, "")
+	response, err := request(ctx, c.AccessToken, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), c.UserAgent, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by database request", err)
 	}
@@ -156,7 +157,7 @@ func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query strin
 		params[setKey] = setValue
 	}
 
-	response, err := request(ctx, c.AccessToken, "POST", engineUrl, params, query)
+	response, err := request(ctx, c.AccessToken, "POST", engineUrl, c.UserAgent, params, query)
 	if err != nil {
 		return nil, ConstructNestedError("error during query request", err)
 	}
@@ -208,11 +209,11 @@ func checkErrorResponse(response []byte) error {
 // additionally it passes the parameters and a bodyStr as a payload
 // if accessToken is passed, it is used for authorization
 // returns response and an error
-func request(ctx context.Context, accessToken string, method string, url string, params map[string]string, bodyStr string) ([]byte, error) {
+func request(ctx context.Context, accessToken string, method string, url string, userAgent string, params map[string]string, bodyStr string) ([]byte, error) {
 	req, _ := http.NewRequestWithContext(ctx, method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
 
 	// adding sdk usage tracking
-	req.Header.Set("User-Agent", ConstructUserAgentString())
+	req.Header.Set("User-Agent", userAgent)
 
 	if len(accessToken) > 0 {
 		var bearer = "Bearer " + accessToken

@@ -8,56 +8,66 @@ import (
 )
 
 type FireboltDriver struct {
+	engineUrl    string
+	databaseName string
+	client       *Client
+	lastUsedDsn  string
 }
 
 // Open parses the dsn string, and if correct tries to establish a connection
 func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	infolog.Println("Opening firebolt driver")
 
-	// parsing dsn string to get configuration settings
-	settings, err := ParseDSNString(dsn)
-	if err != nil {
-		return nil, ConstructNestedError("error during parsing a dsn", err)
-	}
+	if d.lastUsedDsn != dsn || d.lastUsedDsn == "" {
 
-	// authenticating and getting access token
-	infolog.Println("dsn parsed correctly, trying to authenticate")
-	client, err := Authenticate(settings.username, settings.password, GetHostNameURL())
-	if err != nil {
-		return nil, ConstructNestedError("error during authentication", err)
-	}
-
-	// getting accountId, either default, or by specified accountName
-	var accountId string
-	if settings.accountName == "" {
-		infolog.Println("account name not specified, trying to get a default account id")
-		accountId, err = client.GetDefaultAccountId(context.TODO())
-	} else {
-		accountId, err = client.GetAccountIdByName(context.TODO(), settings.accountName)
-	}
-	if err != nil {
-		return nil, ConstructNestedError("error during getting account id", err)
-	}
-
-	// getting engineUrl either by using engineName if available,
-	// if not using default engine for the database
-	var engineUrl string
-	if settings.engineName != "" {
-		if strings.Contains(settings.engineName, ".") {
-			engineUrl, err = makeCanonicalUrl(settings.engineName), nil
-		} else {
-			engineUrl, err = client.GetEngineUrlByName(context.TODO(), settings.engineName, accountId)
+		d.lastUsedDsn = "" //nolint
+		infolog.Println("constructing new client")
+		// parsing dsn string to get configuration settings
+		settings, err := ParseDSNString(dsn)
+		if err != nil {
+			return nil, ConstructNestedError("error during parsing a dsn", err)
 		}
-	} else {
-		infolog.Println("engine name not set, trying to get a default engine")
-		engineUrl, err = client.GetEngineUrlByDatabase(context.TODO(), settings.database, accountId)
-	}
-	if err != nil {
-		return nil, ConstructNestedError("error during getting engine url", err)
+
+		// authenticating and getting access token
+		infolog.Println("dsn parsed correctly, trying to authenticate")
+		d.client, err = Authenticate(settings.username, settings.password, GetHostNameURL())
+		if err != nil {
+			return nil, ConstructNestedError("error during authentication", err)
+		}
+
+		// getting accountId, either default, or by specified accountName
+		var accountId string
+		if settings.accountName == "" {
+			infolog.Println("account name not specified, trying to get a default account id")
+			accountId, err = d.client.GetDefaultAccountId(context.TODO())
+		} else {
+			accountId, err = d.client.GetAccountIdByName(context.TODO(), settings.accountName)
+		}
+		if err != nil {
+			return nil, ConstructNestedError("error during getting account id", err)
+		}
+
+		// getting engineUrl either by using engineName if available,
+		// if not using default engine for the database
+		if settings.engineName != "" {
+			if strings.Contains(settings.engineName, ".") {
+				d.engineUrl, err = makeCanonicalUrl(settings.engineName), nil
+			} else {
+				d.engineUrl, err = d.client.GetEngineUrlByName(context.TODO(), settings.engineName, accountId)
+			}
+		} else {
+			infolog.Println("engine name not set, trying to get a default engine")
+			d.engineUrl, err = d.client.GetEngineUrlByDatabase(context.TODO(), settings.database, accountId)
+		}
+		if err != nil {
+			return nil, ConstructNestedError("error during getting engine url", err)
+		}
+		d.databaseName = settings.database
+		d.lastUsedDsn = dsn //nolint
 	}
 
 	infolog.Printf("firebolt connection is created")
-	return &fireboltConnection{client, settings.database, engineUrl, map[string]string{}}, nil
+	return &fireboltConnection{d.client, d.databaseName, d.engineUrl, map[string]string{}}, nil
 }
 
 // init registers a firebolt driver
