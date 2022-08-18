@@ -63,7 +63,7 @@ func TestConnectionInsertQuery(t *testing.T) {
 func TestConnectionQuery(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 
-	sql := "SELECT 3213212 as \"const\", 2.3 as \"float\", 'some_text' as \"text\""
+	sql := "SELECT -3213212 as \"const\", 2.3 as \"float\", 'some_text' as \"text\""
 	rows, err := conn.QueryContext(context.TODO(), sql, nil)
 	if err != nil {
 		t.Errorf("firebolt statement failed with %v", err)
@@ -79,7 +79,7 @@ func TestConnectionQuery(t *testing.T) {
 	if err != nil {
 		t.Errorf("Next returned an error, but shouldn't")
 	}
-	assert(dest[0] == uint32(3213212), t, "dest[0] is not equal")
+	assert(dest[0] == int32(-3213212), t, "dest[0] is not equal")
 	assert(dest[1] == float64(2.3), t, "dest[1] is not equal")
 	assert(dest[2] == "some_text", t, "dest[2] is not equal")
 
