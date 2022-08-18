@@ -63,7 +63,7 @@ func TestConnectionInsertQuery(t *testing.T) {
 func TestConnectionQuery(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 
-	sql := "SELECT 3213212 as \"const\", 2.3 as \"float\", 'some_text' as \"text\""
+	sql := "SELECT -3213212 as \"const\", 2.3 as \"float\", 'some_text' as \"text\""
 	rows, err := conn.QueryContext(context.TODO(), sql, nil)
 	if err != nil {
 		t.Errorf("firebolt statement failed with %v", err)
@@ -79,7 +79,7 @@ func TestConnectionQuery(t *testing.T) {
 	if err != nil {
 		t.Errorf("Next returned an error, but shouldn't")
 	}
-	assert(dest[0] == uint32(3213212), t, "dest[0] is not equal")
+	assert(dest[0] == int32(-3213212), t, "dest[0] is not equal")
 	assert(dest[1] == float64(2.3), t, "dest[1] is not equal")
 	assert(dest[2] == "some_text", t, "dest[2] is not equal")
 
@@ -139,5 +139,31 @@ func TestConnectionQueryDateTime64Type(t *testing.T) {
 	}
 	if expected := time.Date(1980, 1, 1, 2, 3, 4, 321321000, loc); expected != dest[0] {
 		t.Errorf("values are not equal: %v and %v\n", dest[0], expected)
+	}
+}
+
+func TestConnectionMultipleStatement(t *testing.T) {
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	if rows, err := conn.QueryContext(context.TODO(), "SELECT -1; SELECT -2", nil); err != nil {
+		t.Errorf("Query multistement returned err: %v", err)
+	} else {
+		dest := make([]driver.Value, 1)
+
+		err = rows.Next(dest)
+		assert(err == nil, t, "rows.Next returned an error")
+		assert(dest[0] == int32(-1), t, "results are not equal")
+
+		if nextResultSet, ok := rows.(driver.RowsNextResultSet); !ok {
+			t.Errorf("multistatement didn't return RowsNextResultSet")
+		} else {
+			assert(nextResultSet.HasNextResultSet(), t, "HasNextResultSet returned false")
+			assert(nextResultSet.NextResultSet() == nil, t, "NextResultSet returned an error")
+
+			err = rows.Next(dest)
+			assert(err == nil, t, "rows.Next returned an error")
+			assert(dest[0] == int32(-2), t, "results are not equal")
+
+			assert(!nextResultSet.HasNextResultSet(), t, "HasNextResultSet returned true")
+		}
 	}
 }

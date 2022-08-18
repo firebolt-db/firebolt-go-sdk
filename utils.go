@@ -78,6 +78,24 @@ func prepareStatement(query string, params []driver.NamedValue) (string, error) 
 	return query, nil
 }
 
+// SplitStatements split multiple statements into a list of statements
+func SplitStatements(sql string) ([]string, error) {
+	var queries []string
+
+	for sql != "" {
+		var err error
+		var query string
+
+		query, sql, err = sqlparser.SplitStatement(sql)
+		if err != nil {
+			return nil, ConstructNestedError("error during splitting query", err)
+		}
+		queries = append(queries, query)
+	}
+
+	return queries, nil
+}
+
 func formatValue(value driver.Value) (string, error) {
 	switch v := value.(type) {
 	case string:
@@ -133,4 +151,12 @@ func ConstructUserAgentString() string {
 	}
 
 	return strings.TrimSpace(fmt.Sprintf("%s GoSDK/%s (Go %s; %s) %s", goClients, sdkVersion, runtime.Version(), osNameVersion, goDrivers))
+}
+
+func valueToNamedValue(args []driver.Value) []driver.NamedValue {
+	namedValues := make([]driver.NamedValue, 0, len(args))
+	for i, arg := range args {
+		namedValues = append(namedValues, driver.NamedValue{Ordinal: i, Value: arg})
+	}
+	return namedValues
 }

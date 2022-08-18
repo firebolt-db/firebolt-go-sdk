@@ -3,7 +3,6 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql/driver"
-	"fmt"
 )
 
 type Column struct {
@@ -42,18 +41,12 @@ func (stmt *fireboltStmt) NumInput() int {
 
 // Exec calls ExecContext with dummy context
 func (stmt *fireboltStmt) Exec(args []driver.Value) (driver.Result, error) {
-	if len(args) != 0 {
-		return nil, fmt.Errorf("Prepared statements are not implemented")
-	}
-	return stmt.ExecContext(context.TODO(), make([]driver.NamedValue, 0))
+	return stmt.ExecContext(context.TODO(), valueToNamedValue(args))
 }
 
 // Query calls QueryContext with dummy context
 func (stmt *fireboltStmt) Query(args []driver.Value) (driver.Rows, error) {
-	if len(args) != 0 {
-		return nil, fmt.Errorf("Prepared statements are not implemented")
-	}
-	return stmt.QueryContext(context.TODO(), make([]driver.NamedValue, 0))
+	return stmt.QueryContext(context.TODO(), valueToNamedValue(args))
 }
 
 // QueryContext sends the query to the engine and returns fireboltRows

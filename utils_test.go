@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"database/sql/driver"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -129,4 +130,35 @@ func TestConstructUserAgentString(t *testing.T) {
 
 	os.Unsetenv("FIREBOLT_GO_DRIVERS")
 	os.Unsetenv("FIREBOLT_GO_CLIENTS")
+}
+
+func runSplitStatement(t *testing.T, value string, expected []string) {
+	stmts, err := SplitStatements(value)
+	if err != nil {
+		t.Errorf("SplitStatements return an error for: %v", value)
+	}
+
+	if !reflect.DeepEqual(stmts, expected) {
+		t.Errorf("SplitStatements returned and expected are not equal: %v != %v", stmts, expected)
+	}
+}
+
+func TestSplitStatements(t *testing.T) {
+	runSplitStatement(t, "SELECT 1; SELECT 2;", []string{"SELECT 1", " SELECT 2"})
+	runSplitStatement(t, "SELECT 1;", []string{"SELECT 1"})
+	runSplitStatement(t, "SELECT 1", []string{"SELECT 1"})
+	runSplitStatement(t, "SELECT 1; ; ; ; ", []string{"SELECT 1", " ", " ", " ", " "})
+
+	runSplitStatement(t, "SET advanced_mode=1; SELECT 2 /*some ; comment*/", []string{"SET advanced_mode=1", " SELECT 2 /*some ; comment*/"})
+	runSplitStatement(t, "SET advanced_mode=';'; SELECT 2 /*some ; comment*/", []string{"SET advanced_mode=';'", " SELECT 2 /*some ; comment*/"})
+	runSplitStatement(t, "SELECT 1; SELECT 2; SELECT 3; SELECT 4; SELECT 5; SELECT 6", []string{"SELECT 1", " SELECT 2", " SELECT 3", " SELECT 4", " SELECT 5", " SELECT 6"})
+}
+
+func TestValueToNamedValue(t *testing.T) {
+	assert(len(valueToNamedValue([]driver.Value{})) == 0, t, "valueToNamedValue of empty array is wrong")
+
+	namedValues := valueToNamedValue([]driver.Value{2, "string"})
+	assert(len(namedValues) == 2, t, "len of namedValues is wrong")
+	assert(namedValues[0].Value == 2, t, "namedValues value is wrong")
+	assert(namedValues[1].Value == "string", t, "namedValues value is wrong")
 }
