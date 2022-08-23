@@ -38,32 +38,46 @@ func (c *fireboltConnection) Begin() (driver.Tx, error) {
 
 // ExecContext sends the query to the engine and returns empty fireboltResult
 func (c *fireboltConnection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	_, err := c.QueryContext(ctx, query, args)
+	_, err := c.queryContextInternal(ctx, query, args, false)
 	return &FireboltResult{}, err
 }
 
 // QueryContext sends the query to the engine and returns fireboltRows
 func (c *fireboltConnection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
+	return c.queryContextInternal(ctx, query, args, true)
+}
 
+func (c *fireboltConnection) queryContextInternal(ctx context.Context, query string, args []driver.NamedValue, isMultiStatementAllowed bool) (driver.Rows, error) {
 	query, err := prepareStatement(query, args)
 	if err != nil {
 		return nil, ConstructNestedError("error during preparing a statement", err)
 	}
+	queries, err := SplitStatements(query)
+	if err != nil {
+		return nil, ConstructNestedError("error during splitting query", err)
+	}
+	if len(queries) > 1 && !isMultiStatementAllowed {
+		return nil, fmt.Errorf("multistatement is not allowed")
+	}
 
-	if isSetStatement, err := processSetStatement(ctx, c, query); isSetStatement {
-		if err == nil {
-			return &fireboltRows{QueryResponse{}, 0}, nil
+	var rows fireboltRows
+	for _, query := range queries {
+		if isSetStatement, err := processSetStatement(ctx, c, query); isSetStatement {
+			if err == nil {
+				rows.response = append(rows.response, QueryResponse{})
+				continue
+			} else {
+				return &rows, ConstructNestedError("statement recognized as an invalid set statement", err)
+			}
+		}
+
+		if response, err := c.client.Query(ctx, c.engineUrl, c.databaseName, query, c.setStatements); err != nil {
+			return &rows, ConstructNestedError("error during query execution", err)
 		} else {
-			return nil, ConstructNestedError("statement recognized as an invalid set statement", err)
+			rows.response = append(rows.response, *response)
 		}
 	}
-
-	queryResponse, err := c.client.Query(ctx, c.engineUrl, c.databaseName, query, c.setStatements)
-	if err != nil {
-		return nil, ConstructNestedError("error during query execution", err)
-	}
-
-	return &fireboltRows{*queryResponse, 0}, nil
+	return &rows, nil
 }
 
 // processSetStatement is an internal function for checking whether query is a valid set statement
@@ -75,7 +89,8 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 		return false, nil
 	}
 
-	_, err = c.client.Query(ctx, c.engineUrl, c.databaseName, "SELECT 1", map[string]string{setKey: setValue})
+	_, err = c.client.Query(ctx, c.engineUrl, c.databaseName, "SELECT 1",
+		map[string]string{setKey: setValue, "advanced_mode": "1", "hidden_query": "1"})
 	if err == nil {
 		c.setStatements[setKey] = setValue
 		return true, nil

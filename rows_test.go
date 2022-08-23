@@ -15,8 +15,8 @@ func assert(val bool, t *testing.T, err string) {
 	}
 }
 
-func mockRows() driver.Rows {
-	resultJson := "{" +
+func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
+	resultJson := []string{"{" +
 		"\"query\":{\"query_id\":\"16FF2A0300ECA753\"}," +
 		"\"meta\":[" +
 		"	{\"name\":\"int_col\",\"type\":\"Nullable(Int32)\"}," +
@@ -41,19 +41,40 @@ func mockRows() driver.Rows {
 		"	\"time_before_execution\":0.001251613," +
 		"	\"time_to_execute\":0.000544098," +
 		"	\"scanned_bytes_cache\":2003," +
-		"	\"scanned_bytes_storage\":0}}"
+		"	\"scanned_bytes_storage\":0}}", "" +
+		"{" +
+		"\"query\":{\"query_id\":\"16FF2A0300ECA753\"}," +
+		"\"meta\":[{\"name\":\"int_col\",\"type\":\"Nullable(Int32)\"}]," +
+		"\"data\":[[3], [null]]," +
+		"\"rows\":2," +
+		"\"statistics\":{" +
+		"	\"elapsed\":0.001797702," +
+		"	\"rows_read\":2," +
+		"	\"bytes_read\":293," +
+		"	\"time_before_execution\":0.001251613," +
+		"	\"time_to_execute\":0.000544098," +
+		"	\"scanned_bytes_cache\":2003," +
+		"	\"scanned_bytes_storage\":0}}"}
 
-	var response QueryResponse
-	err := json.Unmarshal([]byte(resultJson), &response)
-	if err != nil {
-		panic("Error in test code")
+	var responses []QueryResponse
+	for i := 0; i < 2; i += 1 {
+		if i != 0 && !isMultiStatement {
+			break
+		}
+		var response QueryResponse
+		if err := json.Unmarshal([]byte(resultJson[i]), &response); err != nil {
+			panic("Error in test code")
+		} else {
+			responses = append(responses, response)
+		}
 	}
-	return &fireboltRows{response, 0}
+
+	return &fireboltRows{responses, 0, 0}
 }
 
 // TestRowsColumns checks, that correct column names are returned
 func TestRowsColumns(t *testing.T) {
-	rows := mockRows()
+	rows := mockRows(false)
 
 	columnNames := []string{"int_col", "bigint_col", "float_col", "double_col", "text_col", "date_col", "timestamp_col", "bool_col", "array_col", "nested_array_col"}
 	if !reflect.DeepEqual(rows.Columns(), columnNames) {
@@ -63,7 +84,7 @@ func TestRowsColumns(t *testing.T) {
 
 // TestRowsClose checks Close method, and inability to use rows afterward
 func TestRowsClose(t *testing.T) {
-	rows := mockRows()
+	rows := mockRows(false)
 	if rows.Close() != nil {
 		t.Errorf("Closing rows was not successful")
 	}
@@ -76,7 +97,7 @@ func TestRowsClose(t *testing.T) {
 
 // TestRowsNext check Next method
 func TestRowsNext(t *testing.T) {
-	rows := mockRows()
+	rows := mockRows(false)
 	var dest = make([]driver.Value, 10)
 	err := rows.Next(dest)
 	loc, _ := time.LoadLocation("UTC")
@@ -101,6 +122,33 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[2] == float32(0.312321), t, "results not equal for float32")
 	assert(dest[3] == float64(123213.321321), t, "results not equal for float64")
 	assert(dest[4] == "text", t, "results not equal for string")
+
+	assert(io.EOF == rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
+
+	assert(rows.HasNextResultSet() == false, t, "Has Next result set didn't return false")
+	assert(rows.NextResultSet() == io.EOF, t, "Next result set didn't return false")
+}
+
+// TestRowsNextSet check rows with multiple statements
+func TestRowsNextSet(t *testing.T) {
+	rows := mockRows(true)
+
+	// check next result set functions
+	assert(rows.HasNextResultSet() == true, t, "HasNextResultSet returned false, but shouldn't")
+	assert(rows.NextResultSet() == nil, t, "NextResultSet returned an error, but shouldn't")
+	assert(rows.HasNextResultSet() == false, t, "HasNextResultSet returned true, but shouldn't")
+
+	// check columns of the next result set
+	assert(reflect.DeepEqual(rows.Columns(), []string{"int_col"}), t, "Columns of the next result set are incorrect")
+
+	// check values of the next result set
+	var dest = make([]driver.Value, 1)
+
+	assert(rows.Next(dest) == nil, t, "Next shouldn't return an error")
+	assert(dest[0] == int32(3), t, "results are not equal")
+
+	assert(rows.Next(dest) == nil, t, "Next shouldn't return an error")
+	assert(dest[0] == nil, t, "results are not equal")
 
 	assert(io.EOF == rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
 }

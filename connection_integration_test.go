@@ -141,3 +141,29 @@ func TestConnectionQueryDateTime64Type(t *testing.T) {
 		t.Errorf("values are not equal: %v and %v\n", dest[0], expected)
 	}
 }
+
+func TestConnectionMultipleStatement(t *testing.T) {
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	if rows, err := conn.QueryContext(context.TODO(), "SELECT -1; SELECT -2", nil); err != nil {
+		t.Errorf("Query multistement returned err: %v", err)
+	} else {
+		dest := make([]driver.Value, 1)
+
+		err = rows.Next(dest)
+		assert(err == nil, t, "rows.Next returned an error")
+		assert(dest[0] == int32(-1), t, "results are not equal")
+
+		if nextResultSet, ok := rows.(driver.RowsNextResultSet); !ok {
+			t.Errorf("multistatement didn't return RowsNextResultSet")
+		} else {
+			assert(nextResultSet.HasNextResultSet(), t, "HasNextResultSet returned false")
+			assert(nextResultSet.NextResultSet() == nil, t, "NextResultSet returned an error")
+
+			err = rows.Next(dest)
+			assert(err == nil, t, "rows.Next returned an error")
+			assert(dest[0] == int32(-2), t, "results are not equal")
+
+			assert(!nextResultSet.HasNextResultSet(), t, "HasNextResultSet returned true")
+		}
+	}
+}
