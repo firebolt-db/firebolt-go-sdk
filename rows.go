@@ -165,6 +165,11 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		suffix           = ")"
 	)
 
+	// No need to parse type if the value is nil
+	if val == nil {
+		return nil, nil
+	}
+
 	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, suffix) {
 		s := reflect.ValueOf(val)
 		res := make([]driver.Value, s.Len())
@@ -178,10 +183,6 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 	} else if strings.HasPrefix(columnType, decimalPrefix) && strings.HasSuffix(columnType, suffix) {
 		return parseSingleValue("Float64", val)
 	} else if strings.HasPrefix(columnType, nullablePrefix) && strings.HasSuffix(columnType, suffix) {
-		if val == nil {
-			return nil, nil
-		}
-
 		return parseSingleValue(columnType[len(nullablePrefix):len(columnType)-len(suffix)], val)
 	}
 

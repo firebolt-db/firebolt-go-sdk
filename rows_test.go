@@ -32,7 +32,7 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 		"\"data\":[" +
 		"	[null,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",1,[1,2,3],[[]]]," +
 		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",1,[1,2,3],[[]]]," +
-		"	[3,5,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]]," +
+		"	[3,null,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]]," +
 		"\"rows\":3," +
 		"\"statistics\":{" +
 		"	\"elapsed\":0.001797702," +
@@ -118,7 +118,7 @@ func TestRowsNext(t *testing.T) {
 	assert(err == nil, t, "Next shouldn't return an error")
 
 	assert(dest[0] == int32(3), t, "results not equal for int32")
-	assert(dest[1] == int64(5), t, "results not equal for int64")
+	assert(dest[1] == nil, t, "results not equal for int64")
 	assert(dest[2] == float32(0.312321), t, "results not equal for float32")
 	assert(dest[3] == float64(123213.321321), t, "results not equal for float64")
 	assert(dest[4] == "text", t, "results not equal for string")
