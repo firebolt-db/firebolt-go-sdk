@@ -245,7 +245,11 @@ func request(ctx context.Context, accessToken string, method string, url string,
 		if err = checkErrorResponse(body); err != nil {
 			return nil, ConstructNestedError("request returned an error", err)
 		}
-		return nil, fmt.Errorf("request returned non ok status code: %d", resp.StatusCode)
+		if resp.StatusCode == 500 {
+			// this is a database error
+			return nil, fmt.Errorf("%s", string(body))
+		}
+		return nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body))
 	}
 
 	return body, nil
