@@ -249,7 +249,7 @@ func request(ctx context.Context, accessToken string, method string, url string,
 			// this is a database error
 			return nil, fmt.Errorf("%s", string(body))
 		}
-		return nil, fmt.Errorf("request returned non ok status code: %d", resp.StatusCode)
+		return nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body))
 	}
 
 	return body, nil
