@@ -3,8 +3,10 @@ package fireboltgosdk
 import (
 	"context"
 	"encoding/json"
+	"github.com/jellydator/ttlcache/v3"
 	"net/url"
 	"strings"
+	"time"
 )
 
 type AuthenticationResponse struct {
@@ -15,34 +17,45 @@ type AuthenticationResponse struct {
 	Scope        string `json:"scope"`
 }
 
+var cache = ttlcache.New[string, string]()
+
 // Authenticate sends an authentication request, and returns a newly constructed client object
 func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 	var loginUrl string
 	var contentType string
 	var body string
 	var err error
-	if strings.Contains(username, "@") {
-		loginUrl, contentType, body, err = prepareUsernamePasswordLogin(username, password)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		loginUrl, contentType, body = prepareServiceAccountLogin(username, password)
-	}
-	infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
+
 	userAgent := ConstructUserAgentString()
-	resp, err := request(context.TODO(), "", "POST", apiEndpoint+loginUrl, userAgent, nil, body, contentType)
-	if err != nil {
-		return nil, ConstructNestedError("authentication request failed", err)
-	}
+	cached := cache.Get(getCacheKey(username, apiEndpoint))
+	if cached != nil {
+		infolog.Printf("Found auth token from cache")
+		return &Client{AccessToken: cached.Value(), ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
+	} else {
+		if strings.Contains(username, "@") {
+			loginUrl, contentType, body, err = prepareUsernamePasswordLogin(username, password)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			loginUrl, contentType, body = prepareServiceAccountLogin(username, password)
+		}
+		infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
 
-	var authResp AuthenticationResponse
-	if err = jsonStrictUnmarshall(resp, &authResp); err != nil {
-		return nil, ConstructNestedError("failed to unmarshal authentication response with error", err)
-	}
+		resp, err := request(context.TODO(), "", "POST", apiEndpoint+loginUrl, userAgent, nil, body, contentType)
+		if err != nil {
+			return nil, ConstructNestedError("authentication request failed", err)
+		}
 
-	infolog.Printf("Authentication was successful")
-	return &Client{AccessToken: authResp.AccessToken, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
+		var authResp AuthenticationResponse
+		if err = jsonStrictUnmarshall(resp, &authResp); err != nil {
+			return nil, ConstructNestedError("failed to unmarshal authentication response with error", err)
+		}
+
+		infolog.Printf("Authentication was successful")
+		cache.Set(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
+		return &Client{AccessToken: authResp.AccessToken, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
+	}
 }
 
 func prepareUsernamePasswordLogin(username string, password string) (string, string, string, error) {
@@ -67,4 +80,8 @@ func prepareServiceAccountLogin(username, password string) (string, string, stri
 	var contentType = "application/x-www-form-urlencoded"
 	var body = form.Encode()
 	return authUrl, contentType, body
+}
+
+func getCacheKey(username, apiEndpoint string) string {
+	return username + apiEndpoint
 }
