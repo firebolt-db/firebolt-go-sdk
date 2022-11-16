@@ -3,10 +3,11 @@ package fireboltgosdk
 import (
 	"context"
 	"encoding/json"
-	"github.com/jellydator/ttlcache/v3"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/jellydator/ttlcache/v3"
 )
 
 type AuthenticationResponse struct {
