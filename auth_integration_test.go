@@ -9,7 +9,7 @@ import (
 
 // TestAuthHappyPath tests normal authentication, and that the access token is actually set
 func TestAuthHappyPath(t *testing.T) {
-	if len(clientMock.AccessToken) == 0 {
+	if len(getCachedToken(clientMock.Username, clientMock.ApiEndpoint)) == 0 {
 		t.Errorf("Token is not set properly")
 	}
 }
