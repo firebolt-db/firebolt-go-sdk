@@ -31,7 +31,7 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 	cached := cache.Get(getCacheKey(username, apiEndpoint))
 	if cached != nil {
 		infolog.Printf("Found auth token from cache")
-		return &Client{AccessToken: cached.Value(), ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
+		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 	} else {
 		if strings.Contains(username, "@") {
 			loginUrl, contentType, body, err = prepareUsernamePasswordLogin(username, password)
@@ -43,7 +43,7 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 		}
 		infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
 
-		resp, err := request(context.TODO(), "", "POST", apiEndpoint+loginUrl, userAgent, nil, body, contentType)
+		resp, err, _ := request(context.TODO(), "", "POST", apiEndpoint+loginUrl, userAgent, nil, body, contentType)
 		if err != nil {
 			return nil, ConstructNestedError("authentication request failed", err)
 		}
@@ -55,7 +55,7 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 
 		infolog.Printf("Authentication was successful")
 		cache.Set(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
-		return &Client{AccessToken: authResp.AccessToken, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
+		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 	}
 }
 
@@ -85,4 +85,17 @@ func prepareServiceAccountLogin(username, password string) (string, string, stri
 
 func getCacheKey(username, apiEndpoint string) string {
 	return username + apiEndpoint
+}
+
+func getCachedToken(username, apiEndpoint string) string {
+	cached := cache.Get(getCacheKey(username, apiEndpoint))
+	if cached != nil {
+		return cached.Value()
+	} else {
+		return ""
+	}
+}
+
+func DeleteTokenFromCache(username, apiEndpoint string) {
+	cache.Delete(getCacheKey(username, apiEndpoint))
 }
