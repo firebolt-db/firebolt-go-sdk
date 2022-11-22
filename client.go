@@ -27,7 +27,7 @@ func (c *Client) GetAccountIdByName(ctx context.Context, accountName string) (st
 
 	params := map[string]string{"account_name": accountName}
 
-	response, err := c.request(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, c.UserAgent, params, "", "")
+	response, err := c.request(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, c.UserAgent, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting account id by name request", err)
 	}
@@ -52,7 +52,7 @@ func (c *Client) GetEngineIdByName(ctx context.Context, engineName string, accou
 	}
 
 	params := map[string]string{"engine_name": engineName}
-	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), c.UserAgent, params, "", "")
+	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), c.UserAgent, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine id by name request", err)
 	}
@@ -75,7 +75,7 @@ func (c *Client) GetEngineUrlById(ctx context.Context, engineId string, accountI
 		Engine EngineResponse `json:"engine"`
 	}
 
-	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), c.UserAgent, make(map[string]string), "", "")
+	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), c.UserAgent, make(map[string]string), "")
 
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by id request", err)
@@ -98,7 +98,7 @@ func (c *Client) GetDefaultAccountId(ctx context.Context) (string, error) {
 		Account AccountResponse `json:"account"`
 	}
 
-	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), c.UserAgent, make(map[string]string), "", "")
+	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), c.UserAgent, make(map[string]string), "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting default account id request", err)
 	}
@@ -137,7 +137,7 @@ func (c *Client) GetEngineUrlByDatabase(ctx context.Context, databaseName string
 	}
 
 	params := map[string]string{"database_name": databaseName}
-	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), c.UserAgent, params, "", "")
+	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), c.UserAgent, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by database request", err)
 	}
@@ -158,7 +158,7 @@ func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query strin
 		params[setKey] = setValue
 	}
 
-	response, err := c.request(ctx, "POST", engineUrl, c.UserAgent, params, query, "")
+	response, err := c.request(ctx, "POST", engineUrl, c.UserAgent, params, query)
 	if err != nil {
 		return nil, ConstructNestedError("error during query request", err)
 	}
@@ -210,7 +210,7 @@ func checkErrorResponse(response []byte) error {
 // additionally it passes the parameters and a bodyStr as a payload
 // if accessToken is passed, it is used for authorization
 // returns response and an error
-func request(ctx context.Context, accessToken string, method string, url string, userAgent string, params map[string]string, bodyStr string, contentType string) ([]byte, error, int) {
+func request(ctx context.Context, accessToken string, method string, url string, userAgent string, params map[string]string, bodyStr string) ([]byte, error, int) {
 	req, _ := http.NewRequestWithContext(ctx, method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
 
 	// adding sdk usage tracking
@@ -219,9 +219,6 @@ func request(ctx context.Context, accessToken string, method string, url string,
 	if len(accessToken) > 0 {
 		var bearer = "Bearer " + accessToken
 		req.Header.Add("Authorization", bearer)
-	}
-	if len(contentType) > 0 {
-		req.Header.Set("Content-Type", contentType)
 	}
 
 	q := req.URL.Query()
@@ -267,23 +264,23 @@ func jsonStrictUnmarshall(data []byte, v interface{}) error {
 	return decoder.Decode(v)
 }
 
-func (c Client) request(ctx context.Context, method string, url string, userAgent string, params map[string]string, bodyStr string, contentType string) ([]byte, error) {
+func (c Client) request(ctx context.Context, method string, url string, userAgent string, params map[string]string, bodyStr string) ([]byte, error) {
 	accessToken := getCachedToken(c.Username, c.ApiEndpoint)
 	var response []byte
 	var err error
 	var responseCode int
 	if len(accessToken) > 0 {
-		response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr, contentType)
+		response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr)
 	}
 	if len(accessToken) == 0 || (err == nil && responseCode == 401) {
 		DeleteTokenFromCache(c.Username, c.ApiEndpoint)
 		// Refreshing the access token as it is expired
-		_, err := Authenticate(c.Username, c.Password, GetHostNameURL())
+		_, err = Authenticate(c.Username, c.Password, GetHostNameURL())
 		if err != nil {
-			return nil, ConstructNestedError("error during refreshing access token", err)
+			return nil, ConstructNestedError("error while refreshing access token", err)
 		}
 		accessToken := getCachedToken(c.Username, c.ApiEndpoint)
-		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr, contentType)
+		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr)
 	}
 	return response, err
 }
