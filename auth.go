@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"context"
 	"encoding/json"
+	"time"
 
 	"github.com/jellydator/ttlcache/v3"
 )
@@ -17,12 +18,12 @@ type AuthenticationResponse struct {
 
 var cache = ttlcache.New[string, string]()
 
-// Authenticate sends an authentication request, and returns a newly constructed client object
+// Authenticate sends an authentication request when a token is not available in the cache, and returns a newly constructed client object
 func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 	infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, LoginUrl)
 	userAgent := ConstructUserAgentString()
-	cached := cache.Get(getCacheKey(username, apiEndpoint))
-	if cached != nil {
+	cachedToken := getCachedAccessToken(username, apiEndpoint)
+	if len(cachedToken) > 0 {
 		infolog.Printf("Returning auth token from cache")
 		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 	} else {
@@ -31,8 +32,6 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 		if err != nil {
 			return nil, ConstructNestedError("error during json marshalling", err)
 		}
-
-		userAgent := ConstructUserAgentString()
 		resp, err, _ := request(context.TODO(), "", "POST", apiEndpoint+LoginUrl, userAgent, nil, string(jsonData))
 		if err != nil {
 			return nil, ConstructNestedError("authentication request failed", err)
@@ -44,6 +43,7 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 		}
 
 		infolog.Printf("Authentication was successful")
+		cache.Set(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
 		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 	}
 }
@@ -52,8 +52,8 @@ func getCacheKey(username, apiEndpoint string) string {
 	return username + apiEndpoint
 }
 
-func getCachedToken(username, apiEndpoint string) string {
-	cached := cache.Get(getCacheKey(username, apiEndpoint))
+func getCachedAccessToken(username, apiEndpoint string) string {
+	cached := cache.Get(username + apiEndpoint)
 	if cached != nil {
 		return cached.Value()
 	} else {
@@ -61,6 +61,7 @@ func getCachedToken(username, apiEndpoint string) string {
 	}
 }
 
-func DeleteTokenFromCache(username, apiEndpoint string) {
+// deleteAccessTokenFromCache deletes an access token from the cache if available
+func deleteAccessTokenFromCache(username, apiEndpoint string) {
 	cache.Delete(getCacheKey(username, apiEndpoint))
 }

@@ -179,7 +179,7 @@ func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query strin
 
 // makeCanonicalUrl checks whether url starts with https:// and if not prepends it
 func makeCanonicalUrl(url string) string {
-	if strings.HasPrefix(url, "https://") {
+	if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
 		return url
 	} else {
 		return fmt.Sprintf("https://%s", url)
@@ -265,21 +265,22 @@ func jsonStrictUnmarshall(data []byte, v interface{}) error {
 }
 
 func (c Client) request(ctx context.Context, method string, url string, userAgent string, params map[string]string, bodyStr string) ([]byte, error) {
-	accessToken := getCachedToken(c.Username, c.ApiEndpoint)
+	accessToken := getCachedAccessToken(c.Username, c.ApiEndpoint)
 	var response []byte
 	var err error
 	var responseCode int
 	if len(accessToken) > 0 {
 		response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr)
 	}
-	if len(accessToken) == 0 || (err == nil && responseCode == 401) {
-		DeleteTokenFromCache(c.Username, c.ApiEndpoint)
+	if len(accessToken) == 0 || responseCode == http.StatusUnauthorized {
+		deleteAccessTokenFromCache(c.Username, c.ApiEndpoint)
 		// Refreshing the access token as it is expired
 		_, err = Authenticate(c.Username, c.Password, GetHostNameURL())
 		if err != nil {
 			return nil, ConstructNestedError("error while refreshing access token", err)
 		}
-		accessToken := getCachedToken(c.Username, c.ApiEndpoint)
+		accessToken := getCachedAccessToken(c.Username, c.ApiEndpoint)
+		// Trying to send the same request again now that the access token has been refreshed
 		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr)
 	}
 	return response, err
