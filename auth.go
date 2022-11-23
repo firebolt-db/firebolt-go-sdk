@@ -48,12 +48,14 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 	}
 }
 
+// getCacheKey calculates an access token key using the username and the apiEndpoint provided
 func getCacheKey(username, apiEndpoint string) string {
 	return username + apiEndpoint
 }
 
+// getCachedAccessToken returns a cached access token or empty when a token could not be found
 func getCachedAccessToken(username, apiEndpoint string) string {
-	cached := cache.Get(username + apiEndpoint)
+	cached := cache.Get(getCacheKey(username, apiEndpoint))
 	if cached != nil {
 		return cached.Value()
 	} else {

@@ -9,6 +9,7 @@ import (
 	"time"
 )
 
+// TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
 func TestCacheAccessToken(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
@@ -44,6 +45,7 @@ func TestCacheAccessToken(t *testing.T) {
 	}
 }
 
+// TestRefreshTokenOn401 tests that a token is refreshed when the server returns a 401
 func TestRefreshTokenOn401(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
@@ -77,6 +79,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 
 }
 
+// TestFetchTokenWhenExpired tests that a new token is fetched upon expiry
 func TestFetchTokenWhenExpired(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
