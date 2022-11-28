@@ -127,6 +127,7 @@ func TestDriverExecStatement(t *testing.T) {
 
 // TestDriverSystemEngine checks system engine queries are executed without error
 func TestDriverSystemEngine(t *testing.T) {
+	// Keeping the same names so that we do not fill the environments with databases that are automatically created
 	databaseName := "go_sdk_system_engine_integration_test"
 	engineName := "go_sdk_system_engine_integration_test_engine"
 	engineNewName := "go_sdk_system_engine_integration_test_engine_2"
@@ -135,10 +136,12 @@ func TestDriverSystemEngine(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed unexpectedly with %v", err)
 	}
-	_, err = db.Query(fmt.Sprintf("DROP DATABASE IF EXISTS %s", databaseName))
-	if err != nil {
-		t.Errorf("Could not drop database %s. The query returned an error: %v", databaseName, err)
-	}
+
+	// Removing any potential pre-existing resource. We do not check the error as the server returns an error when
+	// trying to remove non-existing resources.
+	db.Query(fmt.Sprintf("DROP DATABASE IF EXISTS %s", databaseName))
+	db.Query(fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName))
+	db.Query(fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName))
 
 	queries := []string{fmt.Sprintf("CREATE DATABASE %s", databaseName),
 		fmt.Sprintf("CREATE ENGINE %s", engineName),
