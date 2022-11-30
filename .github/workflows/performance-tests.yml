@@ -1,0 +1,56 @@
+name: Performance tests
+
+on:
+  push:
+  workflow_dispatch:
+    inputs:
+      database:
+        description: 'Database (staging) - a new one will be created if not provided'
+        required: false
+        default: ''
+  workflow_call:
+    secrets:
+      FIREBOLT_USERNAME:
+        required: true
+      FIREBOLT_PASSWORD:
+        required: true
+
+jobs:
+  performance-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.0'
+      - name: Setup database and engine
+        id: setup
+        uses: firebolt-db/integration-testing-setup@master
+        with:
+          firebolt-username: ${{ secrets.FIREBOLT_USERNAME }}
+          firebolt-password: ${{ secrets.FIREBOLT_PASSWORD }}
+          api-endpoint: "api.dev.firebolt.io"
+          region: "us-east-1"
+          instance-type: "B2"
+      - name: gobenchdata publish
+        uses: bobheadxi/gobenchdata@v1
+        with:
+          PRUNE_COUNT: 10
+          GO_TEST_FLAGS: -test.benchtime=10x
+          PUBLISH: true
+          PUBLISH_BRANCH: gh-pages
+          GO_BENCHMARKS: BenchmarkSelect
+        env:
+           USER_NAME: ${{ secrets.FIREBOLT_USERNAME }}
+           PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
+           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
+           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
+           ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
+           STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
+           STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
+           FIREBOLT_ENDPOINT: "api.dev.firebolt.io"
+           ACCOUNT_NAME: "firebolt"
+           TEST_THREAD_COUNT: 10
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
