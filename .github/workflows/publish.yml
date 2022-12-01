@@ -1,0 +1,27 @@
+name: Publish
+
+on:
+  push:
+    branches: [ gh-pages ]
+
+jobs:
+  publish-web-page:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.0'
+      - name: publish
+        run: |
+          go install go.bobheadxi.dev/gobenchdata@latest
+          gobenchdata web generate --web.config-only .
+          mkdir app
+          gobenchdata web generate ./app
+          git config --global user.name "automation"
+          git config --global user.email "automation@users.noreply.github.com"
+          git add app && git commit -m "Pushing web page"
+          git subtree push -f --prefix app origin gh-pages
