@@ -1,10 +1,9 @@
 title: Go SDK - Performance tests
-description: Performance tests for the Go SDK
 repository: https://github.com/firebolt-db/firebolt-go-sdk
 benchmarksFile: benchmarks.json
 chartGroups:
-  - name: Demo Benchmarks
+  - name: Performance tests results 🚀
     description: |
-      This it the performance tests for the Go SDK
+      This is the performance tests results of the Firebolt Go SDK
     charts:
       - name: Charts
