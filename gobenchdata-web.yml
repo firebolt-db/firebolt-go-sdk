@@ -1,13 +1,8 @@
-title: gobenchdata web
-description: Benchmarks generated using 'gobenchdata'
+title: Go SDK - Performance tests
+description: Performance tests for the Go SDK
 repository: https://github.com/firebolt-db/firebolt-go-sdk
 benchmarksFile: benchmarks.json
 chartGroups:
   - name: Demo Benchmarks
     description: |
-      This is a demo for gobenchdata, a tool and GitHub action for setting up simple continuous
-      benchmarks to monitor performance improvements and regressions in your Golang benchmarks!
-    charts:
-      - name: specify charts bysss package
-        package: fireboltgosdk
-      - name: match on specific benchmarks across packages with glob patterns
+      This it the performance tests for the Go SDK
