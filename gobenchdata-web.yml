@@ -6,3 +6,5 @@ chartGroups:
   - name: Demo Benchmarks
     description: |
       This it the performance tests for the Go SDK
+    charts:
+      - name: Charts
