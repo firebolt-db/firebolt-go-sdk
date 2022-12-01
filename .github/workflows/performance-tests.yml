@@ -42,6 +42,7 @@ jobs:
           PUBLISH: true
           PUBLISH_BRANCH: gh-pages
           GO_BENCHMARKS: BenchmarkSelect
+          BENCHMARKS_OUT: benchmark/benchmarks.json
         env:
            USER_NAME: ${{ secrets.FIREBOLT_USERNAME }}
            PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
