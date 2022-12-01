@@ -18,7 +18,7 @@ jobs:
       - name: publish
         run: |
           go install go.bobheadxi.dev/gobenchdata@latest
-          gobenchdata web generate .
+          gobenchdata web generate ./benchmark
       - name: push
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
