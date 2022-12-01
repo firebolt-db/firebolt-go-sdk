@@ -18,13 +18,10 @@ jobs:
       - name: publish
         run: |
           go install go.bobheadxi.dev/gobenchdata@latest
-          gobenchdata web generate --web.config-only .
-          mkdir docs
-          gobenchdata web generate ./docs
+          gobenchdata web generate .
       - name: push
         uses: stefanzweifel/git-auto-commit-action@v4
         with:
           commit_message: Push web app - Automated Change
           branch: gh-pages
-          file_pattern: './docs'
 
