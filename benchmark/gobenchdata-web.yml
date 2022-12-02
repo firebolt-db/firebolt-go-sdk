@@ -4,7 +4,7 @@ benchmarksFile: benchmarks.json
 chartGroups:
   - name: 🚀 Performance tests results of the Firebolt Go SDK 🚀
     charts:
-      - name: select * from lineitem ORDER BY l_orderkey LIMIT 1000; 🛒
+      - name: SELECT * from lineitem ORDER BY l_orderkey LIMIT 1000; 🛒
         benchmarks: [ 'SelectLineItem.' ]
-      - name: Select 1; ⚡
+      - name: SELECT 1; ⚡
         benchmarks: [ 'Select1.' ]
