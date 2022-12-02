@@ -6,4 +6,7 @@ chartGroups:
     description: |
       This is the performance tests results of the Firebolt Go SDK
     charts:
-      - name: Charts
+      - name: SELECT * from lineitem
+        benchmarks: [ 'SelectLineItem.' ]
+      - name: Select 1
+        benchmarks: [ 'Select1.' ]
