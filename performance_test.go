@@ -43,7 +43,23 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
-func BenchmarkSelectWithThreads(b *testing.B) {
+func BenchmarkSelectLineItemWithThreads(b *testing.B) {
+	benchmarkSelectWithThreads(b, "select * from lineitem ORDER BY l_orderkey LIMIT 1000;")
+}
+
+func BenchmarkSelectLineItemWithoutThreads(b *testing.B) {
+	benchmarkSelectWithoutThreads(b, "select * from lineitem ORDER BY l_orderkey LIMIT 1000;")
+}
+
+func BenchmarkSelect1WithThreads(b *testing.B) {
+	benchmarkSelectWithThreads(b, "SELECT 1")
+}
+
+func BenchmarkSelect1WithoutThreads(b *testing.B) {
+	benchmarkSelectWithoutThreads(b, "SELECT 1")
+}
+
+func benchmarkSelectWithThreads(b *testing.B, query string) {
 	var counter atomicCounter
 	var total = int32(b.N)
 	var wg sync.WaitGroup
@@ -52,7 +68,7 @@ func BenchmarkSelectWithThreads(b *testing.B) {
 		go func(i int) {
 			for counter.get() < total {
 				counter.inc()
-				executeSelect(1, b)
+				executeQuery(1, query, b)
 			}
 			defer wg.Done()
 		}(j)
@@ -60,22 +76,29 @@ func BenchmarkSelectWithThreads(b *testing.B) {
 	wg.Wait()
 }
 
-func BenchmarkSelectWithoutThreads(b *testing.B) {
-	executeSelect(b.N, b)
+func benchmarkSelectWithoutThreads(b *testing.B, query string) {
+	executeQuery(b.N, query, b)
 }
 
-func executeSelect(count int, b *testing.B) {
-	for i := 0; i < count; i++ {
-		rows, err := pool.Query("select * from lineitem ORDER BY l_orderkey LIMIT 1000;")
+func executeQuery(loops int, query string, b *testing.B) {
+	for i := 0; i < loops; i++ {
+		rows, err := pool.Query(query)
+		columns, _ := rows.Columns()
+		columnCount := len(columns)
+		values := make([]interface{}, columnCount)
+		valuePointers := make([]interface{}, columnCount)
+		for i, _ := range columns {
+			valuePointers[i] = &values[i]
+		}
 
 		if err != nil {
 			b.Errorf("error during select query %s", err)
 		}
-		var anyField any
+
 		// iterating over the resulting rows
 		defer rows.Close()
 		for rows.Next() {
-			if err := rows.Scan(&anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField); err != nil {
+			if err := rows.Scan(valuePointers...); err != nil {
 				b.Errorf("error during scan: %s", err)
 			}
 		}
