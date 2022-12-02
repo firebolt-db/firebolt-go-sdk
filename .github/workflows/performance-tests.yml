@@ -67,5 +67,5 @@ jobs:
            STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
            FIREBOLT_ENDPOINT: "api.dev.firebolt.io"
            ACCOUNT_NAME: "firebolt"
-           TEST_THREAD_COUNT: 10
+           TEST_THREAD_COUNT: 5
            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
