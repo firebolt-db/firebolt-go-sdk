@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"sync"
@@ -35,7 +36,7 @@ func TestMain(m *testing.M) {
 	pool, err = sql.Open("firebolt", dsn)
 
 	if err != nil {
-		fmt.Println("error during opening a driver", err)
+		log.Fatal("error during opening a driver", err)
 	}
 	code := m.Run()
 	pool.Close()
@@ -51,7 +52,7 @@ func BenchmarkSelectWithThreads(b *testing.B) {
 		go func(i int) {
 			for counter.get() < total {
 				counter.inc()
-				executeSelect(1)
+				executeSelect(1, b)
 			}
 			defer wg.Done()
 		}(j)
@@ -60,23 +61,22 @@ func BenchmarkSelectWithThreads(b *testing.B) {
 }
 
 func BenchmarkSelectWithoutThreads(b *testing.B) {
-	executeSelect(b.N)
+	executeSelect(b.N, b)
 }
 
-func executeSelect(count int) {
+func executeSelect(count int, b *testing.B) {
 	for i := 0; i < count; i++ {
-		rows, err := pool.Query("SELECT 1")
+		rows, err := pool.Query("select * from lineitem ORDER BY l_orderkey LIMIT 1000;")
 
 		if err != nil {
-			fmt.Println("error during select query: ", err)
+			b.Errorf("error during select query %s", err)
 		}
-
+		var anyField any
 		// iterating over the resulting rows
 		defer rows.Close()
 		for rows.Next() {
-			var id int
-			if err := rows.Scan(&id); err != nil {
-				fmt.Println("error during scan: ", err)
+			if err := rows.Scan(&anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField, &anyField); err != nil {
+				b.Errorf("error during scan: %s", err)
 			}
 		}
 	}
