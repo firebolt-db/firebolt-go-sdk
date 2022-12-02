@@ -2,11 +2,11 @@ title: Go SDK - Performance tests
 repository: https://github.com/firebolt-db/firebolt-go-sdk
 benchmarksFile: benchmarks.json
 chartGroups:
-  - name: Performance tests results 🚀
+  - name: 🚀 Performance tests results 🚀
     description: |
       This is the performance tests results of the Firebolt Go SDK
     charts:
-      - name: SELECT * from lineitem
+      - name: select * from lineitem ORDER BY l_orderkey LIMIT 1000; 🛒
         benchmarks: [ 'SelectLineItem.' ]
-      - name: Select 1
+      - name: Select 1; ⚡
         benchmarks: [ 'Select1.' ]
