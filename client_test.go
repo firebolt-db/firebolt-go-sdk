@@ -24,7 +24,7 @@ func TestCacheAccessToken(t *testing.T) {
 	}))
 	defer server.Close()
 	t.Setenv("FIREBOLT_ENDPOINT", server.URL)
-	var client = &Client{Username: "username", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	var err error
 	for i := 0; i < 3; i++ {
 		_, err = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
@@ -40,7 +40,7 @@ func TestCacheAccessToken(t *testing.T) {
 		t.Errorf("Expected to call the server 4 times (1x to fetch token and 3x to send another request). Total: %d", totalCount)
 	}
 
-	if getCachedAccessToken("username", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("username@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 }
@@ -60,7 +60,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 	}))
 	defer server.Close()
 	t.Setenv("FIREBOLT_ENDPOINT", server.URL)
-	var client = &Client{Username: "username", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
 	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
 
@@ -73,7 +73,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 		t.Errorf("Expected to call the server 5 times (2x to fetch tokens and 3x to send the request that returns a 403). Total: %d", totalCount)
 	}
 
-	if getCachedAccessToken("username", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("username@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -94,7 +94,7 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	}))
 	defer server.Close()
 	t.Setenv("FIREBOLT_ENDPOINT", server.URL)
-	var client = &Client{Username: "username", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
@@ -109,7 +109,7 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 		t.Errorf("Expected to call the server 5 times (2x to fetch tokens and 3x to send the request that returns a 403). Total: %d", totalCount)
 	}
 
-	if getCachedAccessToken("username", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("username@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 

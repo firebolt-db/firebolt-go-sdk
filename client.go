@@ -214,7 +214,7 @@ func (c Client) request(ctx context.Context, method string, url string, userAgen
 	var err error
 	var responseCode int
 	if len(accessToken) > 0 {
-		response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr)
+		response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr, "")
 	}
 	if len(accessToken) == 0 || responseCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.Username, c.ApiEndpoint)
@@ -225,7 +225,7 @@ func (c Client) request(ctx context.Context, method string, url string, userAgen
 		}
 		accessToken := getCachedAccessToken(c.Username, c.ApiEndpoint)
 		// Trying to send the same request again now that the access token has been refreshed
-		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr)
+		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr, "")
 	}
 	return response, err
 }
@@ -234,7 +234,7 @@ func (c Client) request(ctx context.Context, method string, url string, userAgen
 // additionally it passes the parameters and a bodyStr as a payload
 // if accessToken is passed, it is used for authorization
 // returns response and an error
-func request(ctx context.Context, accessToken string, method string, url string, userAgent string, params map[string]string, bodyStr string) ([]byte, error, int) {
+func request(ctx context.Context, accessToken string, method string, url string, userAgent string, params map[string]string, bodyStr string, contentType string) ([]byte, error, int) {
 	req, _ := http.NewRequestWithContext(ctx, method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
 
 	// adding sdk usage tracking
@@ -243,6 +243,10 @@ func request(ctx context.Context, accessToken string, method string, url string,
 	if len(accessToken) > 0 {
 		var bearer = "Bearer " + accessToken
 		req.Header.Add("Authorization", bearer)
+	}
+
+	if len(contentType) > 0 {
+		req.Header.Set("Content-Type", contentType)
 	}
 
 	q := req.URL.Query()

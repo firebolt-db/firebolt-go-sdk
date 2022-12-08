@@ -14,17 +14,19 @@ import (
 )
 
 var (
-	dsnMock               string
-	dsnEngineUrlMock      string
-	dsnDefaultEngineMock  string
-	dsnDefaultAccountMock string
-	usernameMock          string
-	passwordMock          string
-	databaseMock          string
-	engineUrlMock         string
-	engineNameMock        string
-	accountNameMock       string
-	clientMock            *Client
+	dsnMock                    string
+	dsnEngineUrlMock           string
+	dsnDefaultEngineMock       string
+	dsnDefaultAccountMock      string
+	usernameMock               string
+	passwordMock               string
+	databaseMock               string
+	engineUrlMock              string
+	engineNameMock             string
+	accountNameMock            string
+	serviceAccountClientId     string
+	serviceAccountClientSecret string
+	clientMock                 *Client
 )
 
 // init populates mock variables and client for integration tests

@@ -3,6 +3,8 @@ package fireboltgosdk
 import (
 	"context"
 	"encoding/json"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/jellydator/ttlcache/v3"
@@ -18,20 +20,29 @@ type AuthenticationResponse struct {
 
 var cache = ttlcache.New[string, string]()
 
-// Authenticate sends an authentication request when a token is not available in the cache, and returns a newly constructed client object
+// Authenticate sends an authentication request, and returns a newly constructed client object
 func Authenticate(username, password, apiEndpoint string) (*Client, error) {
-	infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, LoginUrl)
+	var loginUrl string
+	var contentType string
+	var body string
+	var err error
+
 	userAgent := ConstructUserAgentString()
 	cachedToken := getCachedAccessToken(username, apiEndpoint)
 	if len(cachedToken) > 0 {
 		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 	} else {
-		values := map[string]string{"username": username, "password": password}
-		jsonData, err := json.Marshal(values)
-		if err != nil {
-			return nil, ConstructNestedError("error during json marshalling", err)
+		if strings.Contains(username, "@") {
+			loginUrl, contentType, body, err = prepareUsernamePasswordLogin(username, password)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			loginUrl, contentType, body = prepareServiceAccountLogin(username, password)
 		}
-		resp, err, _ := request(context.TODO(), "", "POST", apiEndpoint+LoginUrl, userAgent, nil, string(jsonData))
+		infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
+
+		resp, err, _ := request(context.TODO(), "", "POST", apiEndpoint+loginUrl, userAgent, nil, body, contentType)
 		if err != nil {
 			return nil, ConstructNestedError("authentication request failed", err)
 		}
@@ -60,6 +71,30 @@ func getCachedAccessToken(username, apiEndpoint string) string {
 	} else {
 		return ""
 	}
+}
+
+func prepareUsernamePasswordLogin(username string, password string) (string, string, string, error) {
+	var authUrl = UsernamePasswordURLSuffix
+	//var values = map[string]string{"username": username, "password": password}
+	var contentType = "application/json"
+	values := map[string]string{"username": username, "password": password}
+	jsonData, err := json.Marshal(values)
+	if err != nil {
+		return "", "", "", ConstructNestedError("error during json marshalling", err)
+	} else {
+		return authUrl, contentType, string(jsonData), nil
+	}
+}
+
+func prepareServiceAccountLogin(username, password string) (string, string, string) {
+	var authUrl = ServiceAccountLoginURLSuffix
+	form := url.Values{}
+	form.Add("client_id", username)
+	form.Add("client_secret", password)
+	form.Add("grant_type", "client_credentials")
+	var contentType = "application/x-www-form-urlencoded"
+	var body = form.Encode()
+	return authUrl, contentType, body
 }
 
 // deleteAccessTokenFromCache deletes an access token from the cache if available
