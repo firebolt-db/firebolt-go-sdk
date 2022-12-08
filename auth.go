@@ -24,7 +24,6 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 	userAgent := ConstructUserAgentString()
 	cachedToken := getCachedAccessToken(username, apiEndpoint)
 	if len(cachedToken) > 0 {
-		infolog.Printf("Returning auth token from cache")
 		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 	} else {
 		values := map[string]string{"username": username, "password": password}
