@@ -76,13 +76,12 @@ func getCachedAccessToken(username, apiEndpoint string) string {
 func prepareUsernamePasswordLogin(username string, password string) (string, string, string, error) {
 	var authUrl = UsernamePasswordURLSuffix
 	//var values = map[string]string{"username": username, "password": password}
-	var contentType = "application/json"
 	values := map[string]string{"username": username, "password": password}
 	jsonData, err := json.Marshal(values)
 	if err != nil {
 		return "", "", "", ConstructNestedError("error during json marshalling", err)
 	} else {
-		return authUrl, contentType, string(jsonData), nil
+		return authUrl, ContentTypeJSON, string(jsonData), nil
 	}
 }
 
@@ -92,9 +91,8 @@ func prepareServiceAccountLogin(username, password string) (string, string, stri
 	form.Add("client_id", username)
 	form.Add("client_secret", password)
 	form.Add("grant_type", "client_credentials")
-	var contentType = "application/x-www-form-urlencoded"
 	var body = form.Encode()
-	return authUrl, contentType, body
+	return authUrl, ContentTypeForm, body
 }
 
 // deleteAccessTokenFromCache deletes an access token from the cache if available

@@ -214,7 +214,7 @@ func (c Client) request(ctx context.Context, method string, url string, userAgen
 	var err error
 	var responseCode int
 	if len(accessToken) > 0 {
-		response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr, "")
+		response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
 	}
 	if len(accessToken) == 0 || responseCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.Username, c.ApiEndpoint)
@@ -225,7 +225,7 @@ func (c Client) request(ctx context.Context, method string, url string, userAgen
 		}
 		accessToken := getCachedAccessToken(c.Username, c.ApiEndpoint)
 		// Trying to send the same request again now that the access token has been refreshed
-		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr, "")
+		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
 	}
 	return response, err
 }
