@@ -22,11 +22,6 @@ func TestConnectionSetStatement(t *testing.T) {
 	_, err = conn.QueryContext(context.TODO(), "SELECT * FROM information_schema.tables", nil)
 	assert(err == nil, t, "query returned an error, but shouldn't")
 
-	_, err = conn.ExecContext(context.TODO(), "SET use_standard_sql=0", nil)
-	assert(err == nil, t, "set use_standard_sql returned an error, but shouldn't")
-
-	_, err = conn.QueryContext(context.TODO(), "SELECT * FROM information_schema.tables", nil)
-	assert(err != nil, t, "query didn't return an error, but should")
 }
 
 // TestConnectionQuery checks simple SELECT 1 exec
