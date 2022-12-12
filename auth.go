@@ -32,7 +32,7 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 	if len(cachedToken) > 0 {
 		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 	} else {
-		if strings.Contains(username, "@") {
+		if isServiceAccount(username) {
 			loginUrl, contentType, body, err = prepareUsernamePasswordLogin(username, password)
 			if err != nil {
 				return nil, err
@@ -98,4 +98,9 @@ func prepareServiceAccountLogin(username, password string) (string, string, stri
 // deleteAccessTokenFromCache deletes an access token from the cache if available
 func deleteAccessTokenFromCache(username, apiEndpoint string) {
 	cache.Delete(getCacheKey(username, apiEndpoint))
+}
+
+// isServiceAccount checks if a username is a service account cliend id
+func isServiceAccount(username string) bool {
+	return strings.Contains(username, "@")
 }

@@ -52,6 +52,8 @@ jobs:
           STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
           FIREBOLT_ENDPOINT: "api.dev.firebolt.io"
           ACCOUNT_NAME: "firebolt"
+          SERVICE_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID }}
+          SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET }}
         run: |
           go test . -v -coverprofile cover.out --tags=integration
 

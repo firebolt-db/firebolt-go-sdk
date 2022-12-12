@@ -33,6 +33,12 @@ func TestAuthEmptyCredential(t *testing.T) {
 func TestAuthServiceAccount(t *testing.T) {
 	serviceAccountClientId = os.Getenv("SERVICE_ACCOUNT_CLIENT_ID")
 	serviceAccountClientSecret = os.Getenv("SERVICE_ACCOUNT_CLIENT_SECRET")
+	if len(serviceAccountClientId) == 0 {
+		t.Errorf("Could not run the test because the client id is not set (environment var: SERVICE_ACCOUNT_CLIENT_ID")
+	}
+	if len(serviceAccountClientSecret) == 0 {
+		t.Errorf("Could not run the test because the client secret is not set (environment var: SERVICE_ACCOUNT_CLIENT_SECRET")
+	}
 	client, err := Authenticate(serviceAccountClientId, serviceAccountClientSecret, GetHostNameURL())
 	if err != nil {
 		t.Errorf("Could not authenticate using service account")
