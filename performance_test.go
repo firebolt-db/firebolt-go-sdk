@@ -96,12 +96,12 @@ func executeQuery(loops int, query string, b *testing.B) {
 		}
 
 		// iterating over the resulting rows
-		defer rows.Close()
 		for rows.Next() {
 			if err := rows.Scan(valuePointers...); err != nil {
 				b.Errorf("error during scan: %s", err)
 			}
 		}
+		rows.Close()
 	}
 
 }
