@@ -52,7 +52,7 @@ jobs:
         uses: bobheadxi/gobenchdata@v1
         with:
           PRUNE_COUNT: 15
-          GO_TEST_FLAGS: -test.benchtime=125x
+          GO_TEST_FLAGS: -test.benchtime=50x
           PUBLISH: true
           PUBLISH_BRANCH: gh-pages
           GO_BENCHMARKS: BenchmarkSelect

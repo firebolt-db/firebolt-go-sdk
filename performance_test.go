@@ -60,16 +60,12 @@ func BenchmarkSelect1WithoutThreads(b *testing.B) {
 }
 
 func benchmarkSelectWithThreads(b *testing.B, query string) {
-	var counter atomicCounter
-	var total = int32(b.N)
+	var loops = b.N
 	var wg sync.WaitGroup
 	wg.Add(threadCount)
 	for j := 0; j < threadCount; j++ {
 		go func(i int) {
-			for counter.get() < total {
-				counter.inc()
-				executeQuery(1, query, b)
-			}
+			executeQuery(loops, query, b)
 			defer wg.Done()
 		}(j)
 	}
@@ -81,18 +77,22 @@ func benchmarkSelectWithoutThreads(b *testing.B, query string) {
 }
 
 func executeQuery(loops int, query string, b *testing.B) {
+	var columns []string
 	for i := 0; i < loops; i++ {
 		rows, err := pool.Query(query)
-		columns, _ := rows.Columns()
+		if err != nil {
+			b.Errorf("error during select query %s", err)
+		}
+
+		columns, err = rows.Columns()
+		if err != nil {
+			b.Errorf("error while getting columns %s", err)
+		}
 		columnCount := len(columns)
 		values := make([]interface{}, columnCount)
 		valuePointers := make([]interface{}, columnCount)
 		for i, _ := range columns {
 			valuePointers[i] = &values[i]
-		}
-
-		if err != nil {
-			b.Errorf("error during select query %s", err)
 		}
 
 		// iterating over the resulting rows
