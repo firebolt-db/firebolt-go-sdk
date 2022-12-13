@@ -25,12 +25,12 @@ func init() {
 	var err error
 	tokenCache, err = cache.NewCache("memory", `{}`)
 	if err != nil {
-		panic(err)
+		infolog.Println(fmt.Errorf("could not create memory cache to store access tokens: %v", err))
 	}
 }
 
 // Authenticate sends an authentication request, and returns a newly constructed client object
-func Authenticate(username, password, apiEndpoint string) (*Client, error) {
+func Authenticate(username, password, apiEndpoint string) (*Client, string, error) {
 	var loginUrl string
 	var contentType string
 	var body string
@@ -39,12 +39,12 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 	userAgent := ConstructUserAgentString()
 	cachedToken := getCachedAccessToken(username, apiEndpoint)
 	if len(cachedToken) > 0 {
-		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
+		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, cachedToken, nil
 	} else {
 		if isServiceAccount(username) {
 			loginUrl, contentType, body, err = prepareUsernamePasswordLogin(username, password)
 			if err != nil {
-				return nil, err
+				return nil, "", err
 			}
 		} else {
 			loginUrl, contentType, body = prepareServiceAccountLogin(username, password)
@@ -53,20 +53,20 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 
 		resp, err, _ := request(context.TODO(), "", "POST", apiEndpoint+loginUrl, userAgent, nil, body, contentType)
 		if err != nil {
-			return nil, ConstructNestedError("authentication request failed", err)
+			return nil, "", ConstructNestedError("authentication request failed", err)
 		}
 
 		var authResp AuthenticationResponse
 		if err = jsonStrictUnmarshall(resp, &authResp); err != nil {
-			return nil, ConstructNestedError("failed to unmarshal authentication response with error", err)
+			return nil, "", ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
 
 		infolog.Printf("Authentication was successful")
 		err = tokenCache.Put(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
 		if err != nil {
-			return nil, ConstructNestedError("failed to cache the authentication token", err)
+			infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
 		}
-		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
+		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, authResp.AccessToken, nil
 	}
 }
 

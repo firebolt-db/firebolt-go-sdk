@@ -217,13 +217,14 @@ func (c Client) request(ctx context.Context, method string, url string, userAgen
 		response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
 	}
 	if len(accessToken) == 0 || responseCode == http.StatusUnauthorized {
-		deleteAccessTokenFromCache(c.Username, c.ApiEndpoint)
+		if responseCode == http.StatusUnauthorized {
+			deleteAccessTokenFromCache(c.Username, c.ApiEndpoint)
+		}
 		// Refreshing the access token as it is expired
-		_, err = Authenticate(c.Username, c.Password, GetHostNameURL())
+		_, accessToken, err = Authenticate(c.Username, c.Password, GetHostNameURL())
 		if err != nil {
 			return nil, ConstructNestedError("error while refreshing access token", err)
 		}
-		accessToken := getCachedAccessToken(c.Username, c.ApiEndpoint)
 		// Trying to send the same request again now that the access token has been refreshed
 		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
 	}
