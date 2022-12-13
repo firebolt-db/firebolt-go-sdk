@@ -3,6 +3,8 @@ package fireboltgosdk
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/astaxie/beego/cache"
 	"net/url"
 	"strings"
 	"time"
@@ -18,7 +20,15 @@ type AuthenticationResponse struct {
 	Scope        string `json:"scope"`
 }
 
-var cache = ttlcache.New[string, string]()
+var tokenCache cache.Cache
+
+func init() {
+	var err error
+	tokenCache, err = cache.NewCache("memory", `{}`)
+	if err != nil {
+		panic(err)
+	}
+}
 
 // Authenticate sends an authentication request, and returns a newly constructed client object
 func Authenticate(username, password, apiEndpoint string) (*Client, error) {
@@ -53,7 +63,10 @@ func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 		}
 
 		infolog.Printf("Authentication was successful")
-		cache.Set(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
+		err = tokenCache.Put(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
+		if err != nil {
+			return nil, ConstructNestedError("failed to cache the authentication token", err)
+		}
 		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 	}
 }
@@ -65,9 +78,9 @@ func getCacheKey(username, apiEndpoint string) string {
 
 // getCachedAccessToken returns a cached access token or empty when a token could not be found
 func getCachedAccessToken(username, apiEndpoint string) string {
-	cached := cache.Get(getCacheKey(username, apiEndpoint))
-	if cached != nil {
-		return cached.Value()
+	var cachedToken = tokenCache.Get(getCacheKey(username, apiEndpoint))
+	if cachedToken != nil {
+		return fmt.Sprint(cachedToken)
 	} else {
 		return ""
 	}
@@ -97,7 +110,10 @@ func prepareServiceAccountLogin(username, password string) (string, string, stri
 
 // deleteAccessTokenFromCache deletes an access token from the cache if available
 func deleteAccessTokenFromCache(username, apiEndpoint string) {
-	cache.Delete(getCacheKey(username, apiEndpoint))
+	err := tokenCache.Delete(getCacheKey(username, apiEndpoint))
+	if err != nil {
+		infolog.Println(fmt.Errorf("could not remove token from the memory cache: %v", err))
+	}
 }
 
 // isServiceAccount checks if a username is a service account cliend id
