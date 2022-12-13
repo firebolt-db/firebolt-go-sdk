@@ -30,8 +30,7 @@ func TestCacheAccessToken(t *testing.T) {
 		totalCount++
 	}))
 	defer server.Close()
-	os.Setenv("FIREBOLT_ENDPOINT", server.URL)
-	t.Cleanup(cleanup)
+	prepareEnvVariablesForTest(t, server)
 	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	var err error
 	for i := 0; i < 3; i++ {
@@ -67,8 +66,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 		totalCount++
 	}))
 	defer server.Close()
-	os.Setenv("FIREBOLT_ENDPOINT", server.URL)
-	t.Cleanup(cleanup)
+	prepareEnvVariablesForTest(t, server)
 	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
 	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
@@ -102,8 +100,7 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 		totalCount++
 	}))
 	defer server.Close()
-	os.Setenv("FIREBOLT_ENDPOINT", server.URL)
-	t.Cleanup(cleanup)
+	prepareEnvVariablesForTest(t, server)
 	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
 	// Waiting for the token to get expired
@@ -135,6 +132,11 @@ func getAuthResponse(expiry int) []byte {
 	return []byte(response)
 }
 
-func cleanup() {
+func prepareEnvVariablesForTest(t *testing.T, server *httptest.Server) {
+	os.Setenv("FIREBOLT_ENDPOINT", server.URL)
+	t.Cleanup(cleanupEnvVariables)
+}
+
+func cleanupEnvVariables() {
 	os.Setenv("FIREBOLT_ENDPOINT", originEndpoint)
 }

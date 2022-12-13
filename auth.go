@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/jellydator/ttlcache/v3"
 )
 
 type AuthenticationResponse struct {
