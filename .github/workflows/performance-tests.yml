@@ -27,7 +27,7 @@ jobs:
           go-version: '1.18.0'
       - name: Setup database and engine
         id: setup
-        uses: firebolt-db/integration-testing-setup@master
+        uses: aymeric-dispa/integration-testing-setup@master
         with:
           firebolt-username: ${{ secrets.FIREBOLT_USERNAME }}
           firebolt-password: ${{ secrets.FIREBOLT_PASSWORD }}
