@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/astaxie/beego/cache"
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/astaxie/beego/cache"
 )
 
 type AuthenticationResponse struct {
