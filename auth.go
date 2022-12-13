@@ -62,9 +62,11 @@ func Authenticate(username, password, apiEndpoint string) (*Client, string, erro
 		}
 
 		infolog.Printf("Authentication was successful")
-		err = tokenCache.Put(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
-		if err != nil {
-			infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
+		if tokenCache != nil {
+			err = tokenCache.Put(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
+			if err != nil {
+				infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
+			}
 		}
 		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, authResp.AccessToken, nil
 	}
@@ -77,12 +79,13 @@ func getCacheKey(username, apiEndpoint string) string {
 
 // getCachedAccessToken returns a cached access token or empty when a token could not be found
 func getCachedAccessToken(username, apiEndpoint string) string {
-	var cachedToken = tokenCache.Get(getCacheKey(username, apiEndpoint))
-	if cachedToken != nil {
-		return fmt.Sprint(cachedToken)
-	} else {
-		return ""
+	if tokenCache != nil {
+		var cachedToken = tokenCache.Get(getCacheKey(username, apiEndpoint))
+		if cachedToken != nil {
+			return fmt.Sprint(cachedToken)
+		}
 	}
+	return ""
 }
 
 func prepareUsernamePasswordLogin(username string, password string) (string, string, string, error) {
@@ -109,9 +112,11 @@ func prepareServiceAccountLogin(username, password string) (string, string, stri
 
 // deleteAccessTokenFromCache deletes an access token from the cache if available
 func deleteAccessTokenFromCache(username, apiEndpoint string) {
-	err := tokenCache.Delete(getCacheKey(username, apiEndpoint))
-	if err != nil {
-		infolog.Println(fmt.Errorf("could not remove token from the memory cache: %v", err))
+	if tokenCache != nil {
+		err := tokenCache.Delete(getCacheKey(username, apiEndpoint))
+		if err != nil {
+			infolog.Println(fmt.Errorf("could not remove token from the memory cache: %v", err))
+		}
 	}
 }
 
