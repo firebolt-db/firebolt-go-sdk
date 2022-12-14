@@ -17,14 +17,14 @@ func TestAuthHappyPath(t *testing.T) {
 
 // TestAuthWrongCredential checks that authentication with wrong credentials returns an error
 func TestAuthWrongCredential(t *testing.T) {
-	if _, _, err := Authenticate("TestAuthWrongCredential", "wrong_password", GetHostNameURL()); err == nil {
+	if _, err := Authenticate("TestAuthWrongCredential", "wrong_password", GetHostNameURL()); err == nil {
 		t.Errorf("Authentication with wrong credentials didn't return an error")
 	}
 }
 
 // TestAuthEmptyCredential checks that authentication with empty password returns an error
 func TestAuthEmptyCredential(t *testing.T) {
-	if _, _, err := Authenticate("TestAuthEmptyCredential", "", GetHostNameURL()); err == nil {
+	if _, err := Authenticate("TestAuthEmptyCredential", "", GetHostNameURL()); err == nil {
 		t.Errorf("Authentication with empty password didn't return an error")
 	}
 }
@@ -39,12 +39,9 @@ func TestAuthServiceAccount(t *testing.T) {
 	if len(serviceAccountClientSecret) == 0 {
 		t.Errorf("Could not run the test because the client secret is not set (environment var: SERVICE_ACCOUNT_CLIENT_SECRET")
 	}
-	client, accessToken, err := Authenticate(serviceAccountClientId, serviceAccountClientSecret, GetHostNameURL())
+	client, err := Authenticate(serviceAccountClientId, serviceAccountClientSecret, GetHostNameURL())
 	if err != nil {
 		t.Errorf("Could not authenticate using service account")
-	}
-	if len(accessToken) == 0 {
-		t.Errorf("The AccessToken was not returned by the authentication function")
 	}
 
 	if serviceAccountClientId != client.Username {

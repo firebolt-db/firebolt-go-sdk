@@ -30,37 +30,44 @@ func init() {
 }
 
 // Authenticate sends an authentication request, and returns a newly constructed client object
-func Authenticate(username, password, apiEndpoint string) (*Client, string, error) {
-	var loginUrl string
-	var contentType string
-	var body string
-	var err error
-
+func Authenticate(username, password, apiEndpoint string) (*Client, error) {
 	userAgent := ConstructUserAgentString()
+	_, err := getAccessToken(username, password, apiEndpoint, userAgent)
+	if err != nil {
+		return nil, ConstructNestedError("error while getting access token", err)
+	} else {
+		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
+	}
+}
+
+// getAccessToken gets an access token from the cache when it is available in the cache or from the server when it is not available in the cache
+func getAccessToken(username string, password string, apiEndpoint string, userAgent string) (string, error) {
 	cachedToken := getCachedAccessToken(username, apiEndpoint)
 	if len(cachedToken) > 0 {
-		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, cachedToken, nil
+		return cachedToken, nil
 	} else {
+		var loginUrl string
+		var contentType string
+		var body string
+		var err error
 		if isServiceAccount(username) {
+			loginUrl, contentType, body = prepareServiceAccountLogin(username, password)
+		} else {
 			loginUrl, contentType, body, err = prepareUsernamePasswordLogin(username, password)
 			if err != nil {
-				return nil, "", err
+				return "", err
 			}
-		} else {
-			loginUrl, contentType, body = prepareServiceAccountLogin(username, password)
 		}
 		infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
-
 		resp, err, _ := request(context.TODO(), "", "POST", apiEndpoint+loginUrl, userAgent, nil, body, contentType)
 		if err != nil {
-			return nil, "", ConstructNestedError("authentication request failed", err)
+			return "", ConstructNestedError("authentication request failed", err)
 		}
 
 		var authResp AuthenticationResponse
 		if err = jsonStrictUnmarshall(resp, &authResp); err != nil {
-			return nil, "", ConstructNestedError("failed to unmarshal authentication response with error", err)
+			return "", ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
-
 		infolog.Printf("Authentication was successful")
 		if tokenCache != nil {
 			err = tokenCache.Put(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
@@ -68,7 +75,7 @@ func Authenticate(username, password, apiEndpoint string) (*Client, string, erro
 				infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
 			}
 		}
-		return &Client{Username: username, Password: password, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, authResp.AccessToken, nil
+		return authResp.AccessToken, nil
 	}
 }
 
@@ -88,9 +95,9 @@ func getCachedAccessToken(username, apiEndpoint string) string {
 	return ""
 }
 
+// prepareUsernamePasswordLogin returns the loginUrl, contentType and body needed to query an access token using a username and a password
 func prepareUsernamePasswordLogin(username string, password string) (string, string, string, error) {
 	var authUrl = UsernamePasswordURLSuffix
-	//var values = map[string]string{"username": username, "password": password}
 	values := map[string]string{"username": username, "password": password}
 	jsonData, err := json.Marshal(values)
 	if err != nil {
@@ -100,11 +107,12 @@ func prepareUsernamePasswordLogin(username string, password string) (string, str
 	}
 }
 
-func prepareServiceAccountLogin(username, password string) (string, string, string) {
+// prepareServiceAccountLogin returns the loginUrl, contentType and body needed to query an access token using a client id and a client secret
+func prepareServiceAccountLogin(clientId, clientSecret string) (string, string, string) {
 	var authUrl = ServiceAccountLoginURLSuffix
 	form := url.Values{}
-	form.Add("client_id", username)
-	form.Add("client_secret", password)
+	form.Add("client_id", clientId)
+	form.Add("client_secret", clientSecret)
 	form.Add("grant_type", "client_credentials")
 	var body = form.Encode()
 	return authUrl, ContentTypeForm, body
@@ -120,7 +128,7 @@ func deleteAccessTokenFromCache(username, apiEndpoint string) {
 	}
 }
 
-// isServiceAccount checks if a username is a service account cliend id
+// isServiceAccount checks if a username is a service account client id
 func isServiceAccount(username string) bool {
-	return strings.Contains(username, "@")
+	return !strings.Contains(username, "@")
 }
