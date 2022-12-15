@@ -139,11 +139,8 @@ func TestDriverSystemEngine(t *testing.T) {
 		t.Errorf("failed unexpectedly with %v", err)
 	}
 	queries := []string{
-		//fmt.Sprintf("DROP DATABASE IF EXISTS %s", databaseName),
-		//fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName),
-		//fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName),
 		fmt.Sprintf("CREATE DATABASE %s", databaseName),
-		fmt.Sprintf("CREATE ENGINE %s", engineName),
+		fmt.Sprintf("CREATE ENGINE %s WITH SPEC = 'C1' SCALE = 1", engineName),
 		fmt.Sprintf("ATTACH ENGINE %s TO %s", engineName, databaseName),
 		fmt.Sprintf("ALTER DATABASE %s WITH DESCRIPTION = 'GO SDK Integration test'", databaseName),
 		fmt.Sprintf("ALTER ENGINE %s RENAME TO %s", engineName, engineNewName),
