@@ -136,14 +136,10 @@ func TestDriverSystemEngine(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed unexpectedly with %v", err)
 	}
-
-	// Removing any potential pre-existing resource. We do not check the error as the server returns an error when
-	// trying to remove non-existing resources.
-	db.Query(fmt.Sprintf("DROP DATABASE IF EXISTS %s", databaseName))
-	db.Query(fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName))
-	db.Query(fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName))
-
-	queries := []string{fmt.Sprintf("CREATE DATABASE %s", databaseName),
+	queries := []string{fmt.Sprintf("DROP DATABASE IF EXISTS %s", databaseName),
+		fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName),
+		fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName),
+		fmt.Sprintf("CREATE DATABASE %s", databaseName),
 		fmt.Sprintf("CREATE ENGINE %s", engineName),
 		fmt.Sprintf("ATTACH ENGINE %s TO %s", engineName, databaseName),
 		fmt.Sprintf("ALTER DATABASE %s WITH DESCRIPTION = 'GO SDK Integration test'", databaseName),
