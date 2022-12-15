@@ -7,8 +7,10 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"github.com/google/uuid"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -127,18 +129,19 @@ func TestDriverExecStatement(t *testing.T) {
 
 // TestDriverSystemEngine checks system engine queries are executed without error
 func TestDriverSystemEngine(t *testing.T) {
-	// Keeping the same names so that we do not fill the environments with databases that are automatically created
-	databaseName := "go_sdk_system_engine_integration_test"
-	engineName := "go_sdk_system_engine_integration_test_engine"
-	engineNewName := "go_sdk_system_engine_integration_test_engine_2"
+	suffix := strings.ReplaceAll(uuid.New().String(), "-", "")
+	databaseName := fmt.Sprintf("gosdk_system_engine_test_%s", suffix)
+	engineName := fmt.Sprintf("gosdk_system_engine_test_e_%s", suffix)
+	engineNewName := fmt.Sprintf("gosdk_system_engine_test_e_2_%s", suffix)
 
 	db, err := sql.Open("firebolt", dsnSystemEngineMock)
 	if err != nil {
 		t.Errorf("failed unexpectedly with %v", err)
 	}
-	queries := []string{fmt.Sprintf("DROP DATABASE IF EXISTS %s", databaseName),
-		fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName),
-		fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName),
+	queries := []string{
+		//fmt.Sprintf("DROP DATABASE IF EXISTS %s", databaseName),
+		//fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName),
+		//fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName),
 		fmt.Sprintf("CREATE DATABASE %s", databaseName),
 		fmt.Sprintf("CREATE ENGINE %s", engineName),
 		fmt.Sprintf("ATTACH ENGINE %s TO %s", engineName, databaseName),
