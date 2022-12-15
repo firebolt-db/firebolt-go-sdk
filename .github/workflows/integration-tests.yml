@@ -42,7 +42,7 @@ jobs:
           STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
           FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
           ACCOUNT_NAME: "firebolt"
-          SERVICE_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID }}
-          SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET }}
+          SERVICE_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STAGING }}
+          SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STAGING }}
         run: |
           go test . -v --tags=integration
