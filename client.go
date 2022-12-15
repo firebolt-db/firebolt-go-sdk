@@ -209,21 +209,22 @@ func checkErrorResponse(response []byte) error {
 // request fetches an access token from the cache or re-authenticate when the access token is not available in the cache
 // and sends a request using that token
 func (c Client) request(ctx context.Context, method string, url string, userAgent string, params map[string]string, bodyStr string) ([]byte, error) {
-	accessToken := getCachedAccessToken(c.Username, c.ApiEndpoint)
-	var response []byte
 	var err error
-	var responseCode int
-	if len(accessToken) > 0 {
-		response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
+	accessToken, err := getAccessToken(c.Username, c.Password, c.ApiEndpoint, userAgent)
+	if err != nil {
+		return nil, ConstructNestedError("error while getting access token", err)
 	}
-	if len(accessToken) == 0 || responseCode == http.StatusUnauthorized {
+	var response []byte
+	var responseCode int
+	response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
+	if responseCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.Username, c.ApiEndpoint)
+
 		// Refreshing the access token as it is expired
-		_, err = Authenticate(c.Username, c.Password, GetHostNameURL())
+		accessToken, err = getAccessToken(c.Username, c.Password, GetHostNameURL(), c.UserAgent)
 		if err != nil {
 			return nil, ConstructNestedError("error while refreshing access token", err)
 		}
-		accessToken := getCachedAccessToken(c.Username, c.ApiEndpoint)
 		// Trying to send the same request again now that the access token has been refreshed
 		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
 	}
