@@ -58,6 +58,8 @@ jobs:
              echo "CLIENT_ID=${{ secrets.FIREBOLT_CLIENT_ID_DEV }}" >> "$GITHUB_ENV"
              echo "CLIENT_SECRET=${{ secrets.FIREBOLT_CLIENT_SECRET_DEV }}" >> "$GITHUB_ENV"
           fi
+      - name: Keep environment name in the summary
+        run: echo '### Ran integration tests against ${{ github.event.inputs.environment }} ' >> $GITHUB_STEP_SUMMARY
       - name: Setup database and engine
         id: setup
         uses: firebolt-db/integration-testing-setup@master

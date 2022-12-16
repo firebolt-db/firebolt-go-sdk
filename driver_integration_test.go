@@ -140,6 +140,8 @@ func TestDriverSystemEngine(t *testing.T) {
 		t.Errorf("failed unexpectedly with %v", err)
 	}
 	queries := []string{
+		fmt.Sprintf("SHOW DATABASES"),
+		fmt.Sprintf("SHOW ENGINES"),
 		fmt.Sprintf("CREATE DATABASE %s", databaseName),
 		fmt.Sprintf("CREATE ENGINE %s WITH SPEC = 'C1' SCALE = 1", engineName),
 		fmt.Sprintf("ATTACH ENGINE %s TO %s", engineName, databaseName),
