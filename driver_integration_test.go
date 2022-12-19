@@ -139,22 +139,78 @@ func TestDriverSystemEngine(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed unexpectedly with %v", err)
 	}
-	queries := []string{
-		fmt.Sprintf("SHOW DATABASES"),
-		fmt.Sprintf("SHOW ENGINES"),
+	ddlStatements := []string{
 		fmt.Sprintf("CREATE DATABASE %s", databaseName),
 		fmt.Sprintf("CREATE ENGINE %s WITH SPEC = 'C1' SCALE = 1", engineName),
 		fmt.Sprintf("ATTACH ENGINE %s TO %s", engineName, databaseName),
 		fmt.Sprintf("ALTER DATABASE %s WITH DESCRIPTION = 'GO SDK Integration test'", databaseName),
 		fmt.Sprintf("ALTER ENGINE %s RENAME TO %s", engineName, engineNewName),
 		fmt.Sprintf("START ENGINE %s", engineNewName),
-		fmt.Sprintf("STOP ENGINE %s", engineNewName),
-		fmt.Sprintf("DROP DATABASE %s", databaseName)}
+		fmt.Sprintf("STOP ENGINE %s", engineNewName)}
 
-	for _, query := range queries {
+	for _, query := range ddlStatements {
 		_, err := db.Query(query)
 		if err != nil {
 			t.Errorf("The query %s returned an error: %v", query, err)
 		}
 	}
+	rows, err := db.Query("SHOW DATABASES")
+	defer rows.Close()
+	if err != nil {
+		t.Errorf("Failed to execute query 'SHOW DATABASES' : %v", err)
+	}
+	containsDatabase, err := containsDatabase(rows, databaseName)
+	if err != nil {
+		t.Errorf("Failed to read response for query 'SHOW DATABASES' : %v", err)
+	}
+
+	if !containsDatabase {
+		t.Errorf("Could not find database with name %s", databaseName)
+	}
+
+	rows, err = db.Query("SHOW ENGINES")
+	defer rows.Close()
+	if err != nil {
+		t.Errorf("Failed to execute query 'SHOW ENGINES' : %v", err)
+	}
+	containsEngine, err := containsEngine(rows, databaseName)
+	if err != nil {
+		t.Errorf("Failed to read response for query 'SHOW ENGINES' : %v", err)
+	}
+	if !containsEngine {
+		t.Errorf("Could not find engine with name %s", engineName)
+	}
+
+	dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
+	_, err = db.Query(dropDbQuery)
+	if err != nil {
+		t.Errorf("The query %s returned an error: %v", dropDbQuery, err)
+	}
+}
+
+func containsDatabase(rows *sql.Rows, databaseToFind string) (bool, error) {
+	var databaseName, region, attachedEngines, createdOn, createdBy, errors string
+	for rows.Next() {
+		if err := rows.Scan(&databaseName, &region, &attachedEngines, &createdOn, &createdBy, &errors); err != nil {
+			return false, err
+		}
+		if databaseToFind == databaseName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func containsEngine(rows *sql.Rows, engineToFind string) (bool, error) {
+	var engineName, engineRegion, engineSpec, engineScale, engineStatus, engineAttachedTo, engineVersion string
+	defer rows.Close()
+	for rows.Next() {
+		if err := rows.Scan(&engineName, &engineRegion, &engineSpec, &engineScale, &engineStatus, &engineAttachedTo, &engineVersion); err != nil {
+			return false, err
+		}
+		if engineName == engineToFind {
+			return true, nil
+		}
+	}
+	return false, nil
 }
