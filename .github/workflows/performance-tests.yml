@@ -22,16 +22,16 @@ jobs:
         id: setup
         uses: firebolt-db/integration-testing-setup@master
         with:
-          firebolt-username: ${{ secrets.FIREBOLT_USERNAME }}
-          firebolt-password: ${{ secrets.FIREBOLT_PASSWORD }}
+          firebolt-username: ${{ secrets.FIREBOLT_USERNAME_DEV }}
+          firebolt-password: ${{ secrets.FIREBOLT_PASSWORD_DEV }}
           api-endpoint: "api.dev.firebolt.io"
           region: "us-east-1"
-          instance-type: "B4"
+          instance-type: "C2"
           engine-scale: 2
       - name: Add data to database
         env:
-          USER_NAME: ${{ secrets.FIREBOLT_USERNAME }}
-          PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
+          USER_NAME: ${{ secrets.FIREBOLT_USERNAME_DEV }}
+          PASSWORD: ${{ secrets.FIREBOLT_PASSWORD_DEV }}
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
           ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
@@ -52,8 +52,8 @@ jobs:
           GO_BENCHMARKS: BenchmarkSelect
           BENCHMARKS_OUT: benchmark/benchmarks.json
         env:
-           USER_NAME: ${{ secrets.FIREBOLT_USERNAME }}
-           PASSWORD: ${{ secrets.FIREBOLT_PASSWORD }}
+           USER_NAME: ${{ secrets.FIREBOLT_USERNAME_DEV }}
+           PASSWORD: ${{ secrets.FIREBOLT_PASSWORD_DEV }}
            DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
            ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
            ENGINE_URL: ${{ steps.setup.outputs.engine_url }}

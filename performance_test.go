@@ -16,7 +16,6 @@ var selectLineItemQuery = "select * from lineitem ORDER BY l_orderkey LIMIT 1000
 var select1Query = "select 1;"
 
 func TestMain(m *testing.M) {
-	// constructing a dsn string, you need to set your credentials
 	username := os.Getenv("USER_NAME")
 	password := os.Getenv("PASSWORD")
 	databaseName := os.Getenv("DATABASE_NAME")
@@ -74,7 +73,7 @@ func executeQuery(loops int, query string, b *testing.B) {
 			b.Errorf("error during select query %v", err)
 		}
 
-		//Because the function is used for different queries, we only know the number of columns at runtime.
+		// because the function is used for different queries, we only know the number of columns at runtime.
 		columns, err = rows.Columns()
 		if err != nil {
 			b.Errorf("error while getting columns %v", err)
