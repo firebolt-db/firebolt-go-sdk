@@ -14,7 +14,6 @@ func main() {
 	databaseName := os.Getenv("DATABASE_NAME")
 	dsn := fmt.Sprintf("firebolt://%s:%s@%s", username, password, databaseName)
 
-	// creating the connection pool
 	db, err := sql.Open("firebolt", dsn)
 
 	if err != nil {
@@ -31,4 +30,5 @@ func main() {
 			log.Fatalf("the query %s returned an error: %v", query, err)
 		}
 	}
+	db.Close()
 }

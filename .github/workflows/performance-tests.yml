@@ -8,19 +8,12 @@ on:
         description: 'Database (dev) - a new one will be created if not provided'
         required: false
         default: ''
-  workflow_call:
-    secrets:
-      FIREBOLT_USERNAME:
-        required: true
-      FIREBOLT_PASSWORD:
-        required: true
-
 jobs:
   performance-tests:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -34,7 +27,7 @@ jobs:
           api-endpoint: "api.dev.firebolt.io"
           region: "us-east-1"
           instance-type: "B4"
-          scale: 2
+          engine-scale: 2
       - name: Add data to database
         env:
           USER_NAME: ${{ secrets.FIREBOLT_USERNAME }}

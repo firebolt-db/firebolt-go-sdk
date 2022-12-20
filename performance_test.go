@@ -23,7 +23,6 @@ func TestMain(m *testing.M) {
 	threadCount, _ = strconv.Atoi(os.Getenv("TEST_THREAD_COUNT"))
 	dsn := fmt.Sprintf("firebolt://%s:%s@%s", username, password, databaseName)
 	var err error
-	// creating the connection pool
 	pool, err = sql.Open("firebolt", dsn)
 	defer pool.Close()
 
