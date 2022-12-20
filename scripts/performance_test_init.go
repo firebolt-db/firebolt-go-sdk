@@ -28,7 +28,7 @@ func main() {
 	for _, query := range queries {
 		_, err := db.Query(query)
 		if err != nil {
-			log.Fatalf("the query %s returned an error: %v\n", query, err)
+			log.Fatalf("the query %s returned an error: %v", query, err)
 		}
 	}
 }

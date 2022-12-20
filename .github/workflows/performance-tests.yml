@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       database:
-        description: 'Database (staging) - a new one will be created if not provided'
+        description: 'Database (dev) - a new one will be created if not provided'
         required: false
         default: ''
   workflow_call:
@@ -27,13 +27,14 @@ jobs:
           go-version: '1.18.0'
       - name: Setup database and engine
         id: setup
-        uses: aymeric-dispa/integration-testing-setup@master
+        uses: firebolt-db/integration-testing-setup@master
         with:
           firebolt-username: ${{ secrets.FIREBOLT_USERNAME }}
           firebolt-password: ${{ secrets.FIREBOLT_PASSWORD }}
           api-endpoint: "api.dev.firebolt.io"
           region: "us-east-1"
-          instance-type: "M4"
+          instance-type: "B4"
+          scale: 2
       - name: Add data to database
         env:
           USER_NAME: ${{ secrets.FIREBOLT_USERNAME }}
