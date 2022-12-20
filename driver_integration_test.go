@@ -167,19 +167,19 @@ func TestDriverSystemEngine(t *testing.T) {
 	if !containsDatabase {
 		t.Errorf("Could not find database with name %s", databaseName)
 	}
-
-	rows, err = db.Query("SHOW ENGINES")
-	defer rows.Close()
-	if err != nil {
-		t.Errorf("Failed to execute query 'SHOW ENGINES' : %v", err)
-	}
-	containsEngine, err := containsEngine(rows, databaseName)
-	if err != nil {
-		t.Errorf("Failed to read response for query 'SHOW ENGINES' : %v", err)
-	}
-	if !containsEngine {
-		t.Errorf("Could not find engine with name %s", engineName)
-	}
+	// Uncomment once https://packboard.atlassian.net/browse/FIR-17301 is done
+	//rows, err = db.Query("SHOW ENGINES")
+	//defer rows.Close()
+	//if err != nil {
+	//	t.Errorf("Failed to execute query 'SHOW ENGINES' : %v", err)
+	//}
+	//containsEngine, err := containsEngine(rows, databaseName)
+	//if err != nil {
+	//	t.Errorf("Failed to read response for query 'SHOW ENGINES' : %v", err)
+	//}
+	//if !containsEngine {
+	//	t.Errorf("Could not find engine with name %s", engineName)
+	//}
 
 	dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
 	_, err = db.Query(dropDbQuery)
@@ -202,10 +202,10 @@ func containsDatabase(rows *sql.Rows, databaseToFind string) (bool, error) {
 }
 
 func containsEngine(rows *sql.Rows, engineToFind string) (bool, error) {
-	var engineName, engineRegion, engineSpec, engineScale, engineStatus, engineAttachedTo, engineVersion string
+	var engineName, region, spec, scale, status, attachedTo, version string
 	defer rows.Close()
 	for rows.Next() {
-		if err := rows.Scan(&engineName, &engineRegion, &engineSpec, &engineScale, &engineStatus, &engineAttachedTo, &engineVersion); err != nil {
+		if err := rows.Scan(&engineName, &region, &spec, &scale, &status, &attachedTo, &version); err != nil {
 			return false, err
 		}
 		if engineName == engineToFind {
