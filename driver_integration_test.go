@@ -9,8 +9,11 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 var (
@@ -18,6 +21,7 @@ var (
 	dsnEngineUrlMock           string
 	dsnDefaultEngineMock       string
 	dsnDefaultAccountMock      string
+	dsnSystemEngineMock        string
 	usernameMock               string
 	passwordMock               string
 	databaseMock               string
@@ -42,7 +46,7 @@ func init() {
 	dsnEngineUrlMock = fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", usernameMock, passwordMock, databaseMock, engineUrlMock, accountNameMock)
 	dsnDefaultEngineMock = fmt.Sprintf("firebolt://%s:%s@%s?account_name=%s", usernameMock, passwordMock, databaseMock, accountNameMock)
 	dsnDefaultAccountMock = fmt.Sprintf("firebolt://%s:%s@%s", usernameMock, passwordMock, databaseMock)
-
+	dsnSystemEngineMock = fmt.Sprintf("firebolt://%s:%s@%s/%s", usernameMock, passwordMock, databaseMock, "system")
 	clientMock, _ = Authenticate(usernameMock, passwordMock, GetHostNameURL())
 }
 
@@ -122,4 +126,91 @@ func TestDriverOpenDefaultEngine(t *testing.T) {
 // TestDriverExecStatement checks exec with full dsn
 func TestDriverExecStatement(t *testing.T) {
 	runTestDriverExecStatement(t, dsnMock)
+}
+
+// TestDriverSystemEngine checks system engine queries are executed without error
+func TestDriverSystemEngine(t *testing.T) {
+	suffix := strings.ReplaceAll(uuid.New().String(), "-", "")
+	databaseName := fmt.Sprintf("gosdk_system_engine_test_%s", suffix)
+	engineName := fmt.Sprintf("gosdk_system_engine_test_e_%s", suffix)
+	engineNewName := fmt.Sprintf("gosdk_system_engine_test_e_2_%s", suffix)
+
+	db, err := sql.Open("firebolt", dsnSystemEngineMock)
+	if err != nil {
+		t.Errorf("failed unexpectedly with %v", err)
+	}
+	ddlStatements := []string{
+		fmt.Sprintf("CREATE DATABASE %s", databaseName),
+		fmt.Sprintf("CREATE ENGINE %s WITH SPEC = 'C1' SCALE = 1", engineName),
+		fmt.Sprintf("ATTACH ENGINE %s TO %s", engineName, databaseName),
+		fmt.Sprintf("ALTER DATABASE %s WITH DESCRIPTION = 'GO SDK Integration test'", databaseName),
+		fmt.Sprintf("ALTER ENGINE %s RENAME TO %s", engineName, engineNewName),
+		fmt.Sprintf("START ENGINE %s", engineNewName),
+		fmt.Sprintf("STOP ENGINE %s", engineNewName)}
+
+	for _, query := range ddlStatements {
+		_, err := db.Query(query)
+		if err != nil {
+			t.Errorf("The query %s returned an error: %v", query, err)
+		}
+	}
+	rows, err := db.Query("SHOW DATABASES")
+	defer rows.Close()
+	if err != nil {
+		t.Errorf("Failed to execute query 'SHOW DATABASES' : %v", err)
+	}
+	containsDatabase, err := containsDatabase(rows, databaseName)
+	if err != nil {
+		t.Errorf("Failed to read response for query 'SHOW DATABASES' : %v", err)
+	}
+
+	if !containsDatabase {
+		t.Errorf("Could not find database with name %s", databaseName)
+	}
+	// Uncomment once https://packboard.atlassian.net/browse/FIR-17301 is done
+	//rows, err = db.Query("SHOW ENGINES")
+	//defer rows.Close()
+	//if err != nil {
+	//	t.Errorf("Failed to execute query 'SHOW ENGINES' : %v", err)
+	//}
+	//containsEngine, err := containsEngine(rows, databaseName)
+	//if err != nil {
+	//	t.Errorf("Failed to read response for query 'SHOW ENGINES' : %v", err)
+	//}
+	//if !containsEngine {
+	//	t.Errorf("Could not find engine with name %s", engineName)
+	//}
+
+	dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
+	_, err = db.Query(dropDbQuery)
+	if err != nil {
+		t.Errorf("The query %s returned an error: %v", dropDbQuery, err)
+	}
+}
+
+func containsDatabase(rows *sql.Rows, databaseToFind string) (bool, error) {
+	var databaseName, region, attachedEngines, createdOn, createdBy, errors string
+	for rows.Next() {
+		if err := rows.Scan(&databaseName, &region, &attachedEngines, &createdOn, &createdBy, &errors); err != nil {
+			return false, err
+		}
+		if databaseToFind == databaseName {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func containsEngine(rows *sql.Rows, engineToFind string) (bool, error) {
+	var engineName, region, spec, scale, status, attachedTo, version string
+	defer rows.Close()
+	for rows.Next() {
+		if err := rows.Scan(&engineName, &region, &spec, &scale, &status, &attachedTo, &version); err != nil {
+			return false, err
+		}
+		if engineName == engineToFind {
+			return true, nil
+		}
+	}
+	return false, nil
 }
