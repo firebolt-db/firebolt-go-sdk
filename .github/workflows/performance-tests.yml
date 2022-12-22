@@ -1,12 +1,7 @@
 name: Performance tests
 
-on:
-  workflow_dispatch:
-    inputs:
-      database:
-        description: 'Database (staging) - a new one will be created if not provided'
-        required: false
-        default: ''
+on: workflow_dispatch
+
 jobs:
   performance-tests:
     runs-on: ubuntu-latest
