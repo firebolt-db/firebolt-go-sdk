@@ -23,12 +23,15 @@ func TestMain(m *testing.M) {
 	dsn := fmt.Sprintf("firebolt://%s:%s@%s", username, password, databaseName)
 	var err error
 	pool, err = sql.Open("firebolt", dsn)
-	defer pool.Close()
 
 	if err != nil {
 		log.Fatal("error during opening a driver", err)
 	}
 	code := m.Run()
+	err = pool.Close()
+	if err != nil {
+		return
+	}
 	os.Exit(code)
 }
 

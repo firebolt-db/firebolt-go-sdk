@@ -3,7 +3,6 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	_ "github.com/firebolt-db/firebolt-go-sdk"
 	"log"
 	"os"
 )
@@ -17,7 +16,7 @@ func main() {
 	db, err := sql.Open("firebolt", dsn)
 
 	if err != nil {
-		log.Fatal("error while opening a driver", err)
+		log.Fatal("error while opening a database", err)
 	}
 	queries := []string{
 		"CREATE EXTERNAL TABLE IF NOT EXISTS ex_lineitem ( l_orderkey LONG, l_partkey LONG, l_suppkey LONG, l_linenumber INT, l_quantity LONG, l_extendedprice LONG, l_discount LONG, l_tax LONG, l_returnflag TEXT, l_linestatus TEXT, l_shipdate TEXT, l_commitdate TEXT, l_receiptdate TEXT, l_shipinstruct TEXT, l_shipmode TEXT, l_comment TEXT)URL = 's3://firebolt-publishing-public/samples/tpc-h/parquet/lineitem/'OBJECT_PATTERN = '*.parquet'TYPE = (PARQUET)",
@@ -30,5 +29,9 @@ func main() {
 			log.Fatalf("the query %s returned an error: %v", query, err)
 		}
 	}
-	db.Close()
+	err = db.Close()
+	if err != nil {
+		log.Fatal("error while closing the database", err)
+	}
+
 }
