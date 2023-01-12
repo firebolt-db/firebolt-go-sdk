@@ -157,6 +157,25 @@ func TestConnectionQueryPGDateType(t *testing.T) {
 	}
 }
 
+func TestConnectionQueryTimestampNTZType(t *testing.T) {
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	loc, _ := time.LoadLocation("UTC")
+
+	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.123456' :: TIMESTAMPNTZ;", nil)
+	if err != nil {
+		t.Errorf("firebolt statement failed with %v", err)
+	}
+
+	dest := make([]driver.Value, 1)
+
+	if err = rows.Next(dest); err != nil {
+		t.Errorf("firebolt rows Next failed with %v", err)
+	}
+	if expected := time.Date(2023, 1, 5, 17, 4, 42, 123456000, loc); expected != dest[0] {
+		t.Errorf("values are not equal: %v and %v\n", dest[0], expected)
+	}
+}
+
 func TestConnectionMultipleStatement(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 	if rows, err := conn.QueryContext(context.TODO(), "SELECT -1; SELECT -2", nil); err != nil {

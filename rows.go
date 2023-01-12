@@ -26,6 +26,7 @@ const (
 	dateType       = "DATE"
 	date32Type     = "DATE32"
 	PGDate         = "PGDATE"
+	TimestampNtz   = "TIMESTAMPNTZ"
 )
 
 type fireboltRows struct {
@@ -96,7 +97,7 @@ func checkTypeValue(columnType string, val interface{}) error {
 			return fmt.Errorf("expected to convert a value to float64, but couldn't: %v", val)
 		}
 		return nil
-	case stringType, datetimeType, dateType, date32Type, datetime64Type, PGDate:
+	case stringType, datetimeType, dateType, date32Type, datetime64Type, PGDate, TimestampNtz:
 		if _, ok := val.(string); !ok {
 			return fmt.Errorf("expected to convert a value to string, but couldn't: %v", val)
 		}
@@ -117,6 +118,8 @@ func parseDateTimeValue(columnType string, value string) (driver.Value, error) {
 		return time.Parse("2006-01-02", value)
 	case PGDate:
 		return time.Parse("2006-01-02", value)
+	case TimestampNtz:
+		return time.Parse("2006-01-02 15:04:05.000000", value)
 	}
 	return nil, fmt.Errorf("type not known: %s", columnType)
 }
@@ -150,7 +153,7 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 		return val.(float64), nil
 	case stringType:
 		return val.(string), nil
-	case datetime64Type, datetimeType, dateType, date32Type, PGDate:
+	case datetime64Type, datetimeType, dateType, date32Type, PGDate, TimestampNtz:
 		return parseDateTimeValue(columnType, val.(string))
 	}
 
