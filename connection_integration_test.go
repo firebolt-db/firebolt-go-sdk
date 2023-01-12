@@ -137,6 +137,26 @@ func TestConnectionQueryDateTime64Type(t *testing.T) {
 	}
 }
 
+func TestConnectionQueryPGDateType(t *testing.T) {
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	loc, _ := time.LoadLocation("UTC")
+
+	// Value 0001-01-01 is outside of range of regular DATE
+	rows, err := conn.QueryContext(context.TODO(), "SELECT '0001-01-01' :: PGDATE;", nil)
+	if err != nil {
+		t.Errorf("firebolt statement failed with %v", err)
+	}
+
+	dest := make([]driver.Value, 1)
+
+	if err = rows.Next(dest); err != nil {
+		t.Errorf("firebolt rows Next failed with %v", err)
+	}
+	if expected := time.Date(0001, 1, 1, 0, 0, 0, 0, loc); expected != dest[0] {
+		t.Errorf("values are not equal: %v and %v\n", dest[0], expected)
+	}
+}
+
 func TestConnectionMultipleStatement(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 	if rows, err := conn.QueryContext(context.TODO(), "SELECT -1; SELECT -2", nil); err != nil {
