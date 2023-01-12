@@ -26,13 +26,16 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 		"	{\"name\":\"text_col\",\"type\":\"String\"}," +
 		"	{\"name\":\"date_col\",\"type\":\"Date\"}," +
 		"	{\"name\":\"timestamp_col\",\"type\":\"DateTime\"}," +
+		"	{\"name\":\"pgdate_col\",\"type\":\"PGDATE\"}," +
+		"	{\"name\":\"timestampntz_col\",\"type\":\"TIMESTAMPNTZ\"}," +
+		"	{\"name\":\"timestamptz_col\",\"type\":\"TIMESTAMPTZ\"}," +
 		"	{\"name\":\"bool_col\",\"type\":\"UInt8\"}," +
 		"	{\"name\":\"array_col\",\"type\":\"Array(Int32)\"}," +
 		"	{\"name\":\"nested_array_col\",\"type\":\"Array(Array(String))\"}]," +
 		"\"data\":[" +
-		"	[null,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",1,[1,2,3],[[]]]," +
-		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",1,[1,2,3],[[]]]," +
-		"	[3,null,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]]," +
+		"	[null,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",\"0002-01-01\",\"1989-04-15 01:02:03.123456\",\"1989-04-15 02:02:03.123456+00\",1,[1,2,3],[[]]]," +
+		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 01:02:03.123456+00\",1,[1,2,3],[[]]]," +
+		"	[3,null,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123458\",\"1989-04-15 01:02:03.123456+00\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]]," +
 		"\"rows\":3," +
 		"\"statistics\":{" +
 		"	\"elapsed\":0.001797702," +
@@ -76,7 +79,7 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 func TestRowsColumns(t *testing.T) {
 	rows := mockRows(false)
 
-	columnNames := []string{"int_col", "bigint_col", "float_col", "double_col", "text_col", "date_col", "timestamp_col", "bool_col", "array_col", "nested_array_col"}
+	columnNames := []string{"int_col", "bigint_col", "float_col", "double_col", "text_col", "date_col", "timestamp_col", "pgdate_col", "timestampntz_col", "timestamptz_col", "bool_col", "array_col", "nested_array_col"}
 	if !reflect.DeepEqual(rows.Columns(), columnNames) {
 		t.Errorf("column lists are not equal")
 	}
@@ -98,7 +101,7 @@ func TestRowsClose(t *testing.T) {
 // TestRowsNext check Next method
 func TestRowsNext(t *testing.T) {
 	rows := mockRows(false)
-	var dest = make([]driver.Value, 10)
+	var dest = make([]driver.Value, 13)
 	err := rows.Next(dest)
 	loc, _ := time.LoadLocation("UTC")
 
@@ -110,6 +113,9 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[4] == "text", t, "results not equal for string")
 	assert(dest[5] == time.Date(2080, 12, 31, 0, 0, 0, 0, loc), t, "results not equal for date")
 	assert(dest[6] == time.Date(1989, 04, 15, 1, 2, 3, 0, loc), t, "results not equal for datetime")
+	assert(dest[7] == time.Date(0002, 01, 01, 0, 0, 0, 0, loc), t, "results not equal for pgdate")
+	assert(dest[8] == time.Date(1989, 04, 15, 1, 2, 3, 123456000, loc), t, "results not equal for timestampntz")
+	assert(dest[9] == time.Date(1989, 04, 15, 2, 2, 3, 123456000, loc), t, "results not equal for timestamptz")
 
 	err = rows.Next(dest)
 	assert(err == nil, t, "Next shouldn't return an error")
