@@ -101,7 +101,7 @@ func TestConnectionQueryDate32Type(t *testing.T) {
 }
 
 func TestConnectionQueryDecimalType(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{"firebolt_use_decimal": "1"}}
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT cast (123.23 as NUMERIC (12,6))", nil)
 	if err != nil {
