@@ -122,7 +122,12 @@ func parseDateTimeValue(columnType string, value string) (driver.Value, error) {
 	case TimestampNtz:
 		return time.Parse("2006-01-02 15:04:05.000000", value)
 	case TimestampTz:
-		return time.Parse("2006-01-02 15:04:05.000000+00", value)
+		res, err := time.Parse("2006-01-02 15:04:05.000000+00", value)
+		if err != nil {
+			// Try parsing half-timezones e.g. Asia/Calcutta as +05:30
+			res, err = time.Parse("2006-01-02 15:04:05.000000-07:00", value)
+		}
+		return res, err
 	}
 	return nil, fmt.Errorf("type not known: %s", columnType)
 }

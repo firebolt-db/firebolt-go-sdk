@@ -161,7 +161,7 @@ func TestConnectionQueryTimestampNTZType(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 	loc, _ := time.LoadLocation("UTC")
 
-	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.123456' :: TIMESTAMPNTZ;", nil)
+	rows, err := conn.QueryContext(context.TODO(), "SELECT '0001-01-05 17:04:42.123456' :: TIMESTAMPNTZ;", nil)
 	if err != nil {
 		t.Errorf("firebolt statement failed with %v", err)
 	}
@@ -171,7 +171,7 @@ func TestConnectionQueryTimestampNTZType(t *testing.T) {
 	if err = rows.Next(dest); err != nil {
 		t.Errorf("firebolt rows Next failed with %v", err)
 	}
-	if expected := time.Date(2023, 1, 5, 17, 4, 42, 123456000, loc); expected != dest[0] {
+	if expected := time.Date(0001, 1, 5, 17, 4, 42, 123456000, loc); expected != dest[0] {
 		t.Errorf("values are not equal: %v and %v\n", dest[0], expected)
 	}
 }
@@ -194,6 +194,26 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 	if expected := time.Date(2023, 1, 5, 16, 4, 42, 123456000, loc); expected != dest[0] {
 		t.Errorf("values are not equal: %v and %v\n", dest[0], expected)
 	}
+}
+
+func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{"advanced_mode": "1", "time_zone": "Asia/Calcutta"}}
+	loc := time.FixedZone("", 5.5*60*60)
+
+	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.123456 Europe/Berlin'::TIMESTAMPTZ;", nil)
+	if err != nil {
+		t.Errorf("firebolt statement failed with %v", err)
+	}
+
+	dest := make([]driver.Value, 1)
+
+	if err = rows.Next(dest); err != nil {
+		t.Errorf("firebolt rows Next failed with %v", err)
+	}
+	// Expected offset by 5:30 when converted to Asia/Calcutta
+	expected := time.Date(2023, 1, 5, 21, 34, 42, 123456000, loc)
+	to_test, _ := dest[0].(time.Time)
+	assertDatesEqualAnonymousTz(to_test, expected, t)
 }
 
 func TestConnectionMultipleStatement(t *testing.T) {
