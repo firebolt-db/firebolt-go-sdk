@@ -38,17 +38,17 @@ func TestExecStmt(t *testing.T) {
 
 	_, err := stmt.Query(nil)
 
-	assert(err == nil, t, "queryer returned an error, but shouldn't")
-	assert(queryer.callCount == 1, t, "queryer wasn't called")
-	assert(queryer.lastQuery == sql, t, "queryer was called with wrong sql")
+	assert(err, nil, t, "queryer returned an error, but shouldn't")
+	assert(queryer.callCount, 1, t, "queryer wasn't called")
+	assert(queryer.lastQuery, sql, t, "queryer was called with wrong sql")
 
 	_, err = stmt.QueryContext(context.TODO(), nil)
-	assert(err == nil, t, "queryer returned an error, but shouldn't")
+	assert(err, nil, t, "queryer returned an error, but shouldn't")
 
-	assert(queryer.callCount == 2, t, "queryer wasn't called")
-	assert(queryer.lastQuery == sql, t, "queryer was called with wrong sql")
+	assert(queryer.callCount, 2, t, "queryer wasn't called")
+	assert(queryer.lastQuery, sql, t, "queryer was called with wrong sql")
 
-	assert(execer.callCount == 0, t, "execer was called, but shouldn't")
+	assert(execer.callCount, 0, t, "execer was called, but shouldn't")
 }
 
 // TestQueryStmt tests that Query and QueryContext actually calls queryer
@@ -61,17 +61,17 @@ func TestQueryStmt(t *testing.T) {
 
 	_, err := stmt.Exec(nil)
 
-	assert(err == nil, t, "execer returned an error, but shouldn't")
-	assert(execer.callCount == 1, t, "execer wasn't called")
-	assert(execer.lastQuery == sql, t, "execer was called with wrong sql")
+	assert(err, nil, t, "execer returned an error, but shouldn't")
+	assert(execer.callCount, 1, t, "execer wasn't called")
+	assert(execer.lastQuery, sql, t, "execer was called with wrong sql")
 
 	_, err = stmt.ExecContext(context.TODO(), nil)
-	assert(err == nil, t, "execer returned an error, but shouldn't")
+	assert(err, nil, t, "execer returned an error, but shouldn't")
 
-	assert(execer.callCount == 2, t, "execer wasn't called")
-	assert(execer.lastQuery == sql, t, "execer was called with wrong sql")
+	assert(execer.callCount, 2, t, "execer wasn't called")
+	assert(execer.lastQuery, sql, t, "execer was called with wrong sql")
 
-	assert(queryer.callCount == 0, t, "queryer was called, but shouldn't")
+	assert(queryer.callCount, 0, t, "queryer was called, but shouldn't")
 }
 
 // TestCloseStmt checks, that closing connection resets all variable, and makes statement not usable
@@ -83,7 +83,7 @@ func TestCloseStmt(t *testing.T) {
 	stmt := fireboltStmt{queryer: &queryer, execer: &execer, query: sql}
 	stmt.Close()
 
-	assert(stmt.execer == nil, t, "execer wasn't reset by stmt")
-	assert(stmt.queryer == nil, t, "queryer wasn't reset by stmt")
-	assert(stmt.query == "", t, "query wasn't reset by stmt")
+	assert(stmt.execer, nil, t, "execer wasn't reset by stmt")
+	assert(stmt.queryer, nil, t, "queryer wasn't reset by stmt")
+	assert(stmt.query, "", t, "query wasn't reset by stmt")
 }

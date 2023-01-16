@@ -17,10 +17,10 @@ func TestConnectionSetStatement(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 
 	_, err := conn.ExecContext(context.TODO(), "SET use_standard_sql=1", nil)
-	assert(err == nil, t, "set use_standard_sql returned an error, but shouldn't")
+	assert(err, nil, t, "set use_standard_sql returned an error, but shouldn't")
 
 	_, err = conn.QueryContext(context.TODO(), "SELECT * FROM information_schema.tables", nil)
-	assert(err == nil, t, "query returned an error, but shouldn't")
+	assert(err, nil, t, "query returned an error, but shouldn't")
 
 }
 
@@ -74,11 +74,11 @@ func TestConnectionQuery(t *testing.T) {
 	if err != nil {
 		t.Errorf("Next returned an error, but shouldn't")
 	}
-	assert(dest[0] == int32(-3213212), t, "dest[0] is not equal")
-	assert(dest[1] == float64(2.3), t, "dest[1] is not equal")
-	assert(dest[2] == "some_text", t, "dest[2] is not equal")
+	assert(dest[0], int32(-3213212), t, "dest[0] is not equal")
+	assert(dest[1], float64(2.3), t, "dest[1] is not equal")
+	assert(dest[2], "some_text", t, "dest[2] is not equal")
 
-	assert(rows.Next(dest) == io.EOF, t, "end of data didn't return io.EOF")
+	assert(rows.Next(dest), io.EOF, t, "end of data didn't return io.EOF")
 }
 
 func TestConnectionQueryDate32Type(t *testing.T) {
@@ -190,9 +190,11 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 	if err = rows.Next(dest); err != nil {
 		t.Errorf("firebolt rows Next failed with %v", err)
 	}
+	to_test, _ := dest[0].(time.Time)
 	// Expected offset by 1 hour when converted to UTC
-	if expected := time.Date(2023, 1, 5, 16, 4, 42, 123456000, loc); expected != dest[0] {
-		t.Errorf("values are not equal: %v and %v\n", dest[0], expected)
+	expected := time.Date(2023, 1, 5, 16, 4, 42, 123456000, loc)
+	if !to_test.Equal(expected) {
+		t.Errorf("values are not equal Expected: %v Got: %v\n", expected, to_test)
 	}
 }
 
@@ -213,7 +215,9 @@ func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
 	// Expected offset by 5:30 when converted to Asia/Calcutta
 	expected := time.Date(2023, 1, 5, 21, 34, 42, 123456000, loc)
 	to_test, _ := dest[0].(time.Time)
-	assertDatesEqualAnonymousTz(to_test, expected, t)
+	if !to_test.Equal(expected) {
+		t.Errorf("%s date with half-timezone check failed Expected: %s Got: %s", err, expected, to_test)
+	}
 }
 
 func TestConnectionMultipleStatement(t *testing.T) {
@@ -224,20 +228,24 @@ func TestConnectionMultipleStatement(t *testing.T) {
 		dest := make([]driver.Value, 1)
 
 		err = rows.Next(dest)
-		assert(err == nil, t, "rows.Next returned an error")
-		assert(dest[0] == int32(-1), t, "results are not equal")
+		assert(err, nil, t, "rows.Next returned an error")
+		assert(dest[0], int32(-1), t, "results are not equal")
 
 		if nextResultSet, ok := rows.(driver.RowsNextResultSet); !ok {
 			t.Errorf("multistatement didn't return RowsNextResultSet")
 		} else {
-			assert(nextResultSet.HasNextResultSet(), t, "HasNextResultSet returned false")
-			assert(nextResultSet.NextResultSet() == nil, t, "NextResultSet returned an error")
+			if !nextResultSet.HasNextResultSet() {
+				t.Errorf("HasNextResultSet returned false")
+			}
+			assert(nextResultSet.NextResultSet(), nil, t, "NextResultSet returned an error")
 
 			err = rows.Next(dest)
-			assert(err == nil, t, "rows.Next returned an error")
-			assert(dest[0] == int32(-2), t, "results are not equal")
+			assert(err, nil, t, "rows.Next returned an error")
+			assert(dest[0], int32(-2), t, "results are not equal")
 
-			assert(!nextResultSet.HasNextResultSet(), t, "HasNextResultSet returned true")
+			if nextResultSet.HasNextResultSet() {
+				t.Errorf("HasNextResultSet returned true")
+			}
 		}
 	}
 }

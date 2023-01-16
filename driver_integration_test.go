@@ -73,20 +73,25 @@ func TestDriverQueryResult(t *testing.T) {
 		t.Errorf("columns are not equal (%v != %v) and error is %v", expectedColumns, columns, err)
 	}
 
-	assert(rows.Next(), t, "Next returned end of output")
-	assert(rows.Scan(&dt, &d, &i) == nil, t, "Scan returned an error")
-	assert(dt == time.Date(2020, 01, 03, 19, 8, 45, 0, loc), t, "results not equal for datetime")
-	assert(d == time.Date(2020, 01, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
-	assert(i == 1, t, "results not equal for int")
+	if !rows.Next() {
+		t.Errorf("Next returned end of output")
+	}
+	assert(rows.Scan(&dt, &d, &i), nil, t, "Scan returned an error")
+	assert(dt, time.Date(2020, 01, 03, 19, 8, 45, 0, loc), t, "results not equal for datetime")
+	assert(d, time.Date(2020, 01, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
+	assert(i, 1, t, "results not equal for int")
 
-	assert(rows.Next(), t, "Next returned end of output")
-	assert(rows.Scan(&dt, &d, &i) == nil, t, "Scan returned an error")
-	assert(dt == time.Date(2021, 01, 03, 19, 38, 34, 0, loc), t, "results not equal for datetime")
-	assert(d == time.Date(2000, 12, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
-	assert(i == 2, t, "results not equal for int")
+	if !rows.Next() {
+		t.Errorf("Next returned end of output")
+	}
+	assert(rows.Scan(&dt, &d, &i), nil, t, "Scan returned an error")
+	assert(dt, time.Date(2021, 01, 03, 19, 38, 34, 0, loc), t, "results not equal for datetime")
+	assert(d, time.Date(2000, 12, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
+	assert(i, 2, t, "results not equal for int")
 
-	assert(!rows.Next(), t, "Next didn't returned false, although no data is expected")
-
+	if rows.Next() {
+		t.Errorf("Next didn't returned false, although no data is expected")
+	}
 }
 
 // TestDriverOpenConnection checks making a connection on opened driver

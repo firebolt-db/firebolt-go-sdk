@@ -107,6 +107,20 @@ func checkTypeValue(columnType string, val interface{}) error {
 	return fmt.Errorf("unknown column type: %s", columnType)
 }
 
+func parseTimestampTz(value string) (driver.Value, error) {
+	formats := [...]string{"2006-01-02 15:04:05.000000-07", "2006-01-02 15:04:05.000000-07:00",
+		"2006-01-02 15:04:05-07", "2006-01-02 15:04:05-07:00"}
+	var res time.Time
+	var err error
+	for _, format := range formats {
+		res, err = time.Parse(format, value)
+		if err == nil {
+			break
+		}
+	}
+	return res, err
+}
+
 // parseDateTimeValue parses different date types
 func parseDateTimeValue(columnType string, value string) (driver.Value, error) {
 	switch strings.ToUpper(columnType) {
@@ -115,19 +129,12 @@ func parseDateTimeValue(columnType string, value string) (driver.Value, error) {
 		return time.Parse("2006-01-02 15:04:05", value)
 	case datetime64Type:
 		return time.Parse("2006-01-02 15:04:05.000000", value)
-	case dateType, date32Type:
-		return time.Parse("2006-01-02", value)
-	case PGDate:
+	case dateType, date32Type, PGDate:
 		return time.Parse("2006-01-02", value)
 	case TimestampNtz:
 		return time.Parse("2006-01-02 15:04:05.000000", value)
 	case TimestampTz:
-		res, err := time.Parse("2006-01-02 15:04:05.000000+00", value)
-		if err != nil {
-			// Try parsing half-timezones e.g. Asia/Calcutta as +05:30
-			res, err = time.Parse("2006-01-02 15:04:05.000000-07:00", value)
-		}
-		return res, err
+		return parseTimestampTz(value)
 	}
 	return nil, fmt.Errorf("type not known: %s", columnType)
 }
