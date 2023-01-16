@@ -180,7 +180,7 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 	loc, _ := time.LoadLocation("UTC")
 
-	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.123456 Europe/Berlin'::TIMESTAMPTZ;", nil)
+	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.1234 Europe/Berlin'::TIMESTAMPTZ;", nil)
 	if err != nil {
 		t.Errorf("firebolt statement failed with %v", err)
 	}
@@ -192,7 +192,7 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 	}
 	to_test, _ := dest[0].(time.Time)
 	// Expected offset by 1 hour when converted to UTC
-	expected := time.Date(2023, 1, 5, 16, 4, 42, 123456000, loc)
+	expected := time.Date(2023, 1, 5, 16, 4, 42, 123400000, loc)
 	if !to_test.Equal(expected) {
 		t.Errorf("values are not equal Expected: %v Got: %v\n", expected, to_test)
 	}

@@ -36,7 +36,7 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 		"	{\"name\":\"nested_array_col\",\"type\":\"Array(Array(String))\"}]," +
 		"\"data\":[" +
 		"	[null,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",\"0002-01-01\",\"1989-04-15 01:02:03.123456\",\"1989-04-15 02:02:03.123456+00\",1,[1,2,3],[[]]]," +
-		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 01:02:03.123456+05:30\",1,[1,2,3],[[]]]," +
+		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 01:02:03.1234+05:30\",1,[1,2,3],[[]]]," +
 		"	[3,null,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123458\",\"1989-04-15 01:02:03+01\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]" +
 		"]," +
 		"\"rows\":3," +
@@ -129,7 +129,7 @@ func TestRowsNext(t *testing.T) {
 	// Creating custom timezone with no name (e.g. Europe/Berlin)
 	// similar to Firebolt's return format
 	timezone := time.FixedZone("", 5.5*60*60)
-	if expected_date := time.Date(1989, 04, 15, 1, 2, 3, 123456000, timezone); !tz_date_to_test2.Equal(expected_date) {
+	if expected_date := time.Date(1989, 04, 15, 1, 2, 3, 123400000, timezone); !tz_date_to_test2.Equal(expected_date) {
 		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test2)
 	}
 
