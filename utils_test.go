@@ -123,10 +123,18 @@ func TestConstructUserAgentString(t *testing.T) {
 
 	userAgentString := ConstructUserAgentString()
 
-	assert(strings.Contains(userAgentString, sdkVersion), t, "sdk Version is not in userAgent string")
-	assert(strings.Contains(userAgentString, "GoSDK"), t, "sdk name is not in userAgent string")
-	assert(strings.Contains(userAgentString, "GORM/0.0.1"), t, "drivers is not in userAgent string")
-	assert(strings.Contains(userAgentString, "Client1/0.2.3 Client2/0.3.4"), t, "clients are not in userAgent string")
+	if !strings.Contains(userAgentString, sdkVersion) {
+		t.Errorf("sdk Version is not in userAgent string")
+	}
+	if !strings.Contains(userAgentString, "GoSDK") {
+		t.Errorf("sdk name is not in userAgent string")
+	}
+	if !strings.Contains(userAgentString, "GORM/0.0.1") {
+		t.Errorf("drivers is not in userAgent string")
+	}
+	if !strings.Contains(userAgentString, "Client1/0.2.3 Client2/0.3.4") {
+		t.Errorf("clients are not in userAgent string")
+	}
 
 	os.Unsetenv("FIREBOLT_GO_DRIVERS")
 	os.Unsetenv("FIREBOLT_GO_CLIENTS")
@@ -155,10 +163,10 @@ func TestSplitStatements(t *testing.T) {
 }
 
 func TestValueToNamedValue(t *testing.T) {
-	assert(len(valueToNamedValue([]driver.Value{})) == 0, t, "valueToNamedValue of empty array is wrong")
+	assert(len(valueToNamedValue([]driver.Value{})), 0, t, "valueToNamedValue of empty array is wrong")
 
 	namedValues := valueToNamedValue([]driver.Value{2, "string"})
-	assert(len(namedValues) == 2, t, "len of namedValues is wrong")
-	assert(namedValues[0].Value == 2, t, "namedValues value is wrong")
-	assert(namedValues[1].Value == "string", t, "namedValues value is wrong")
+	assert(len(namedValues), 2, t, "len of namedValues is wrong")
+	assert(namedValues[0].Value, 2, t, "namedValues value is wrong")
+	assert(namedValues[1].Value, "string", t, "namedValues value is wrong")
 }
