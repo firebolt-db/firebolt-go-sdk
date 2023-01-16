@@ -108,8 +108,8 @@ func checkTypeValue(columnType string, val interface{}) error {
 }
 
 func parseTimestampTz(value string) (driver.Value, error) {
-	formats := [...]string{"2006-01-02 15:04:05.000000-07", "2006-01-02 15:04:05.000000-07:00",
-		"2006-01-02 15:04:05-07", "2006-01-02 15:04:05-07:00"}
+	formats := [...]string{"2006-01-02 15:04:05.000000-07", "2006-01-02 15:04:05.000000-07:00", "2006-01-02 15:04:05.000000-07:00:00",
+		"2006-01-02 15:04:05-07", "2006-01-02 15:04:05-07:00", "2006-01-02 15:04:05-07:00:00"}
 	var res time.Time
 	var err error
 	for _, format := range formats {

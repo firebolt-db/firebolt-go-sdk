@@ -37,9 +37,10 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 		"\"data\":[" +
 		"	[null,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",\"0002-01-01\",\"1989-04-15 01:02:03.123456\",\"1989-04-15 02:02:03.123456+00\",1,[1,2,3],[[]]]," +
 		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 01:02:03.1234+05:30\",1,[1,2,3],[[]]]," +
-		"	[3,null,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123458\",\"1989-04-15 01:02:03+01\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]" +
+		"	[3,null,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123458\",\"1989-04-15 01:02:03+01\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]," +
+		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1111-01-05 17:04:42.123456+05:53:28\",1,[1,2,3],[[]]]" +
 		"]," +
-		"\"rows\":3," +
+		"\"rows\":4," +
 		"\"statistics\":{" +
 		"	\"elapsed\":0.001797702," +
 		"	\"rows_read\":3," +
@@ -120,7 +121,7 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[8], time.Date(1989, 04, 15, 1, 2, 3, 123456000, loc), t, "results not equal for timestampntz")
 	tz_date_to_test, _ := dest[9].(time.Time)
 	if expected_date := time.Date(1989, 04, 15, 2, 2, 3, 123456000, loc); !tz_date_to_test.Equal(expected_date) {
-		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test)
+		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test.In(loc))
 	}
 
 	err = rows.Next(dest)
@@ -130,7 +131,7 @@ func TestRowsNext(t *testing.T) {
 	// similar to Firebolt's return format
 	timezone := time.FixedZone("", 5.5*60*60)
 	if expected_date := time.Date(1989, 04, 15, 1, 2, 3, 123400000, timezone); !tz_date_to_test2.Equal(expected_date) {
-		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test2)
+		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test2.In(timezone))
 	}
 
 	err = rows.Next(dest)
@@ -142,6 +143,13 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[3], float64(123213.321321), t, "results not equal for float64")
 	assert(dest[4], "text", t, "results not equal for string")
 
+	err = rows.Next(dest)
+	assert(err, nil, t, "Next shouldn't return an error")
+
+	tz_date_to_test3, _ := dest[9].(time.Time)
+	if expected_date := time.Date(1111, 01, 5, 11, 11, 14, 123456000, loc); !tz_date_to_test3.Equal(expected_date) {
+		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test3.In(loc))
+	}
 	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
 
 	assert(rows.HasNextResultSet(), false, t, "Has Next result set didn't return false")
