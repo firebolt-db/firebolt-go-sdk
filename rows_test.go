@@ -38,9 +38,10 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 		"	[null,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",\"0002-01-01\",\"1989-04-15 01:02:03.123456\",\"1989-04-15 02:02:03.123456+00\",1,[1,2,3],[[]]]," +
 		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 01:02:03.1234+05:30\",1,[1,2,3],[[]]]," +
 		"	[3,null,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123458\",\"1989-04-15 01:02:03+01\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]," +
-		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1111-01-05 17:04:42.123456+05:53:28\",1,[1,2,3],[[]]]" +
+		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1111-01-05 17:04:42.123456+05:53:28\",1,[1,2,3],[[]]]," +
+		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 02:02:03.123456-01\",1,[1,2,3],[[]]]" +
 		"]," +
-		"\"rows\":4," +
+		"\"rows\":5," +
 		"\"statistics\":{" +
 		"	\"elapsed\":0.001797702," +
 		"	\"rows_read\":3," +
@@ -150,6 +151,16 @@ func TestRowsNext(t *testing.T) {
 	if expected_date := time.Date(1111, 01, 5, 11, 11, 14, 123456000, loc); !tz_date_to_test3.Equal(expected_date) {
 		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test3.In(loc))
 	}
+
+	err = rows.Next(dest)
+	assert(err, nil, t, "Next shouldn't return an error")
+
+	tz_date_to_test4, _ := dest[9].(time.Time)
+	if expected_date := time.Date(1989, 4, 15, 3, 2, 3, 123456000, loc); !tz_date_to_test4.Equal(expected_date) {
+		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test4.In(loc))
+	}
+	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
+
 	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
 
 	assert(rows.HasNextResultSet(), false, t, "Has Next result set didn't return false")
