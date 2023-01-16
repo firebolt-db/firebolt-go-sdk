@@ -129,7 +129,7 @@ func TestRowsNext(t *testing.T) {
 	tz_date_to_test2, _ := dest[9].(time.Time)
 	// Creating custom timezone with no name (e.g. Europe/Berlin)
 	// similar to Firebolt's return format
-	timezone := time.FixedZone("", 5.5*60*60)
+	timezone, _ := time.LoadLocation("Asia/Calcutta")
 	if expected_date := time.Date(1989, 04, 15, 1, 2, 3, 123400000, timezone); !tz_date_to_test2.Equal(expected_date) {
 		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test2.In(timezone))
 	}

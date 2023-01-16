@@ -200,7 +200,7 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 
 func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{"advanced_mode": "1", "time_zone": "Asia/Calcutta"}}
-	loc := time.FixedZone("", 5.5*60*60)
+	loc, _ := time.LoadLocation("Asia/Calcutta")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.123456 Europe/Berlin'::TIMESTAMPTZ;", nil)
 	if err != nil {
