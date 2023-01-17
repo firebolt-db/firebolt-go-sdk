@@ -45,9 +45,10 @@ jobs:
         uses: actions/setup-go@v3
         with:
           go-version: '1.19.0'
+
       - name: Determine env variables
         run: |
-          if [ "${{ github.event.inputs.environment }}" == 'staging' ]; then
+          if [ "${{ inputs.environment }}" == 'staging' ]; then
              echo "USERNAME=${{ secrets.FIREBOLT_USERNAME_STAGING }}" >> "$GITHUB_ENV"
              echo "PASSWORD=${{ secrets.FIREBOLT_PASSWORD_STAGING }}" >> "$GITHUB_ENV"
              echo "CLIENT_ID=${{ secrets.FIREBOLT_CLIENT_ID_STAGING }}" >> "$GITHUB_ENV"
@@ -58,15 +59,17 @@ jobs:
              echo "CLIENT_ID=${{ secrets.FIREBOLT_CLIENT_ID_DEV }}" >> "$GITHUB_ENV"
              echo "CLIENT_SECRET=${{ secrets.FIREBOLT_CLIENT_SECRET_DEV }}" >> "$GITHUB_ENV"
           fi
+
       - name: Keep environment name in the summary
-        run: echo '### Ran integration tests against ${{ github.event.inputs.environment }} ' >> $GITHUB_STEP_SUMMARY
+        run: echo '### Ran integration tests against ${{ inputs.environment }} ' >> $GITHUB_STEP_SUMMARY
+
       - name: Setup database and engine
         id: setup
         uses: firebolt-db/integration-testing-setup@master
         with:
           firebolt-username: ${{ env.USERNAME }}
           firebolt-password: ${{ env.PASSWORD }}
-          api-endpoint: "api.${{ github.event.inputs.environment }}.firebolt.io"
+          api-endpoint: "api.${{ inputs.environment }}.firebolt.io"
           region: "us-east-1"
           instance-type: "B2"
 
@@ -79,7 +82,7 @@ jobs:
           ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
           STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
           STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
-          FIREBOLT_ENDPOINT: "api.${{ github.event.inputs.environment }}.firebolt.io"
+          FIREBOLT_ENDPOINT: "api.${{ inputs.environment }}.firebolt.io"
           ACCOUNT_NAME: "firebolt"
           SERVICE_ACCOUNT_CLIENT_ID: ${{ env.CLIENT_ID }}
           SERVICE_ACCOUNT_CLIENT_SECRET: ${{ env.CLIENT_SECRET }}
