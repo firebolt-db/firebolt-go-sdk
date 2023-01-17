@@ -1,0 +1,61 @@
+name: Performance tests
+
+on: workflow_dispatch
+
+jobs:
+  performance-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: '1.18.0'
+          
+      - name: Setup database and engine
+        id: setup
+        uses: firebolt-db/integration-testing-setup@master
+        with:
+          firebolt-username: ${{ secrets.FIREBOLT_USERNAME_STAGING }}
+          firebolt-password: ${{ secrets.FIREBOLT_PASSWORD_STAGING }}
+          api-endpoint: "api.staging.firebolt.io"
+          region: "us-east-1"
+          instance-type: "C2"
+          engine-scale: 2
+
+      - name: Add data to database
+        env:
+          USER_NAME: ${{ secrets.FIREBOLT_USERNAME_STAGING }}
+          PASSWORD: ${{ secrets.FIREBOLT_PASSWORD_STAGING }}
+          DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
+          ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
+          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
+          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
+          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
+          FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
+          ACCOUNT_NAME: "firebolt"
+        run: |
+          go run scripts/performance_test_init.go     
+
+      - name: gobenchdata publish
+        uses: bobheadxi/gobenchdata@v1
+        with:
+          PRUNE_COUNT: 20
+          GO_TEST_FLAGS: -test.benchtime=50x
+          PUBLISH: true
+          PUBLISH_BRANCH: gh-pages
+          GO_BENCHMARKS: BenchmarkSelect
+          BENCHMARKS_OUT: benchmark/benchmarks.json
+        env:
+          USER_NAME: ${{ secrets.FIREBOLT_USERNAME_STAGING }}
+          PASSWORD: ${{ secrets.FIREBOLT_PASSWORD_STAGING }}
+          DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
+          ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
+          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
+          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
+          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
+          FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
+          ACCOUNT_NAME: "firebolt"
+          TEST_THREAD_COUNT: 5
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
