@@ -31,15 +31,16 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 		"	{\"name\":\"pgdate_col\",\"type\":\"PGDATE\"}," +
 		"	{\"name\":\"timestampntz_col\",\"type\":\"TIMESTAMPNTZ\"}," +
 		"	{\"name\":\"timestamptz_col\",\"type\":\"TIMESTAMPTZ\"}," +
-		"	{\"name\":\"bool_col\",\"type\":\"UInt8\"}," +
+		"	{\"name\":\"legacy_bool_col\",\"type\":\"UInt8\"}," +
 		"	{\"name\":\"array_col\",\"type\":\"Array(Int32)\"}," +
-		"	{\"name\":\"nested_array_col\",\"type\":\"Array(Array(String))\"}]," +
+		"	{\"name\":\"nested_array_col\",\"type\":\"Array(Array(String))\"}," +
+		"	{\"name\":\"new_bool_col\",\"type\":\"Boolean\"}]," +
 		"\"data\":[" +
-		"	[null,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",\"0002-01-01\",\"1989-04-15 01:02:03.123456\",\"1989-04-15 02:02:03.123456+00\",1,[1,2,3],[[]]]," +
-		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 01:02:03.1234+05:30\",1,[1,2,3],[[]]]," +
-		"	[3,null,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123458\",\"1989-04-15 01:02:03+01\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]]]," +
-		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1111-01-05 17:04:42.123456+05:53:28\",1,[1,2,3],[[]]]," +
-		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 02:02:03.123456-01\",1,[1,2,3],[[]]]" +
+		"	[null,1,0.312321,123213.321321,\"text\", \"2080-12-31\",\"1989-04-15 01:02:03\",\"0002-01-01\",\"1989-04-15 01:02:03.123456\",\"1989-04-15 02:02:03.123456+00\",1,[1,2,3],[[]],true]," +
+		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 01:02:03.1234+05:30\",1,[1,2,3],[[]],true]," +
+		"	[3,null,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123458\",\"1989-04-15 01:02:03+01\",1,[5,2,3,2],[[\"TEST\",\"TEST1\"],[\"TEST3\"]],false]," +
+		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1111-01-05 17:04:42.123456+05:53:28\",1,[1,2,3],[[]],false]," +
+		"	[2,1,0.312321,123213.321321,\"text\",\"1970-01-01\",\"1970-01-01 00:00:00\",\"0001-01-01\",\"1989-04-15 01:02:03.123457\",\"1989-04-15 02:02:03.123456-01\",1,[1,2,3],[[]],null]" +
 		"]," +
 		"\"rows\":5," +
 		"\"statistics\":{" +
@@ -84,7 +85,7 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 func TestRowsColumns(t *testing.T) {
 	rows := mockRows(false)
 
-	columnNames := []string{"int_col", "bigint_col", "float_col", "double_col", "text_col", "date_col", "timestamp_col", "pgdate_col", "timestampntz_col", "timestamptz_col", "bool_col", "array_col", "nested_array_col"}
+	columnNames := []string{"int_col", "bigint_col", "float_col", "double_col", "text_col", "date_col", "timestamp_col", "pgdate_col", "timestampntz_col", "timestamptz_col", "legacy_bool_col", "array_col", "nested_array_col", "new_bool_col"}
 	if !reflect.DeepEqual(rows.Columns(), columnNames) {
 		t.Errorf("column lists are not equal")
 	}
@@ -106,7 +107,7 @@ func TestRowsClose(t *testing.T) {
 // TestRowsNext check Next method
 func TestRowsNext(t *testing.T) {
 	rows := mockRows(false)
-	var dest = make([]driver.Value, 13)
+	var dest = make([]driver.Value, 14)
 	err := rows.Next(dest)
 	loc, _ := time.LoadLocation("UTC")
 
@@ -124,6 +125,7 @@ func TestRowsNext(t *testing.T) {
 	if expected_date := time.Date(1989, 04, 15, 2, 2, 3, 123456000, loc); !tz_date_to_test.Equal(expected_date) {
 		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test.In(loc))
 	}
+	assert(dest[13], true, t, "results not equal for boolean")
 
 	err = rows.Next(dest)
 	assert(err, nil, t, "Next shouldn't return an error")
@@ -134,6 +136,7 @@ func TestRowsNext(t *testing.T) {
 	if expected_date := time.Date(1989, 04, 15, 1, 2, 3, 123400000, timezone); !tz_date_to_test2.Equal(expected_date) {
 		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test2.In(timezone))
 	}
+	assert(dest[13], true, t, "results not equal for boolean")
 
 	err = rows.Next(dest)
 	assert(err, nil, t, "Next shouldn't return an error")
@@ -143,6 +146,7 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[2], float32(0.312321), t, "results not equal for float32")
 	assert(dest[3], float64(123213.321321), t, "results not equal for float64")
 	assert(dest[4], "text", t, "results not equal for string")
+	assert(dest[13], false, t, "results not equal for boolean")
 
 	err = rows.Next(dest)
 	assert(err, nil, t, "Next shouldn't return an error")
@@ -151,6 +155,7 @@ func TestRowsNext(t *testing.T) {
 	if expected_date := time.Date(1111, 01, 5, 11, 11, 14, 123456000, loc); !tz_date_to_test3.Equal(expected_date) {
 		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test3.In(loc))
 	}
+	assert(dest[13], false, t, "results not equal for boolean")
 
 	err = rows.Next(dest)
 	assert(err, nil, t, "Next shouldn't return an error")
@@ -159,6 +164,8 @@ func TestRowsNext(t *testing.T) {
 	if expected_date := time.Date(1989, 4, 15, 3, 2, 3, 123456000, loc); !tz_date_to_test4.Equal(expected_date) {
 		t.Errorf("Results not equal for timestamptz Expected: %s Got %s", expected_date, tz_date_to_test4.In(loc))
 	}
+	assert(dest[13], nil, t, "results not equal for boolean")
+
 	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
 
 	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
