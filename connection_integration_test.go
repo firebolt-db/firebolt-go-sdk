@@ -249,3 +249,31 @@ func TestConnectionMultipleStatement(t *testing.T) {
 		}
 	}
 }
+
+func TestConnectionQueryBooleanType(t *testing.T) {
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+
+	//setting params that are needed to use the boolean type
+	paramStatements := []string{"SET advanced_mode=1;",
+		"SET output_format_firebolt_type_names=1",
+		"SET bool_output_format=postgres"}
+	for _, statement := range paramStatements {
+		if _, err := conn.ExecContext(context.TODO(), statement, nil); err != nil {
+			t.Errorf("statement '%s' returned an error: %v", statement, err)
+		}
+	}
+
+	rows, err := conn.QueryContext(context.TODO(), "SELECT true, false, null::boolean;", nil)
+	if err != nil {
+		t.Errorf("statement failed with %v", err)
+	}
+
+	dest := make([]driver.Value, 3)
+
+	if err = rows.Next(dest); err != nil {
+		t.Errorf("firebolt rows Next failed with %v", err)
+	}
+	assert(dest[0], true, t, "results are not equal")
+	assert(dest[1], false, t, "results are not equal")
+	assert(dest[2], nil, t, "results are not equal")
+}

@@ -28,6 +28,7 @@ const (
 	PGDate         = "PGDATE"
 	TimestampNtz   = "TIMESTAMPNTZ"
 	TimestampTz    = "TIMESTAMPTZ"
+	boolean        = "BOOLEAN"
 )
 
 type fireboltRows struct {
@@ -103,6 +104,12 @@ func checkTypeValue(columnType string, val interface{}) error {
 			return fmt.Errorf("expected to convert a value to string, but couldn't: %v", val)
 		}
 		return nil
+	case boolean:
+		if _, ok := val.(bool); !ok {
+			return fmt.Errorf("expected to convert a value to bool, but couldn't: %v", val)
+		}
+		return nil
+
 	}
 	return fmt.Errorf("unknown column type: %s", columnType)
 }
@@ -170,6 +177,8 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 		return val.(string), nil
 	case datetime64Type, datetimeType, dateType, date32Type, PGDate, TimestampNtz, TimestampTz:
 		return parseDateTimeValue(columnType, val.(string))
+	case boolean:
+		return val.(bool), nil
 	}
 
 	return nil, fmt.Errorf("type not known: %s", columnType)
