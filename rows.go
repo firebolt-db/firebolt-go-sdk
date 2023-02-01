@@ -193,7 +193,7 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		}
 		return res, nil
 	} else if strings.HasPrefix(columnType, decimalPrefix) && strings.HasSuffix(columnType, suffix) {
-		return parseSingleValue("Float64", val)
+		return parseSingleValue("double", val)
 	} else if strings.HasSuffix(columnType, nullableSuffix) {
 		return parseSingleValue(columnType[0:len(columnType)-len(nullableSuffix)], val)
 	}
