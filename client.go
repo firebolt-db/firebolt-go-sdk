@@ -153,7 +153,7 @@ func (c *Client) GetEngineUrlByDatabase(ctx context.Context, databaseName string
 func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query string, setStatements map[string]string) (*QueryResponse, error) {
 	infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
 
-	params := map[string]string{"database": databaseName, "output_format": "JSONCompact"}
+	params := map[string]string{"database": databaseName, "output_format": "JSON_Compact"}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
