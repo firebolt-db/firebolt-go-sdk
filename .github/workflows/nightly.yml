@@ -77,3 +77,14 @@ jobs:
           label: Coverage
           message: ${{steps.coverage.outputs.covered}}%
           color: ${{steps.coverage.outputs.colour}}
+  
+      - name: Slack Notify of failure
+        if: failure()
+        id: slack
+        uses: firebolt-db/action-slack-nightly-notify@v1
+        with:
+          os: ${{ matrix.os }}
+          programming-language: GO
+          language-version: ${{ matrix.go-version }}
+          notifications-channel: 'ecosystem-ci-notifications'
+          slack-api-key: ${{ secrets.SLACK_BOT_TOKEN }}
