@@ -2,6 +2,7 @@ package fireboltgosdk
 
 import (
 	"database/sql/driver"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"reflect"
@@ -27,6 +28,7 @@ const (
 	timestampTzType  = "timestamptz"
 
 	booleanType = "boolean"
+	byteaType   = "bytea"
 )
 
 type fireboltRows struct {
@@ -97,7 +99,7 @@ func checkTypeValue(columnType string, val interface{}) error {
 			return fmt.Errorf("expected to convert a value to float64, but couldn't: %v", val)
 		}
 		return nil
-	case textType, dateType, dateExtType, pgDateType, timestampType, timestampExtType, timestampNtzType, timestampTzType:
+	case textType, dateType, dateExtType, pgDateType, timestampType, timestampExtType, timestampNtzType, timestampTzType, byteaType:
 		if _, ok := val.(string); !ok {
 			return fmt.Errorf("expected to convert a value to string, but couldn't: %v", val)
 		}
@@ -163,7 +165,13 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 		return parseDateTimeValue(columnType, val.(string))
 	case booleanType:
 		return val.(bool), nil
-
+	case byteaType:
+		trimmedString := strings.TrimPrefix(val.(string), "\\x")
+		decoded, err := hex.DecodeString(trimmedString)
+		if err != nil {
+			return nil, fmt.Errorf("Unable to parse to hex value: %v", val)
+		}
+		return decoded, nil
 	}
 
 	return nil, fmt.Errorf("type not known: %s", columnType)

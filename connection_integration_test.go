@@ -4,6 +4,7 @@
 package fireboltgosdk
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"io"
@@ -276,4 +277,24 @@ func TestConnectionQueryBooleanType(t *testing.T) {
 	assert(dest[0], true, t, "results are not equal")
 	assert(dest[1], false, t, "results are not equal")
 	assert(dest[2], nil, t, "results are not equal")
+}
+
+func TestConnectionQueryByteaType(t *testing.T) {
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+
+	rows, err := conn.QueryContext(context.TODO(), "SELECT 'abc123'::bytea", nil)
+	if err != nil {
+		t.Errorf("statement failed with %v", err)
+	}
+
+	dest := make([]driver.Value, 1)
+
+	if err = rows.Next(dest); err != nil {
+		t.Errorf("firebolt rows Next failed with %v", err)
+	}
+	to_test, _ := dest[0].([]byte)
+	expected := []byte("abc123")
+	if !bytes.Equal(to_test, expected) {
+		t.Errorf("Bytea type check failed Expected: %s Got: %s", expected, to_test)
+	}
 }
