@@ -17,6 +17,10 @@ on:
         default: 'staging'
         required: false
         type: string
+      branch:
+        required: false
+        type: string
+        description: 'Branch to run on'
     secrets:
       FIREBOLT_USERNAME_STAGING:
         required: false
@@ -41,6 +45,8 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v3
+        with:
+          ref: ${{ inputs.branch }}
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
