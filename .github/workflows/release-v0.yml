@@ -14,7 +14,7 @@ jobs:
   release:
     uses: ./.github/workflows/release-workflow.yml
     with:
-      branch: v0
+      branch: 0.x
       pre-release-tag: ${{ inputs.pre-release-tag }}
       major-release: ${{ inputs.major-release }}
     secrets: inherit
