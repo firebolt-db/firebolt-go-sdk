@@ -1,4 +1,4 @@
-name: Release new version
+name: v0.x Release new version
 
 on:
   workflow_dispatch:
@@ -14,7 +14,7 @@ jobs:
   release:
     uses: ./.github/workflows/release-workflow.yml
     with:
-      branch: main
+      branch: 0.x
       pre-release-tag: ${{ inputs.pre-release-tag }}
       major-release: ${{ inputs.major-release }}
     secrets: inherit
