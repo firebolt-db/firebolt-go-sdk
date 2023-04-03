@@ -26,6 +26,7 @@ func ParseDSNString(dsn string) (*fireboltSettings, error) {
 	dsnExpr := regexp.MustCompile(dsnPattern)
 	paramsExpr := regexp.MustCompile(paramsPattern)
 
+	infolog.Println("Parsing DSN")
 	dsnMatch := dsnExpr.FindStringSubmatch(dsn)
 
 	if len(dsnMatch) == 0 {

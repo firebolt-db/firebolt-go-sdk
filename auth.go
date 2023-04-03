@@ -40,7 +40,7 @@ func Authenticate(clientId, clientSecret, apiEndpoint string) (*Client, error) {
 }
 
 // getAccessToken gets an access token from the cache when it is available in the cache or from the server when it is not available in the cache
-func getAccessToken(clientSecret string, clientId string, apiEndpoint string, userAgent string) (string, error) {
+func getAccessToken(clientId string, clientSecret string, apiEndpoint string, userAgent string) (string, error) {
 	cachedToken := getCachedAccessToken(clientId, apiEndpoint)
 	if len(cachedToken) > 0 {
 		return cachedToken, nil
@@ -114,6 +114,11 @@ func prepareServiceAccountLogin(clientId, clientSecret, audience string) (string
 // in the enpoint url, replase 'api' with 'id' in the beginning
 func getAuthEndpoint(apiEndpoint string) string {
 	s := strings.Split(apiEndpoint, ".")
+	if s[0] != "api" {
+		// We expect an apiEndpoint to be of format api.<env>.firebolt.io
+		// Since we got something else, assume it's a test
+		return apiEndpoint
+	}
 	s[0] = "id"
 	return strings.Join(s, ".")
 }
