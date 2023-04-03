@@ -12,10 +12,10 @@ import (
 )
 
 type Client struct {
-	Username    string
-	Password    string
-	ApiEndpoint string
-	UserAgent   string
+	ClientId     string
+	ClientSecret string
+	ApiEndpoint  string
+	UserAgent    string
 }
 
 // GetAccountIdByName returns account ID based on account name
@@ -210,7 +210,7 @@ func checkErrorResponse(response []byte) error {
 // and sends a request using that token
 func (c Client) request(ctx context.Context, method string, url string, userAgent string, params map[string]string, bodyStr string) ([]byte, error) {
 	var err error
-	accessToken, err := getAccessToken(c.Username, c.Password, c.ApiEndpoint, userAgent)
+	accessToken, err := getAccessToken(c.ClientId, c.ClientSecret, c.ApiEndpoint, userAgent)
 	if err != nil {
 		return nil, ConstructNestedError("error while getting access token", err)
 	}
@@ -218,10 +218,10 @@ func (c Client) request(ctx context.Context, method string, url string, userAgen
 	var responseCode int
 	response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
 	if responseCode == http.StatusUnauthorized {
-		deleteAccessTokenFromCache(c.Username, c.ApiEndpoint)
+		deleteAccessTokenFromCache(c.ClientId, c.ApiEndpoint)
 
 		// Refreshing the access token as it is expired
-		accessToken, err = getAccessToken(c.Username, c.Password, GetHostNameURL(), c.UserAgent)
+		accessToken, err = getAccessToken(c.ClientId, c.ClientSecret, GetHostNameURL(), c.UserAgent)
 		if err != nil {
 			return nil, ConstructNestedError("error while refreshing access token", err)
 		}

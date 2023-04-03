@@ -8,7 +8,7 @@ import (
 
 type fireboltSettings struct {
 	database     string
-	account_name string
+	accountName  string
 	engine       string
 	clientId     string
 	clientSecret string
@@ -43,7 +43,7 @@ func ParseDSNString(dsn string) (*fireboltSettings, error) {
 		for _, m := range paramsMatch {
 			switch m[1] {
 			case "account_name":
-				result.account_name = m[2]
+				result.accountName = m[2]
 			case "engine":
 				result.engine = m[2]
 			case "client_id":

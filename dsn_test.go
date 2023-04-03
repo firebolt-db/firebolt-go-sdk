@@ -11,8 +11,8 @@ func runDSNTest(t *testing.T, input string, expectedSettings fireboltSettings) {
 		t.Errorf("ParseDSNString unexpectedly failed: %v", err)
 	}
 
-	if settings.account_name != expectedSettings.account_name {
-		t.Errorf("for account_name got %s want %s", settings.account_name, expectedSettings.account_name)
+	if settings.accountName != expectedSettings.accountName {
+		t.Errorf("for account_name got %s want %s", settings.accountName, expectedSettings.accountName)
 	}
 
 	if settings.engine != expectedSettings.engine {
@@ -41,10 +41,10 @@ func TestDSNHappyPath(t *testing.T) {
 	runDSNTest(t, "firebolt:///test_db", fireboltSettings{database: "test_db"})
 
 	runDSNTest(t, "firebolt://?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_cs",
-		fireboltSettings{account_name: "test_acc", engine: "test_eng", clientId: "test_cid", clientSecret: "test_cs"})
+		fireboltSettings{accountName: "test_acc", engine: "test_eng", clientId: "test_cid", clientSecret: "test_cs"})
 
 	runDSNTest(t, "firebolt:///test_db?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_cs",
-		fireboltSettings{database: "test_db", account_name: "test_acc", engine: "test_eng", clientId: "test_cid", clientSecret: "test_cs"})
+		fireboltSettings{database: "test_db", accountName: "test_acc", engine: "test_eng", clientId: "test_cid", clientSecret: "test_cs"})
 }
 
 // TestDSNFailed test different failure scenarios for ParseDSNString
