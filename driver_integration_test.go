@@ -17,37 +17,51 @@ import (
 )
 
 var (
-	dsnMock                    string
-	dsnEngineUrlMock           string
-	dsnDefaultEngineMock       string
-	dsnDefaultAccountMock      string
-	dsnSystemEngineMock        string
-	usernameMock               string
-	passwordMock               string
-	databaseMock               string
-	engineUrlMock              string
-	engineNameMock             string
-	accountNameMock            string
-	serviceAccountClientId     string
-	serviceAccountClientSecret string
-	clientMock                 *Client
+	dsnMock                         string
+	dsnNoDatabaseMock               string
+	dsnSystemEngineWithDatabaseMock string
+	dsnSystemEngineMock             string
+	clientIdMock                    string
+	clientSecretMock                string
+	databaseMock                    string
+	engineNameMock                  string
+	engineUrlMock                   string
+	accountNameMock                 string
+	clientMock                      *Client
 )
 
 // init populates mock variables and client for integration tests
 func init() {
-	usernameMock = os.Getenv("USER_NAME")
-	passwordMock = os.Getenv("PASSWORD")
+	clientIdMock = os.Getenv("CLIENT_ID")
+	clientSecretMock = os.Getenv("CLIENT_SECRET")
 	databaseMock = os.Getenv("DATABASE_NAME")
 	engineNameMock = os.Getenv("ENGINE_NAME")
-	engineUrlMock = os.Getenv("ENGINE_URL")
 	accountNameMock = os.Getenv("ACCOUNT_NAME")
 
-	dsnMock = fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", usernameMock, passwordMock, databaseMock, engineNameMock, accountNameMock)
-	dsnEngineUrlMock = fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", usernameMock, passwordMock, databaseMock, engineUrlMock, accountNameMock)
-	dsnDefaultEngineMock = fmt.Sprintf("firebolt://%s:%s@%s?account_name=%s", usernameMock, passwordMock, databaseMock, accountNameMock)
-	dsnDefaultAccountMock = fmt.Sprintf("firebolt://%s:%s@%s", usernameMock, passwordMock, databaseMock)
-	dsnSystemEngineMock = fmt.Sprintf("firebolt://%s:%s@%s/%s", usernameMock, passwordMock, databaseMock, "system")
-	clientMock, _ = Authenticate(usernameMock, passwordMock, GetHostNameURL())
+	dsnMock = fmt.Sprintf("firebolt://%s/?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, engineNameMock, clientIdMock, clientSecretMock)
+	dsnSystemEngineMock = fmt.Sprintf("firebolt://?account_name=%s&client_id=%s&client_secret=%s", accountNameMock, clientIdMock, clientSecretMock)
+	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountNameMock, engineNameMock, clientIdMock, clientSecretMock)
+	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt://%s/?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, clientIdMock, clientSecretMock)
+	var err error
+	clientMock, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
+	fmt.Printf(GetHostNameURL())
+	if err != nil {
+		panic(fmt.Sprintf("Authentication error: %v", err))
+	}
+	engineUrlMock = getEngineURL()
+}
+
+func getEngineURL() string {
+	systemEngineURL, err := clientMock.GetSystemEngineURL(context.TODO(), accountNameMock)
+	if err != nil {
+		panic(fmt.Sprintf("Error returned by GetSystemEngineURL: %s", err))
+	}
+
+	engineURL, _, _, err := clientMock.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
+	if err != nil {
+		panic(fmt.Sprintf("Error returned by GetEngineUrlStatusDBByName: %s", err))
+	}
+	return engineURL
 }
 
 // TestDriverQueryResult tests query happy path, as user would do it
@@ -119,13 +133,8 @@ func runTestDriverExecStatement(t *testing.T, dsn string) {
 }
 
 // TestDriverOpenEngineUrl checks opening driver with a default engine
-func TestDriverOpenEngineUrl(t *testing.T) {
-	runTestDriverExecStatement(t, dsnEngineUrlMock)
-}
-
-// TestDriverOpenDefaultEngine checks opening driver with a default engine
-func TestDriverOpenDefaultEngine(t *testing.T) {
-	runTestDriverExecStatement(t, dsnDefaultEngineMock)
+func TestDriverOpenNoDatabase(t *testing.T) {
+	runTestDriverExecStatement(t, dsnNoDatabaseMock)
 }
 
 // TestDriverExecStatement checks exec with full dsn

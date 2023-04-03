@@ -51,7 +51,10 @@ func getAccessToken(clientId string, clientSecret string, apiEndpoint string, us
 		var err error
 
 		loginUrl, contentType, body = prepareServiceAccountLogin(clientId, clientSecret, apiEndpoint)
-		authEndpoint := getAuthEndpoint(apiEndpoint)
+		authEndpoint, err := getAuthEndpoint(apiEndpoint)
+		if err != nil {
+			return "", ConstructNestedError("error building auth endpoint", err)
+		}
 		infolog.Printf("Start authentication into '%s' using '%s'", authEndpoint, loginUrl)
 		resp, err, _ := request(context.TODO(), "", "POST", authEndpoint+loginUrl, userAgent, nil, body, contentType)
 		if err != nil {
@@ -112,13 +115,18 @@ func prepareServiceAccountLogin(clientId, clientSecret, audience string) (string
 }
 
 // in the enpoint url, replase 'api' with 'id' in the beginning
-func getAuthEndpoint(apiEndpoint string) string {
-	s := strings.Split(apiEndpoint, ".")
+func getAuthEndpoint(apiEndpoint string) (string, error) {
+	u, err := url.Parse(apiEndpoint)
+	if err != nil {
+		return "", ConstructNestedError("error parsing api endpoint", err)
+	}
+	s := strings.Split(u.Host, ".")
 	if s[0] != "api" {
 		// We expect an apiEndpoint to be of format api.<env>.firebolt.io
 		// Since we got something else, assume it's a test
-		return apiEndpoint
+		return apiEndpoint, nil
 	}
 	s[0] = "id"
-	return strings.Join(s, ".")
+	u.Host = strings.Join(s, ".")
+	return u.String(), nil
 }
