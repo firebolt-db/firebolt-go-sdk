@@ -93,4 +93,4 @@ jobs:
           SERVICE_ACCOUNT_CLIENT_ID: ${{ env.CLIENT_ID }}
           SERVICE_ACCOUNT_CLIENT_SECRET: ${{ env.CLIENT_SECRET }}
         run: |
-          go test . -v --tags=integration
+          go test . -timeout=30m -v --tags=integration
