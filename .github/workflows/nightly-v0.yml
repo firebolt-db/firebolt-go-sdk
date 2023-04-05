@@ -59,7 +59,7 @@ jobs:
           SERVICE_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STAGING }}
           SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STAGING }}
         run: |
-          go test . -v -coverprofile cover.out --tags=integration
+          go test . -timeout=30m -v -coverprofile cover.out --tags=integration
 
       - name: Print coverage percent
         id: coverage
