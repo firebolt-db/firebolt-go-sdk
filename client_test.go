@@ -133,6 +133,25 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 		t.Errorf("Expected to call the server 5 times (2x to fetch tokens and 3x to send the request that returns a 403). Total: %d", totalCount)
 	}
 }
+
+// TestUserAgent tests that UserAgent is correctly set on request
+func TestUserAgent(t *testing.T) {
+	var userAgentValue = "userAgent"
+	var userAgentHeader = ""
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		userAgentHeader = r.Header.Get("User-Agent")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	prepareEnvVariablesForTest(t, server)
+	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue}
+
+	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
+	if userAgentHeader != userAgentValue {
+		t.Errorf("Did not set User-Agent value correctly on a query request")
+	}
+}
+
 func getAuthResponse(expiry int) []byte {
 	var response = `{
    "access_token": "aMysteriousToken",
