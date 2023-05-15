@@ -146,7 +146,7 @@ func TestUserAgent(t *testing.T) {
 	prepareEnvVariablesForTest(t, server)
 	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue}
 
-	client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
+	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
