@@ -14,6 +14,9 @@ func TestGetEnginePropsByName(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error returned by GetSystemEngineURL: %s", err)
 	}
+	if len(systemEngineURL) == 0 {
+		t.Errorf("Empty system engine url returned by GetSystemEngineURL for account: %s", accountNameMock)
+	}
 
 	engineURL, status, dbName, err := clientMock.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
 	if err != nil {
@@ -23,7 +26,7 @@ func TestGetEnginePropsByName(t *testing.T) {
 		t.Errorf("Empty engine url returned by GetEngineUrlStatusDBByName")
 	}
 	if status != "Running" {
-		t.Errorf("Invalid status returned by GetEngineUrlStatusDBByName")
+		t.Errorf("Invalid status returned by GetEngineUrlStatusDBByName. Got: %s, should be Running", status)
 	}
 	if dbName != databaseMock {
 		t.Errorf("Invalid database returned by GetEngineUrlStatusDBByName: expected %s, got %s", databaseMock, dbName)

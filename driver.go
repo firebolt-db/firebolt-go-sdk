@@ -35,7 +35,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 		}
 
 		// authenticating and getting access token
-		if d.client, err = Authenticate(settings.clientId, settings.clientSecret, GetHostNameURL()); err != nil {
+		if d.client, err = Authenticate(settings.clientId, settings.clientSecret, GetHostNameURL(), settings.accountName); err != nil {
 			return nil, ConstructNestedError("authentication error", err)
 		}
 

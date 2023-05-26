@@ -2,5 +2,6 @@ package fireboltgosdk
 
 const (
 	ServiceAccountLoginURLSuffix = "/oauth/token"
-	GatewayHostByAccountName     = "/v3/getGatewayHostByAccountName/%s"
+	GatewayHostByAccountName     = "/web/v3/account/%s/engineUrl"
+	QueryUrl                     = "/dynamic/query"
 )

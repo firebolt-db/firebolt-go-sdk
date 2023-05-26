@@ -43,7 +43,7 @@ func init() {
 	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountNameMock, engineNameMock, clientIdMock, clientSecretMock)
 	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt://%s/?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, clientIdMock, clientSecretMock)
 	var err error
-	clientMock, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
+	clientMock, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL(), accountNameMock)
 	fmt.Printf(GetHostNameURL())
 	if err != nil {
 		panic(fmt.Sprintf("Authentication error: %v", err))
@@ -55,6 +55,9 @@ func getEngineURL() string {
 	systemEngineURL, err := clientMock.GetSystemEngineURL(context.TODO(), accountNameMock)
 	if err != nil {
 		panic(fmt.Sprintf("Error returned by GetSystemEngineURL: %s", err))
+	}
+	if len(systemEngineURL) == 0 {
+		panic(fmt.Sprintf("Empty system engine url returned by GetSystemEngineURL for account: %s", accountNameMock))
 	}
 
 	engineURL, _, _, err := clientMock.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)

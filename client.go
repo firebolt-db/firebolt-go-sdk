@@ -16,20 +16,20 @@ type Client struct {
 	ClientSecret string
 	ApiEndpoint  string
 	UserAgent    string
+	AccountId    string
 }
 
 const outputFormat = "JSON_Compact"
 
 const engineInfoSQL = `
-SELECT engine_url, attached_to, status FROM information_schema.engines 
-WHERE engine_name=%s
+SELECT url, status, attached_to FROM information_schema.engines
+WHERE engine_name='%s'
 `
 
-// GetEngineUrlByName return engine URL based on engineName and accountName
 func (c *Client) GetEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
 	infolog.Printf("Get info for engine '%s'", engineName)
 	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
-	queryRes, err := c.Query(ctx, systemEngineUrl, "", engineSQL, make(map[string]string))
+	queryRes, err := c.Query(ctx, systemEngineUrl+QueryUrl, "", engineSQL, make(map[string]string))
 	if err != nil {
 		return "", "", "", ConstructNestedError("error executing engine info sql query", err)
 	}
@@ -69,7 +69,7 @@ func (c *Client) GetSystemEngineURL(ctx context.Context, accountName string) (st
 	infolog.Printf("Get system engine URL for account '%s'", accountName)
 
 	type SystemEngineURLResponse struct {
-		GatewayHost string `json:"gatewayHost"`
+		EngineUrl string `json:"engineUrl"`
 	}
 
 	url := fmt.Sprintf(c.ApiEndpoint+GatewayHostByAccountName, accountName)
@@ -84,7 +84,7 @@ func (c *Client) GetSystemEngineURL(ctx context.Context, accountName string) (st
 		return "", ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(response)))
 	}
 
-	return systemEngineURLResponse.GatewayHost, nil
+	return systemEngineURLResponse.EngineUrl, nil
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
@@ -98,7 +98,7 @@ func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query strin
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
-
+	params["account_id"] = c.AccountId
 	response, err := c.request(ctx, "POST", engineUrl, params, query)
 	if err != nil {
 		return nil, ConstructNestedError("error during query request", err)
