@@ -44,7 +44,7 @@ func TestConnectionInsertQuery(t *testing.T) {
 	if _, err := conn.ExecContext(context.TODO(), createTableSQL, nil); err != nil {
 		t.Errorf("statement returned an error: %v", err)
 	}
-	if _, err := conn.ExecContext(context.TODO(), "SET firebolt_dont_wait_for_upload_to_s3=1", nil); err != nil {
+	if _, err := conn.ExecContext(context.TODO(), "SET advanced_mode=1", nil); err != nil {
 		t.Errorf("statement returned an error: %v", err)
 	}
 	if _, err := conn.ExecContext(context.TODO(), insertSQL, nil); err != nil {
