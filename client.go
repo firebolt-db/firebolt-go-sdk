@@ -26,6 +26,16 @@ SELECT url, status, attached_to FROM information_schema.engines
 WHERE engine_name='%s'
 `
 
+func NewClient(clientId string, clientSecret string, apiEndpoint string, userAgent string, accountName string) (*Client, error) {
+	client := Client{ClientId: clientId, ClientSecret: clientSecret, ApiEndpoint: apiEndpoint, UserAgent: userAgent}
+	accountId, err := client.GetAccountId(context.TODO(), accountName)
+	if err != nil {
+		return nil, err
+	}
+	client.AccountId = accountId
+	return &client, nil
+}
+
 func (c *Client) GetEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
 	infolog.Printf("Get info for engine '%s'", engineName)
 	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
@@ -72,7 +82,7 @@ func (c *Client) GetSystemEngineURL(ctx context.Context, accountName string) (st
 		EngineUrl string `json:"engineUrl"`
 	}
 
-	url := fmt.Sprintf(c.ApiEndpoint+GatewayHostByAccountName, accountName)
+	url := fmt.Sprintf(c.ApiEndpoint+EngineUrlByAccountName, accountName)
 
 	response, err := c.request(ctx, "GET", url, make(map[string]string), "")
 	if err != nil {
@@ -85,6 +95,29 @@ func (c *Client) GetSystemEngineURL(ctx context.Context, accountName string) (st
 	}
 
 	return systemEngineURLResponse.EngineUrl, nil
+}
+
+func (c *Client) GetAccountId(ctx context.Context, accountName string) (string, error) {
+	infolog.Printf("Getting account ID for '%s'", accountName)
+
+	type AccountIdURLResponse struct {
+		Id     string `json:"id"`
+		Region string `json:"region"`
+	}
+
+	url := fmt.Sprintf(c.ApiEndpoint+AccountIdByAccountName, accountName)
+
+	response, err := c.request(ctx, "GET", url, make(map[string]string), "")
+	if err != nil {
+		return "", ConstructNestedError("error during account id resolution http request", err)
+	}
+
+	var accountIdURLResponse AccountIdURLResponse
+	if err = json.Unmarshal(response, &accountIdURLResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(response)))
+	}
+
+	return accountIdURLResponse.Id, nil
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
