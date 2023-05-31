@@ -50,7 +50,7 @@ func getAccessToken(clientId string, clientSecret string, apiEndpoint string, us
 		var body string
 		var err error
 
-		loginUrl, contentType, body = prepareServiceAccountLogin(clientId, clientSecret, apiEndpoint)
+		loginUrl, contentType, body = prepareServiceAccountLogin(clientId, clientSecret, "https://api.firebolt.io")
 		authEndpoint, err := getAuthEndpoint(apiEndpoint)
 		if err != nil {
 			return "", ConstructNestedError("error building auth endpoint", err)

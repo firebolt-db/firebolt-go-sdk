@@ -33,6 +33,7 @@ func NewClient(clientId string, clientSecret string, apiEndpoint string, userAge
 		return nil, err
 	}
 	client.AccountId = accountId
+	infolog.Printf("Resolved account %s to id %s", accountName, accountId)
 	return &client, nil
 }
 
