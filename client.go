@@ -26,17 +26,6 @@ SELECT url, status, attached_to FROM information_schema.engines
 WHERE engine_name='%s'
 `
 
-func NewClient(clientId string, clientSecret string, apiEndpoint string, userAgent string, accountName string) (*Client, error) {
-	client := Client{ClientId: clientId, ClientSecret: clientSecret, ApiEndpoint: apiEndpoint, UserAgent: userAgent}
-	accountId, err := client.GetAccountId(context.TODO(), accountName)
-	if err != nil {
-		return nil, err
-	}
-	client.AccountId = accountId
-	infolog.Printf("Resolved account %s to id %s", accountName, accountId)
-	return &client, nil
-}
-
 func (c *Client) GetEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
 	infolog.Printf("Get info for engine '%s'", engineName)
 	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
@@ -118,6 +107,8 @@ func (c *Client) GetAccountId(ctx context.Context, accountName string) (string, 
 		return "", ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(response)))
 	}
 
+	infolog.Printf("Resolved account %s to id %s", accountName, accountIdURLResponse.Id)
+
 	return accountIdURLResponse.Id, nil
 }
 
@@ -132,7 +123,10 @@ func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query strin
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
-	params["account_id"] = c.AccountId
+	// Account id is used when querying system engine
+	if len(c.AccountId) != 0 {
+		params["account_id"] = c.AccountId
+	}
 	response, err := c.request(ctx, "POST", engineUrl, params, query)
 	if err != nil {
 		return nil, ConstructNestedError("error during query request", err)

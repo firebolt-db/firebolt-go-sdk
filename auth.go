@@ -29,13 +29,13 @@ func init() {
 }
 
 // Authenticate sends an authentication request, and returns a newly constructed client object
-func Authenticate(clientId string, clientSecret string, apiEndpoint string, accountName string) (*Client, error) {
+func Authenticate(clientId string, clientSecret string, apiEndpoint string) (*Client, error) {
 	userAgent := ConstructUserAgentString()
 	_, err := getAccessToken(clientId, clientSecret, apiEndpoint, userAgent)
 	if err != nil {
 		return nil, ConstructNestedError("error while getting access token", err)
 	} else {
-		return NewClient(clientId, clientSecret, apiEndpoint, userAgent, accountName)
+		return &Client{ClientId: clientId, ClientSecret: clientSecret, ApiEndpoint: apiEndpoint, UserAgent: userAgent}, nil
 	}
 }
 

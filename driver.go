@@ -35,7 +35,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 		}
 
 		// authenticating and getting access token
-		if d.client, err = Authenticate(settings.clientId, settings.clientSecret, GetHostNameURL(), settings.accountName); err != nil {
+		if d.client, err = Authenticate(settings.clientId, settings.clientSecret, GetHostNameURL()); err != nil {
 			return nil, ConstructNestedError("authentication error", err)
 		}
 
@@ -65,6 +65,10 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 				return nil, fmt.Errorf("engine %s is not attached to database %s", settings.engine, settings.database)
 			}
 			d.engineUrl = engineUrl
+			d.client.AccountId, err = d.client.GetAccountId(context.TODO(), settings.accountName)
+			if err != nil {
+				return nil, fmt.Errorf("error resolving account %s to an id: %v", settings.accountName, err)
+			}
 		}
 		d.lastUsedDsn = dsn //nolint
 	}
