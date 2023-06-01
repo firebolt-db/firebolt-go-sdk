@@ -31,10 +31,11 @@ import (
 func main() {
 
 	// constructing a dsn string, you need to set your credentials
-	username := ""
-	password := ""
+	clientId := ""
+	clientSecret := ""
+	accountName := ""
 	databaseName := ""
-	dsn := fmt.Sprintf("firebolt://%s:%s@%s", username, password, databaseName)
+	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseName, accountName, clientId, clientSecret)
 
 	// opening the firebolt driver
 	db, err := sql.Open("firebolt", dsn)
