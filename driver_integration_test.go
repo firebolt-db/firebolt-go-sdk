@@ -28,6 +28,7 @@ var (
 	engineUrlMock                   string
 	accountNameMock                 string
 	clientMock                      *Client
+	clientMockWithAccount           *Client
 )
 
 // init populates mock variables and client for integration tests
@@ -38,17 +39,17 @@ func init() {
 	engineNameMock = os.Getenv("ENGINE_NAME")
 	accountNameMock = os.Getenv("ACCOUNT_NAME")
 
-	dsnMock = fmt.Sprintf("firebolt://%s/?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, engineNameMock, clientIdMock, clientSecretMock)
+	dsnMock = fmt.Sprintf("firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, engineNameMock, clientIdMock, clientSecretMock)
 	dsnSystemEngineMock = fmt.Sprintf("firebolt://?account_name=%s&client_id=%s&client_secret=%s", accountNameMock, clientIdMock, clientSecretMock)
 	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountNameMock, engineNameMock, clientIdMock, clientSecretMock)
-	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt://%s/?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, clientIdMock, clientSecretMock)
+	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, clientIdMock, clientSecretMock)
 	var err error
 	clientMock, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
-	clientMock.AccountId, err = clientMock.GetAccountId(context.TODO(), accountNameMock)
+	clientMockWithAccount, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
+	clientMockWithAccount.AccountId, err = clientMockWithAccount.GetAccountId(context.TODO(), accountNameMock)
 	if err != nil {
 		panic(fmt.Errorf("Error resolving account %s to an id: %v", accountNameMock, err))
 	}
-	fmt.Printf(GetHostNameURL())
 	if err != nil {
 		panic(fmt.Sprintf("Authentication error: %v", err))
 	}
@@ -56,7 +57,7 @@ func init() {
 }
 
 func getEngineURL() string {
-	systemEngineURL, err := clientMock.GetSystemEngineURL(context.TODO(), accountNameMock)
+	systemEngineURL, err := clientMockWithAccount.GetSystemEngineURL(context.TODO(), accountNameMock)
 	if err != nil {
 		panic(fmt.Sprintf("Error returned by GetSystemEngineURL: %s", err))
 	}
@@ -64,7 +65,7 @@ func getEngineURL() string {
 		panic(fmt.Sprintf("Empty system engine url returned by GetSystemEngineURL for account: %s", accountNameMock))
 	}
 
-	engineURL, _, _, err := clientMock.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
+	engineURL, _, _, err := clientMockWithAccount.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
 	if err != nil {
 		panic(fmt.Sprintf("Error returned by GetEngineUrlStatusDBByName: %s", err))
 	}
@@ -167,7 +168,8 @@ func TestDriverSystemEngine(t *testing.T) {
 		fmt.Sprintf("ALTER DATABASE %s WITH DESCRIPTION = 'GO SDK Integration test'", databaseName),
 		fmt.Sprintf("ALTER ENGINE %s RENAME TO %s", engineName, engineNewName),
 		fmt.Sprintf("START ENGINE %s", engineNewName),
-		fmt.Sprintf("STOP ENGINE %s", engineNewName)}
+		fmt.Sprintf("STOP ENGINE %s", engineNewName),
+	}
 
 	for _, query := range ddlStatements {
 		_, err := db.Query(query)
@@ -175,32 +177,24 @@ func TestDriverSystemEngine(t *testing.T) {
 			t.Errorf("The query %s returned an error: %v", query, err)
 		}
 	}
-	rows, err := db.Query("SHOW DATABASES")
+	rows, err := db.Query(fmt.Sprintf("SELECT database_name FROM information_schema.databases WHERE database_name='%s'", databaseName))
 	defer rows.Close()
 	if err != nil {
-		t.Errorf("Failed to execute query 'SHOW DATABASES' : %v", err)
-	}
-	containsDatabase, err := containsDatabase(rows, databaseName)
-	if err != nil {
-		t.Errorf("Failed to read response for query 'SHOW DATABASES' : %v", err)
+		t.Errorf("Failed to query information_schema.databases : %v", err)
 	}
 
-	if !containsDatabase {
+	if !rows.Next() {
 		t.Errorf("Could not find database with name %s", databaseName)
 	}
 	// Uncomment once https://packboard.atlassian.net/browse/FIR-17301 is done
-	//rows, err = db.Query("SHOW ENGINES")
-	//defer rows.Close()
-	//if err != nil {
-	//	t.Errorf("Failed to execute query 'SHOW ENGINES' : %v", err)
-	//}
-	//containsEngine, err := containsEngine(rows, databaseName)
-	//if err != nil {
-	//	t.Errorf("Failed to read response for query 'SHOW ENGINES' : %v", err)
-	//}
-	//if !containsEngine {
-	//	t.Errorf("Could not find engine with name %s", engineName)
-	//}
+	rows, err = db.Query(fmt.Sprintf("SELECT engine_name FROM information_schema.engines WHERE engine_name='%s'", engineNewName))
+	defer rows.Close()
+	if err != nil {
+		t.Errorf("Failed to query information_schema.engines : %v", err)
+	}
+	if !rows.Next() {
+		t.Errorf("Could not find engine with name %s", engineNewName)
+	}
 
 	dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
 	_, err = db.Query(dropDbQuery)

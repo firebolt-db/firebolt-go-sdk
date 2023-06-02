@@ -44,12 +44,19 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 			return nil, ConstructNestedError("error getting system engine url", err)
 		}
 
+		accountId, err := d.client.GetAccountId(context.TODO(), settings.accountName)
+		if err != nil {
+			return nil, fmt.Errorf("error resolving account %s to an id: %v", settings.accountName, err)
+		}
+		d.client.AccountId = accountId
+
 		if len(settings.engine) == 0 {
 			infolog.Println("Connected to a system engine")
 			d.engineUrl = systemEngineURL + QueryUrl
 			d.databaseName = settings.database
 		} else {
 			engineUrl, status, dbName, err := d.client.GetEngineUrlStatusDBByName(context.TODO(), settings.engine, systemEngineURL)
+			d.client.AccountId = "" // AccountID is no longer needed
 			if err != nil {
 				return nil, ConstructNestedError("error during getting engine info", err)
 			}
@@ -59,16 +66,12 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 			if len(dbName) == 0 {
 				return nil, fmt.Errorf("you don't have permission to access a database attached to an engine %s", settings.engine)
 			}
-			if len(settings.database) == 0 {
+			if len(settings.database) == 0 || settings.database == dbName {
 				d.databaseName = dbName
 			} else if settings.database != dbName {
 				return nil, fmt.Errorf("engine %s is not attached to database %s", settings.engine, settings.database)
 			}
 			d.engineUrl = engineUrl
-			d.client.AccountId, err = d.client.GetAccountId(context.TODO(), settings.accountName)
-			if err != nil {
-				return nil, fmt.Errorf("error resolving account %s to an id: %v", settings.accountName, err)
-			}
 		}
 		d.lastUsedDsn = dsn //nolint
 	}

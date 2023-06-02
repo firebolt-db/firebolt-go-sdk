@@ -10,7 +10,7 @@ import (
 
 // TestGetEnginePropsByName test getting system engine url, as well as engine url, status and database by name
 func TestGetEnginePropsByName(t *testing.T) {
-	systemEngineURL, err := clientMock.GetSystemEngineURL(context.TODO(), accountNameMock)
+	systemEngineURL, err := clientMockWithAccount.GetSystemEngineURL(context.TODO(), accountNameMock)
 	if err != nil {
 		t.Errorf("Error returned by GetSystemEngineURL: %s", err)
 	}
@@ -18,7 +18,7 @@ func TestGetEnginePropsByName(t *testing.T) {
 		t.Errorf("Empty system engine url returned by GetSystemEngineURL for account: %s", accountNameMock)
 	}
 
-	engineURL, status, dbName, err := clientMock.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
+	engineURL, status, dbName, err := clientMockWithAccount.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
 	if err != nil {
 		t.Errorf("Error returned by GetEngineUrlStatusDBByName: %s", err)
 	}
