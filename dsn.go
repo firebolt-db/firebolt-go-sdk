@@ -14,8 +14,8 @@ type fireboltSettings struct {
 	clientSecret string
 }
 
-const dsnPattern = `^firebolt://(?:/(?P<database>\w+))?(?:\?(?P<parameters>[^\:&]+\=[^\:&]+(?:\&[^\:&]+=[^\:&]+)*))?$`
-const paramsPattern = `(?P<key>[^\:&]+)=(?P<value>[^\:&]+)`
+const dsnPattern = `^firebolt://(?:/(?P<database>\w+))?(?:\?(?P<parameters>\w+\=[^=&]+(?:\&\w+=[^=&]+)*))?$`
+const paramsPattern = `(?P<key>\w+)=(?P<value>[^=&]+)`
 
 // ParseDSNString parses a dsn in a format: firebolt://[/database][?param=value[&param=value]]
 // Accepted parameters are: account_name, engine, client_id, client_secret

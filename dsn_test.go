@@ -45,6 +45,10 @@ func TestDSNHappyPath(t *testing.T) {
 
 	runDSNTest(t, "firebolt:///test_db?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_cs",
 		fireboltSettings{database: "test_db", accountName: "test_acc", engine: "test_eng", clientId: "test_cid", clientSecret: "test_cs"})
+
+	// special characters
+	runDSNTest(t, "firebolt:///test_db?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_*-()@\\.",
+		fireboltSettings{database: "test_db", accountName: "test_acc", engine: "test_eng", clientId: "test_cid", clientSecret: "test_*-()@\\."})
 }
 
 // TestDSNFailed test different failure scenarios for ParseDSNString
