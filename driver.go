@@ -64,7 +64,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 				return nil, fmt.Errorf("engine %s is not running", settings.engine)
 			}
 			if len(dbName) == 0 {
-				return nil, fmt.Errorf("you don't have permission to access a database attached to an engine %s", settings.engine)
+				return nil, fmt.Errorf("engine %s not attached to any DB or you don't have permission to access its database", settings.engine)
 			}
 			if len(settings.database) == 0 || settings.database == dbName {
 				d.databaseName = dbName
