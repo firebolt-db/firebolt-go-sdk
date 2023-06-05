@@ -10,6 +10,8 @@ import (
 	"github.com/astaxie/beego/cache"
 )
 
+const AuthAudienceValue = "https://api.firebolt.io"
+
 type AuthenticationResponse struct {
 	AccessToken  string `json:"access_token"`
 	RefreshToken string `json:"refresh_token"`
@@ -50,7 +52,7 @@ func getAccessToken(clientId string, clientSecret string, apiEndpoint string, us
 		var body string
 		var err error
 
-		loginUrl, contentType, body = prepareServiceAccountLogin(clientId, clientSecret, "https://api.firebolt.io")
+		loginUrl, contentType, body = prepareServiceAccountLogin(clientId, clientSecret, AuthAudienceValue)
 		authEndpoint, err := getAuthEndpoint(apiEndpoint)
 		if err != nil {
 			return "", ConstructNestedError("error building auth endpoint", err)
