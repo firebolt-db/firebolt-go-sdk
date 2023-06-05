@@ -186,7 +186,6 @@ func TestDriverSystemEngine(t *testing.T) {
 	if !rows.Next() {
 		t.Errorf("Could not find database with name %s", databaseName)
 	}
-	// Uncomment once https://packboard.atlassian.net/browse/FIR-17301 is done
 	rows, err = db.Query(fmt.Sprintf("SELECT engine_name FROM information_schema.engines WHERE engine_name='%s'", engineNewName))
 	defer rows.Close()
 	if err != nil {
