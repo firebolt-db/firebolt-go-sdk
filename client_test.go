@@ -144,7 +144,7 @@ func TestUserAgent(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue}
+	var client = &Client{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: userAgentValue}
 
 	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
 	if userAgentHeader != userAgentValue {
