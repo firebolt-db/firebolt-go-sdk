@@ -124,7 +124,7 @@ func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query strin
 		params[setKey] = setValue
 	}
 	// Account id is used when querying system engine
-	if len(c.AccountId) != 0 {
+	if len(c.AccountId) > 0 {
 		params["account_id"] = c.AccountId
 	}
 	response, err := c.request(ctx, "POST", engineUrl, params, query)
