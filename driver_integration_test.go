@@ -150,6 +150,20 @@ func TestDriverExecStatement(t *testing.T) {
 	runTestDriverExecStatement(t, dsnMock)
 }
 
+// TestDriverExecStatement checks exec with full dsn
+func TestDriverSystemEngineDbContext(t *testing.T) {
+	db, err := sql.Open("firebolt", dsnSystemEngineWithDatabaseMock)
+	if err != nil {
+		t.Errorf("failed unexpectedly")
+	}
+
+	query := "SELECT table_name FROM information_schema.tables WHERE table_type!='VIEW'"
+
+	if _, err = db.Exec(query); err != nil {
+		t.Errorf("System engine with DB context not able to list tables")
+	}
+}
+
 // TestDriverSystemEngine checks system engine queries are executed without error
 func TestDriverSystemEngine(t *testing.T) {
 	suffix := strings.ReplaceAll(uuid.New().String(), "-", "")
