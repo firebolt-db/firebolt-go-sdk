@@ -2,15 +2,22 @@ name: Code quality checks
 
 on:
   workflow_call:
+    inputs:
+      branch:
+        required: false
+        type: string
+        description: 'Branch to run on'
   push:
-    branches: [ main, 0.x ]
+    branches: [ main, 1.x ]
 
 jobs:
   check-code:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
+      with:
+        ref: ${{ inputs.branch }}
     
     - name: Set up Go
       uses: actions/setup-go@v3
@@ -25,6 +32,6 @@ jobs:
 
     - name: Install goimports 
       run: go install golang.org/x/tools/cmd/goimports@latest
-    
+
     - name: Run pre-commit checks
-      uses: pre-commit/action@v2.0.3
+      uses: pre-commit/action@v3.0.0

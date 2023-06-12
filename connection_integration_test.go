@@ -86,7 +86,7 @@ func TestConnectionQueryDate32Type(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 	loc, _ := time.LoadLocation("UTC")
 
-	rows, err := conn.QueryContext(context.TODO(), "select '2004-07-09 10:17:35'::DATE_EXT", nil)
+	rows, err := conn.QueryContext(context.TODO(), "select '2004-07-09 10:17:35'::DATE", nil)
 	if err != nil {
 		t.Errorf("firebolt statement failed with %v", err)
 	}
@@ -123,7 +123,7 @@ func TestConnectionQueryDateTime64Type(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 	loc, _ := time.LoadLocation("UTC")
 
-	rows, err := conn.QueryContext(context.TODO(), "SELECT '1980/01/01 02:03:04.321321'::TIMESTAMP_EXT;", nil)
+	rows, err := conn.QueryContext(context.TODO(), "SELECT '1980-01-01 02:03:04.321321'::TIMESTAMPNTZ;", nil)
 	if err != nil {
 		t.Errorf("firebolt statement failed with %v", err)
 	}

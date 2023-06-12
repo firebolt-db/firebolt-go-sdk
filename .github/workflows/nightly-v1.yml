@@ -1,4 +1,4 @@
-name: v0.x Nightly code check
+name: v1.x Nightly code check
 on:
   workflow_dispatch:
   schedule:
@@ -7,7 +7,7 @@ jobs:
   code-check:
     uses: ./.github/workflows/code-check.yml
     with:
-      branch: 0.x
+      branch: 1.x
   tests:
     runs-on: ${{ matrix.os }}
     strategy:

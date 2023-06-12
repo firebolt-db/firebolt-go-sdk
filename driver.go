@@ -4,7 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"strings"
+	"errors"
+	"fmt"
 )
 
 type FireboltDriver struct {
@@ -14,6 +15,8 @@ type FireboltDriver struct {
 	lastUsedDsn  string
 }
 
+const engineStatusRunning = "Running"
+
 // Open parses the dsn string, and if correct tries to establish a connection
 func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	infolog.Println("Opening firebolt driver")
@@ -21,53 +24,74 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	if d.lastUsedDsn != dsn || d.lastUsedDsn == "" {
 
 		d.lastUsedDsn = "" //nolint
-		infolog.Println("constructing new client")
-		// parsing dsn string to get configuration settings
+		infolog.Println("Creating a new client")
 		settings, err := ParseDSNString(dsn)
 		if err != nil {
 			return nil, ConstructNestedError("error during parsing a dsn", err)
 		}
 
+		if err = validateSettings(settings); err != nil {
+			return nil, ConstructNestedError("invalid connection string", err)
+		}
+
 		// authenticating and getting access token
-		infolog.Println("dsn parsed correctly, trying to authenticate")
-		d.client, err = Authenticate(settings.username, settings.password, GetHostNameURL())
-		if err != nil {
-			return nil, ConstructNestedError("error during authentication", err)
+		if d.client, err = Authenticate(settings.clientId, settings.clientSecret, GetHostNameURL()); err != nil {
+			return nil, ConstructNestedError("authentication error", err)
 		}
 
-		// getting accountId, either default, or by specified accountName
-		var accountId string
-		if settings.accountName == "" {
-			infolog.Println("account name not specified, trying to get a default account id")
-			accountId, err = d.client.GetDefaultAccountId(context.TODO())
+		systemEngineURL, err := d.client.GetSystemEngineURL(context.TODO(), settings.accountName)
+		if err != nil {
+			return nil, ConstructNestedError("error getting system engine url", err)
+		}
+
+		accountId, err := d.client.GetAccountId(context.TODO(), settings.accountName)
+		if err != nil {
+			return nil, fmt.Errorf("error resolving account %s to an id: %v", settings.accountName, err)
+		}
+		d.client.AccountId = accountId
+
+		d.client.ConnectedToSystemEngine = true
+		if len(settings.engine) == 0 {
+			infolog.Println("Connected to a system engine")
+			d.engineUrl = systemEngineURL + QueryUrl
+			d.databaseName = settings.database
 		} else {
-			accountId, err = d.client.GetAccountIdByName(context.TODO(), settings.accountName)
-		}
-		if err != nil {
-			return nil, ConstructNestedError("error during getting account id", err)
-		}
-
-		// getting engineUrl either by using engineName if available,
-		// if not using default engine for the database
-		if settings.engineName != "" {
-			if strings.Contains(settings.engineName, ".") {
-				d.engineUrl, err = makeCanonicalUrl(settings.engineName), nil
-			} else {
-				d.engineUrl, err = d.client.GetEngineUrlByName(context.TODO(), settings.engineName, accountId)
+			engineUrl, status, dbName, err := d.client.GetEngineUrlStatusDBByName(context.TODO(), settings.engine, systemEngineURL)
+			if err != nil {
+				return nil, ConstructNestedError("error during getting engine info", err)
 			}
-		} else {
-			infolog.Println("engine name not set, trying to get a default engine")
-			d.engineUrl, err = d.client.GetEngineUrlByDatabase(context.TODO(), settings.database, accountId)
+			if status != engineStatusRunning {
+				return nil, fmt.Errorf("engine %s is not running", settings.engine)
+			}
+			if len(dbName) == 0 {
+				return nil, fmt.Errorf("engine %s not attached to any DB or you don't have permission to access its database", settings.engine)
+			}
+			if len(settings.database) == 0 || settings.database == dbName {
+				d.databaseName = dbName
+			} else if settings.database != dbName {
+				return nil, fmt.Errorf("engine %s is not attached to database %s", settings.engine, settings.database)
+			}
+			d.engineUrl = engineUrl
+			d.client.ConnectedToSystemEngine = false
 		}
-		if err != nil {
-			return nil, ConstructNestedError("error during getting engine url", err)
-		}
-		d.databaseName = settings.database
 		d.lastUsedDsn = dsn //nolint
 	}
 
-	infolog.Printf("firebolt connection is created")
+	infolog.Printf("Firebolt connection was created successfully")
 	return &fireboltConnection{d.client, d.databaseName, d.engineUrl, map[string]string{}}, nil
+}
+
+func validateSettings(settings *fireboltSettings) error {
+	if settings.accountName == "" {
+		return errors.New("missing account_name parameter")
+	}
+	if settings.clientId == "" {
+		return errors.New("missing client_id parameter")
+	}
+	if settings.clientSecret == "" {
+		return errors.New("missing client_secret parameter")
+	}
+	return nil
 }
 
 // init registers a firebolt driver
