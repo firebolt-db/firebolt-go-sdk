@@ -12,11 +12,11 @@ import (
 )
 
 type Client struct {
-	ClientId     string
-	ClientSecret string
-	ApiEndpoint  string
-	UserAgent    string
-	AccountId    string
+	ClientId                string
+	ClientSecret            string
+	ApiEndpoint             string
+	UserAgent               string
+	AccountId               string
 	ConnectedToSystemEngine bool
 }
 
@@ -125,8 +125,8 @@ func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query strin
 		params[setKey] = setValue
 	}
 	// Account id is only used when querying system engine
-	if (c.ConnectedToSystemEngine == true) {
-		if (len(c.AccountId) == 0) {
+	if c.ConnectedToSystemEngine {
+		if len(c.AccountId) == 0 {
 			return nil, fmt.Errorf("Trying to run a query against system engine without account id defined")
 		}
 		params["account_id"] = c.AccountId
