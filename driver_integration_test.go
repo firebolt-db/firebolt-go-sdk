@@ -47,6 +47,7 @@ func init() {
 	clientMock, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
 	clientMockWithAccount, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
 	clientMockWithAccount.AccountId, err = clientMockWithAccount.GetAccountId(context.TODO(), accountNameMock)
+	clientMockWithAccount.ConnectedToSystemEngine = true;
 	if err != nil {
 		panic(fmt.Errorf("Error resolving account %s to an id: %v", accountNameMock, err))
 	}

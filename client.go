@@ -17,6 +17,7 @@ type Client struct {
 	ApiEndpoint  string
 	UserAgent    string
 	AccountId    string
+	ConnectedToSystemEngine bool
 }
 
 const outputFormat = "JSON_Compact"
@@ -123,8 +124,11 @@ func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query strin
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
-	// Account id is used when querying system engine
-	if len(c.AccountId) > 0 {
+	// Account id is only used when querying system engine
+	if (c.ConnectedToSystemEngine == true) {
+		if (len(c.AccountId) == 0) {
+			return nil, fmt.Errorf("Trying to run a query against system engine without account id defined")
+		}
 		params["account_id"] = c.AccountId
 	}
 	response, err := c.request(ctx, "POST", engineUrl, params, query)

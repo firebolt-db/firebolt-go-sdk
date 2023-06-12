@@ -50,13 +50,13 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 		}
 		d.client.AccountId = accountId
 
+		d.client.ConnectedToSystemEngine = true
 		if len(settings.engine) == 0 {
 			infolog.Println("Connected to a system engine")
 			d.engineUrl = systemEngineURL + QueryUrl
 			d.databaseName = settings.database
 		} else {
 			engineUrl, status, dbName, err := d.client.GetEngineUrlStatusDBByName(context.TODO(), settings.engine, systemEngineURL)
-			d.client.AccountId = "" // AccountID is no longer needed
 			if err != nil {
 				return nil, ConstructNestedError("error during getting engine info", err)
 			}
@@ -72,6 +72,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 				return nil, fmt.Errorf("engine %s is not attached to database %s", settings.engine, settings.database)
 			}
 			d.engineUrl = engineUrl
+			d.client.ConnectedToSystemEngine = false
 		}
 		d.lastUsedDsn = dsn //nolint
 	}
