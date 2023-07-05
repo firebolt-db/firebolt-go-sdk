@@ -18,12 +18,10 @@ const (
 
 	textType = "text"
 
-	dateType    = "date"
-	dateExtType = "date_ext"
-	pgDateType  = "pgdate"
+	dateType   = "date"
+	pgDateType = "pgdate"
 
 	timestampType    = "timestamp"
-	timestampExtType = "timestamp_ext"
 	timestampNtzType = "timestampntz"
 	timestampTzType  = "timestamptz"
 
@@ -99,7 +97,7 @@ func checkTypeValue(columnType string, val interface{}) error {
 			return fmt.Errorf("expected to convert a value to float64, but couldn't: %v", val)
 		}
 		return nil
-	case textType, dateType, dateExtType, pgDateType, timestampType, timestampExtType, timestampNtzType, timestampTzType, byteaType:
+	case textType, dateType, pgDateType, timestampType, timestampNtzType, timestampTzType, byteaType:
 		if _, ok := val.(string); !ok {
 			return fmt.Errorf("expected to convert a value to string, but couldn't: %v", val)
 		}
@@ -131,12 +129,12 @@ func parseTimestampTz(value string) (driver.Value, error) {
 // parseDateTimeValue parses different date types
 func parseDateTimeValue(columnType string, value string) (driver.Value, error) {
 	switch columnType {
-	case dateType, dateExtType, pgDateType:
+	case dateType, pgDateType:
 		return time.Parse("2006-01-02", value)
 	case timestampType:
 		// Go doesn't use yyyy-mm-dd layout. Instead, it uses the value: Mon Jan 2 15:04:05 MST 2006
 		return time.Parse("2006-01-02 15:04:05", value)
-	case timestampExtType, timestampNtzType:
+	case timestampNtzType:
 		return time.Parse("2006-01-02 15:04:05.000000", value)
 	case timestampTzType:
 		return parseTimestampTz(value)
@@ -161,7 +159,7 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 		return val.(float64), nil
 	case textType:
 		return val.(string), nil
-	case dateType, dateExtType, pgDateType, timestampType, timestampExtType, timestampNtzType, timestampTzType:
+	case dateType, pgDateType, timestampType, timestampNtzType, timestampTzType:
 		return parseDateTimeValue(columnType, val.(string))
 	case booleanType:
 		return val.(bool), nil
