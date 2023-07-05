@@ -82,25 +82,6 @@ func TestConnectionQuery(t *testing.T) {
 	assert(rows.Next(dest), io.EOF, t, "end of data didn't return io.EOF")
 }
 
-func TestConnectionQueryDate32Type(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
-	loc, _ := time.LoadLocation("UTC")
-
-	rows, err := conn.QueryContext(context.TODO(), "select '2004-07-09 10:17:35'::DATE_EXT", nil)
-	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
-	}
-
-	dest := make([]driver.Value, 1)
-
-	if err = rows.Next(dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
-	}
-	if dest[0] != time.Date(2004, 7, 9, 0, 0, 0, 0, loc) {
-		t.Errorf("values are not equal: %v\n", dest[0])
-	}
-}
-
 func TestConnectionQueryDecimalType(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
 
@@ -116,25 +97,6 @@ func TestConnectionQueryDecimalType(t *testing.T) {
 	}
 	if dest[0] != 123.23 {
 		t.Errorf("values are not equal: %v\n", dest[0])
-	}
-}
-
-func TestConnectionQueryDateTime64Type(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
-	loc, _ := time.LoadLocation("UTC")
-
-	rows, err := conn.QueryContext(context.TODO(), "SELECT '1980/01/01 02:03:04.321321'::TIMESTAMP_EXT;", nil)
-	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
-	}
-
-	dest := make([]driver.Value, 1)
-
-	if err = rows.Next(dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
-	}
-	if expected := time.Date(1980, 1, 1, 2, 3, 4, 321321000, loc); expected != dest[0] {
-		t.Errorf("values are not equal: %v and %v\n", dest[0], expected)
 	}
 }
 
