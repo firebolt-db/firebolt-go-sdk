@@ -18,8 +18,8 @@ const (
 
 	textType = "text"
 
-	dateType    = "date"
-	pgDateType  = "pgdate"
+	dateType   = "date"
+	pgDateType = "pgdate"
 
 	timestampType    = "timestamp"
 	timestampNtzType = "timestampntz"
