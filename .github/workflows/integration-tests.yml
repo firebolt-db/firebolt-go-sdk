@@ -22,21 +22,13 @@ on:
         type: string
         description: 'Branch to run on'
     secrets:
-      FIREBOLT_USERNAME_STAGING:
+      FIREBOLT_CLIENT_ID_STG_NEW_IDN:
         required: false
-      FIREBOLT_PASSWORD_STAGING:
+      FIREBOLT_CLIENT_SECRET_STG_NEW_IDN:
         required: false
-      FIREBOLT_CLIENT_ID_STAGING:
+      FIREBOLT_CLIENT_ID_NEW_IDN:
         required: false
-      FIREBOLT_CLIENT_SECRET_STAGING:
-        required: false
-      FIREBOLT_USERNAME_DEV:
-        required: false
-      FIREBOLT_PASSWORD_DEV:
-        required: false
-      FIREBOLT_CLIENT_ID_DEV:
-        required: false
-      FIREBOLT_CLIENT_SECRET_DEV:
+      FIREBOLT_CLIENT_SECRET_NEW_IDN:
         required: false
 
 jobs:
@@ -55,15 +47,11 @@ jobs:
       - name: Determine env variables
         run: |
           if [ "${{ inputs.environment }}" == 'staging' ]; then
-             echo "USERNAME=${{ secrets.FIREBOLT_USERNAME_STAGING }}" >> "$GITHUB_ENV"
-             echo "PASSWORD=${{ secrets.FIREBOLT_PASSWORD_STAGING }}" >> "$GITHUB_ENV"
-             echo "CLIENT_ID=${{ secrets.FIREBOLT_CLIENT_ID_STAGING }}" >> "$GITHUB_ENV"
-             echo "CLIENT_SECRET=${{ secrets.FIREBOLT_CLIENT_SECRET_STAGING }}" >> "$GITHUB_ENV"
+             echo "CLIENT_ID=${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}" >> "$GITHUB_ENV"
+             echo "CLIENT_SECRET=${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}" >> "$GITHUB_ENV"
           else
-             echo "USERNAME=${{ secrets.FIREBOLT_USERNAME_DEV }}" >> "$GITHUB_ENV"
-             echo "PASSWORD=${{ secrets.FIREBOLT_PASSWORD_DEV }}" >> "$GITHUB_ENV"
-             echo "CLIENT_ID=${{ secrets.FIREBOLT_CLIENT_ID_DEV }}" >> "$GITHUB_ENV"
-             echo "CLIENT_SECRET=${{ secrets.FIREBOLT_CLIENT_SECRET_DEV }}" >> "$GITHUB_ENV"
+             echo "CLIENT_ID=${{ secrets.FIREBOLT_CLIENT_ID_NEW_IDN }}" >> "$GITHUB_ENV"
+             echo "CLIENT_SECRET=${{ secrets.FIREBOLT_CLIENT_SECRET_NEW_IDN }}" >> "$GITHUB_ENV"
           fi
 
       - name: Keep environment name in the summary
@@ -71,26 +59,21 @@ jobs:
 
       - name: Setup database and engine
         id: setup
-        uses: firebolt-db/integration-testing-setup@master
+        uses: firebolt-db/integration-testing-setup@v2
         with:
-          firebolt-username: ${{ env.USERNAME }}
-          firebolt-password: ${{ env.PASSWORD }}
+          firebolt-client-id: ${{ env.CLIENT_ID }}
+          firebolt-client-secret: ${{ env.CLIENT_SECRET }}
           api-endpoint: "api.${{ inputs.environment }}.firebolt.io"
-          region: "us-east-1"
+          account: "developer"
           instance-type: "B2"
 
       - name: Run integration tests
         env:
-          USER_NAME: ${{ env.USERNAME }}
-          PASSWORD: ${{ env.PASSWORD }}
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
-          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
-          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
-          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
           FIREBOLT_ENDPOINT: "api.${{ inputs.environment }}.firebolt.io"
-          ACCOUNT_NAME: "firebolt"
-          SERVICE_ACCOUNT_CLIENT_ID: ${{ env.CLIENT_ID }}
-          SERVICE_ACCOUNT_CLIENT_SECRET: ${{ env.CLIENT_SECRET }}
+          ACCOUNT_NAME: "developer"
+          CLIENT_ID: ${{ env.CLIENT_ID }}
+          CLIENT_SECRET: ${{ env.CLIENT_SECRET }}
         run: |
           go test . -timeout=30m -v --tags=integration
