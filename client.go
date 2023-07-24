@@ -30,7 +30,7 @@ WHERE engine_name='%s'
 func (c *Client) GetEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
 	infolog.Printf("Get info for engine '%s'", engineName)
 	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
-	queryRes, err := c.Query(ctx, systemEngineUrl+QueryUrl, "", engineSQL, make(map[string]string))
+	queryRes, err := c.Query(ctx, systemEngineUrl, "", engineSQL, make(map[string]string))
 	if err != nil {
 		return "", "", "", ConstructNestedError("error executing engine info sql query", err)
 	}

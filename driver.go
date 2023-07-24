@@ -53,7 +53,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 		d.client.ConnectedToSystemEngine = true
 		if len(settings.engine) == 0 {
 			infolog.Println("Connected to a system engine")
-			d.engineUrl = systemEngineURL + QueryUrl
+			d.engineUrl = systemEngineURL
 			d.databaseName = settings.database
 		} else {
 			engineUrl, status, dbName, err := d.client.GetEngineUrlStatusDBByName(context.TODO(), settings.engine, systemEngineURL)
