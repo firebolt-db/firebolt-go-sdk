@@ -2,6 +2,10 @@ name: Code quality checks
 
 on:
   workflow_call:
+    inputs:
+      branch:
+        required: false
+        type: string
   push:
     branches: [ main, 0.x ]
 
@@ -11,6 +15,8 @@ jobs:
     steps:
     - name: Check out code
       uses: actions/checkout@v2
+      with:
+        ref: ${{ inputs.branch }}
     
     - name: Set up Go
       uses: actions/setup-go@v3
