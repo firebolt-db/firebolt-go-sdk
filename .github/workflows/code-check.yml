@@ -7,7 +7,7 @@ on:
         required: false
         type: string
   push:
-    branches: [ main, 0.x ]
+    branches: [ main, 1.x ]
 
 jobs:
   check-code:
