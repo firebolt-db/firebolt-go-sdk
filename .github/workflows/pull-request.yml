@@ -2,7 +2,7 @@ name: Pull request
 
 on:
   pull_request:
-    branches: [ main, 0.x ]
+    branches: [ main, 1.x ]
 
 jobs:
   check-title:
