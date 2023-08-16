@@ -137,7 +137,7 @@ func GetHostNameURL() string {
 // and they will be concatenated with the final user-agent string
 func ConstructUserAgentString() (ua_string string) {
 	defer func() {
-		// This is a non-essential function, used for statistic gathering
+		// ConstructUserAgentString is a non-essential function, used for statistic gathering
 		// so carry on working if a failure occurs
 		if err := recover(); err != nil {
 			infolog.Printf("Unable to generate User Agent string")
