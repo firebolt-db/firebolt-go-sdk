@@ -154,7 +154,7 @@ func TestConstructUserAgentStringFails(t *testing.T) {
 	}
 	userAgentString := ConstructUserAgentString()
 
-	if !(userAgentString == "GoSDK") {
+	if userAgentString != "GoSDK" {
 		t.Errorf("UserAgent string was not generated correctly")
 	}
 }
