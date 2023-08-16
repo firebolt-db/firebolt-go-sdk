@@ -15,6 +15,8 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
+var goInfoFunc = goInfo.GetInfo
+
 func ConstructNestedError(message string, err error) error {
 	infolog.Printf("%s: %v", message, err)
 	return fmt.Errorf("%s: %v", message, err)
@@ -143,7 +145,7 @@ func ConstructUserAgentString() (ua_string string) {
 		}
 	}()
 	osNameVersion := runtime.GOOS
-	if gi, err := goInfo.GetInfo(); err == nil {
+	if gi, err := goInfoFunc(); err == nil {
 		osNameVersion += " " + gi.Core
 	}
 

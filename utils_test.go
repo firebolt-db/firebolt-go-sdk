@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/matishsiao/goInfo"
 )
 
 func runParseSetStatementSuccess(t *testing.T, value, expectedKey, expectedValue string) {
@@ -138,6 +140,23 @@ func TestConstructUserAgentString(t *testing.T) {
 
 	os.Unsetenv("FIREBOLT_GO_DRIVERS")
 	os.Unsetenv("FIREBOLT_GO_CLIENTS")
+}
+
+// FIR-25705
+func TestConstructUserAgentStringFails(t *testing.T) {
+	// Save current function and restore at the end
+	old := goInfoFunc
+	defer func() { goInfoFunc = old }()
+
+	goInfoFunc = func() (goInfo.GoInfoObject, error) {
+		// Simulate goinfo failing
+		panic("Aaaaaaaaaa")
+	}
+	userAgentString := ConstructUserAgentString()
+
+	if !(userAgentString == "GoSDK") {
+		t.Errorf("UserAgent string was not generated correctly")
+	}
 }
 
 func runSplitStatement(t *testing.T, value string, expected []string) {
