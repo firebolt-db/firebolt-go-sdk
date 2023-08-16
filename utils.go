@@ -133,7 +133,13 @@ func GetHostNameURL() string {
 // ConstructUserAgentString returns a string with go, GoSDK and os type and versions
 // additionally user can set "FIREBOLT_GO_DRIVERS" and "FIREBOLT_GO_CLIENTS" env variable,
 // and they will be concatenated with the final user-agent string
-func ConstructUserAgentString() string {
+func ConstructUserAgentString() (ua_string string) {
+	defer func() {
+		if err := recover(); err != nil {
+			infolog.Printf("Unable to generate User Agent string")
+			ua_string = ""
+		}
+	}()
 	osNameVersion := runtime.GOOS
 	if gi, err := goInfo.GetInfo(); err == nil {
 		osNameVersion += " " + gi.Core
@@ -150,7 +156,8 @@ func ConstructUserAgentString() string {
 		goClients = ""
 	}
 
-	return strings.TrimSpace(fmt.Sprintf("%s GoSDK/%s (Go %s; %s) %s", goClients, sdkVersion, runtime.Version(), osNameVersion, goDrivers))
+	ua_string = strings.TrimSpace(fmt.Sprintf("%s GoSDK/%s (Go %s; %s) %s", goClients, sdkVersion, runtime.Version(), osNameVersion, goDrivers))
+	return ua_string
 }
 
 func valueToNamedValue(args []driver.Value) []driver.NamedValue {
