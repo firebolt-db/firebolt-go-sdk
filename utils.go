@@ -15,6 +15,8 @@ import (
 	"github.com/xwb1989/sqlparser"
 )
 
+var goInfoFunc = goInfo.GetInfo
+
 func ConstructNestedError(message string, err error) error {
 	infolog.Printf("%s: %v", message, err)
 	return fmt.Errorf("%s: %v", message, err)
@@ -133,9 +135,17 @@ func GetHostNameURL() string {
 // ConstructUserAgentString returns a string with go, GoSDK and os type and versions
 // additionally user can set "FIREBOLT_GO_DRIVERS" and "FIREBOLT_GO_CLIENTS" env variable,
 // and they will be concatenated with the final user-agent string
-func ConstructUserAgentString() string {
+func ConstructUserAgentString() (ua_string string) {
+	defer func() {
+		// ConstructUserAgentString is a non-essential function, used for statistic gathering
+		// so carry on working if a failure occurs
+		if err := recover(); err != nil {
+			infolog.Printf("Unable to generate User Agent string")
+			ua_string = "GoSDK"
+		}
+	}()
 	osNameVersion := runtime.GOOS
-	if gi, err := goInfo.GetInfo(); err == nil {
+	if gi, err := goInfoFunc(); err == nil {
 		osNameVersion += " " + gi.Core
 	}
 
@@ -150,7 +160,8 @@ func ConstructUserAgentString() string {
 		goClients = ""
 	}
 
-	return strings.TrimSpace(fmt.Sprintf("%s GoSDK/%s (Go %s; %s) %s", goClients, sdkVersion, runtime.Version(), osNameVersion, goDrivers))
+	ua_string = strings.TrimSpace(fmt.Sprintf("%s GoSDK/%s (Go %s; %s) %s", goClients, sdkVersion, runtime.Version(), osNameVersion, goDrivers))
+	return ua_string
 }
 
 func valueToNamedValue(args []driver.Value) []driver.NamedValue {
