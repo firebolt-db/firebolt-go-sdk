@@ -45,6 +45,9 @@ func init() {
 	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, clientIdMock, clientSecretMock)
 	var err error
 	clientMock, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
+	if err != nil {
+		panic(fmt.Errorf("Error authenticating with client id %s: %v", clientIdMock, err))
+	}
 	clientMockWithAccount, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
 	clientMockWithAccount.AccountId, err = clientMockWithAccount.GetAccountId(context.TODO(), accountNameMock)
 	clientMockWithAccount.ConnectedToSystemEngine = true
