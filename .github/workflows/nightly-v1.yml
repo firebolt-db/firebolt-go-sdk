@@ -51,8 +51,8 @@ jobs:
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
           FIREBOLT_ENDPOINT: "api.dev.firebolt.io"
           ACCOUNT_NAME: "developer"
-          CLIENT_ID: ${{ env.CLIENT_ID }}
-          CLIENT_SECRET: ${{ env.CLIENT_SECRET }}
+          CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_NEW_IDN }}
+          CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_NEW_IDN }}
         run: |
           go test . -timeout=30m -v -coverprofile cover.out --tags=integration
 
