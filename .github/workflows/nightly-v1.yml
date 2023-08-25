@@ -34,30 +34,25 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: "3.7"
-    
+
       - name: Setup database and engine
         id: setup
-        uses: firebolt-db/integration-testing-setup@v1
+        uses: firebolt-db/integration-testing-setup@v2
         with:
-          firebolt-username: ${{ secrets.FIREBOLT_USERNAME_STAGING }}
-          firebolt-password: ${{ secrets.FIREBOLT_PASSWORD_STAGING }}
-          api-endpoint: "api.staging.firebolt.io"
-          region: "us-east-1"
+          firebolt-client-id: ${{ secrets.FIREBOLT_CLIENT_ID_NEW_IDN }}
+          firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_NEW_IDN }}
+          api-endpoint: "api.dev.firebolt.io"
+          account: "developer"
           instance-type: "B2"
 
       - name: Run integration tests
         env:
-          USER_NAME: ${{ secrets.FIREBOLT_USERNAME_STAGING }}
-          PASSWORD: ${{ secrets.FIREBOLT_PASSWORD_STAGING }}
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
-          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
-          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
-          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
-          FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
-          ACCOUNT_NAME: "firebolt"
-          SERVICE_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STAGING }}
-          SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STAGING }}
+          FIREBOLT_ENDPOINT: "api.dev.firebolt.io"
+          ACCOUNT_NAME: "developer"
+          CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_NEW_IDN }}
+          CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_NEW_IDN }}
         run: |
           go test . -timeout=30m -v -coverprofile cover.out --tags=integration
 
