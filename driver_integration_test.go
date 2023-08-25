@@ -194,6 +194,7 @@ func TestDriverSystemEngine(t *testing.T) {
 		if err != nil {
 			t.Errorf("The query %s returned an error: %v", query, err)
 		}
+		time.Sleep(1 * time.Second)
 	}
 	rows, err := db.Query(fmt.Sprintf("SELECT database_name FROM information_schema.databases WHERE database_name='%s'", databaseName))
 	defer rows.Close()
