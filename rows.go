@@ -151,8 +151,7 @@ func parseDateTimeValue(columnType string, value string) (driver.Value, error) {
 }
 
 func parseFloatValue(val interface{}) (float64, error) {
-	fmt.Printf("parseFloatValue: %v\n", val)
-	if _, ok := val.(string); ok {
+	if _, notNum := val.(string); notNum {
 		switch val.(string) {
 		case "inf":
 			return math.Inf(1), nil
