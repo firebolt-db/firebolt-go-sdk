@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
 	"reflect"
 	"strings"
 	"time"
@@ -94,6 +95,13 @@ func checkTypeValue(columnType string, val interface{}) error {
 	switch columnType {
 	case intType, longType, floatType, doubleType:
 		if _, ok := val.(float64); !ok {
+			if columnType == floatType || columnType == doubleType {
+				for _, v := range []string{"inf", "-inf", "nan", "-nan"} {
+					if val == v {
+						return nil
+					}
+				}
+			}
 			return fmt.Errorf("expected to convert a value to float64, but couldn't: %v", val)
 		}
 		return nil
@@ -142,6 +150,25 @@ func parseDateTimeValue(columnType string, value string) (driver.Value, error) {
 	return nil, fmt.Errorf("type not known: %s", columnType)
 }
 
+func parseFloatValue(val interface{}) (float64, error) {
+	fmt.Printf("parseFloatValue: %v\n", val)
+	if _, ok := val.(string); ok {
+		switch val.(string) {
+		case "inf":
+			return math.Inf(1), nil
+		case "-inf":
+			return math.Inf(-1), nil
+		case "nan":
+			return math.NaN(), nil
+		case "-nan":
+			return math.NaN(), nil
+		default:
+			return 0, fmt.Errorf("unknown float value: %s", val)
+		}
+	}
+	return val.(float64), nil
+}
+
 // parseSingleValue parses all columns types except arrays
 func parseSingleValue(columnType string, val interface{}) (driver.Value, error) {
 	if err := checkTypeValue(columnType, val); err != nil {
@@ -154,9 +181,10 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 	case longType:
 		return int64(val.(float64)), nil
 	case floatType:
-		return float32(val.(float64)), nil
+		v, err := parseFloatValue(val)
+		return float32(v), err
 	case doubleType:
-		return val.(float64), nil
+		return parseFloatValue(val)
 	case textType:
 		return val.(string), nil
 	case dateType, pgDateType, timestampType, timestampNtzType, timestampTzType:

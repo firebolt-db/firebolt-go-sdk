@@ -5,6 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"io"
+	"math"
 	"reflect"
 	"runtime/debug"
 	"testing"
@@ -58,9 +59,9 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
         "data":[
         	[null,1,0.312321,123213.321321,"text", "2080-12-31","1989-04-15 01:02:03","0002-01-01","1989-04-15 01:02:03.123456","1989-04-15 02:02:03.123456+00",1,[1,2,3],[[]],true, 123.12345678, [123.12345678], "\\x616263313233"],
         	[2,1,0.312321,123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1989-04-15 01:02:03.1234+05:30",1,[1,2,3],[[]],true, -123.12345678, [-123.12345678, 0.0], "\\x6162630A0AE3858D20E3858E5C"],
-        	[3,null,0.312321,123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123458","1989-04-15 01:02:03+01",1,[5,2,3,2],[["TEST","TEST1"],["TEST3"]],false, 0.0, [0.0], null],
-        	[2,1,0.312321,123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1111-01-05 17:04:42.123456+05:53:28",1,[1,2,3],[[]],false, 123456781234567812345678.123456781234567812345678, [123456781234567812345678.12345678123456781234567812345678], null],
-    	    [2,1,0.312321,123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1989-04-15 02:02:03.123456-01",1,[1,2,3],[[]],null, null, [null], null]
+        	[3,null,"inf",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123458","1989-04-15 01:02:03+01",1,[5,2,3,2],[["TEST","TEST1"],["TEST3"]],false, 0.0, [0.0], null],
+        	[2,1,"-inf",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1111-01-05 17:04:42.123456+05:53:28",1,[1,2,3],[[]],false, 123456781234567812345678.123456781234567812345678, [123456781234567812345678.12345678123456781234567812345678], null],
+    	    [2,1,"-nan",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1989-04-15 02:02:03.123456-01",1,[1,2,3],[[]],null, null, [null], null]
         ],
         "rows":5,
         "statistics":{
@@ -177,7 +178,7 @@ func TestRowsNext(t *testing.T) {
 	assert(err, nil, t, "Next shouldn't return an error")
 	assert(dest[0], int32(3), t, "results not equal for int32")
 	assert(dest[1], nil, t, "results not equal for int64")
-	assert(dest[2], float32(0.312321), t, "results not equal for float32")
+	assert(dest[2], float32(math.Inf(1)), t, "results not equal for float32")
 	assert(dest[3], float64(123213.321321), t, "results not equal for float64")
 	assert(dest[4], "text", t, "results not equal for string")
 	assert(dest[13], false, t, "results not equal for boolean")
@@ -189,6 +190,7 @@ func TestRowsNext(t *testing.T) {
 	// Fourth row
 	err = rows.Next(dest)
 	assert(err, nil, t, "Next shouldn't return an error")
+	assert(dest[2], float32(math.Inf(-1)), t, "results not equal for float32")
 	assertDates(dest[9].(time.Time), time.Date(1111, 01, 5, 11, 11, 14, 123456000, loc), t, "")
 	assert(dest[13], false, t, "results not equal for boolean")
 	var long_double = 123456781234567812345678.12345678123456781234567812345678
@@ -200,6 +202,12 @@ func TestRowsNext(t *testing.T) {
 	// Fifth row
 	err = rows.Next(dest)
 	assert(err, nil, t, "Next shouldn't return an error")
+	// Cannot do assert since NaN != NaN according to the standard
+	// math.IsNaN only works for float64, converting float32 NaN to float64 results in 0
+	if !(dest[2].(float32) != dest[2].(float32)) {
+		t.Log(string(debug.Stack()))
+		t.Errorf("results not equal for float32 Expected: NaN Got: %s", dest[2])
+	}
 	assertDates(dest[9].(time.Time), time.Date(1989, 4, 15, 3, 2, 3, 123456000, loc), t, "")
 	assert(dest[13], nil, t, "results not equal for boolean")
 	assert(dest[14], nil, t, "results not equal for decimal")
