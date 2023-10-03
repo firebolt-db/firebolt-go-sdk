@@ -186,7 +186,7 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 		if unpacked, ok := val.(float64); ok {
 			return int64(unpacked), nil
 		}
-		return strconv.ParseInt(val.(string), 10, 64)
+		return strconv.ParseInt(val.(string) /*base*/, 10 /*bitSize*/, 64)
 	case floatType:
 		v, err := parseFloatValue(val)
 		return float32(v), err
