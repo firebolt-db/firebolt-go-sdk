@@ -159,7 +159,8 @@ func TestDriverSystemEngine(t *testing.T) {
 		fmt.Sprintf("ALTER DATABASE %s WITH DESCRIPTION = 'GO SDK Integration test'", databaseName),
 		fmt.Sprintf("ALTER ENGINE %s RENAME TO %s", engineName, engineNewName),
 		fmt.Sprintf("START ENGINE %s", engineNewName),
-		fmt.Sprintf("STOP ENGINE %s", engineNewName)}
+		fmt.Sprintf("STOP ENGINE %s", engineNewName),
+	}
 
 	for _, query := range ddlStatements {
 		_, err := db.Query(query)
@@ -202,9 +203,18 @@ func TestDriverSystemEngine(t *testing.T) {
 }
 
 func containsDatabase(rows *sql.Rows, databaseToFind string) (bool, error) {
-	var databaseName, region, attachedEngines, createdOn, createdBy, errors string
+	var databaseName, compressed_size, uncompressed_size, description, createdOn, createdBy, region, attachedEngines, errors string
 	for rows.Next() {
-		if err := rows.Scan(&databaseName, &region, &attachedEngines, &createdOn, &createdBy, &errors); err != nil {
+		if err := rows.Scan(
+			&databaseName,
+			&compressed_size,
+			&uncompressed_size,
+			&description,
+			&createdOn,
+			&createdBy,
+			&region,
+			&attachedEngines,
+			&errors); err != nil {
 			return false, err
 		}
 		if databaseToFind == databaseName {

@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"reflect"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -102,7 +103,10 @@ func checkTypeValue(columnType string, val interface{}) error {
 					}
 				}
 			}
-			return fmt.Errorf("expected to convert a value to float64, but couldn't: %v", val)
+			// Allow string values for long columns
+			if _, is_str := val.(string); !(columnType == longType && is_str) {
+				return fmt.Errorf("expected to convert a value to float64, but couldn't: %v", val)
+			}
 		}
 		return nil
 	case textType, dateType, pgDateType, timestampType, timestampNtzType, timestampTzType, byteaType:
@@ -178,7 +182,11 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 	case intType:
 		return int32(val.(float64)), nil
 	case longType:
-		return int64(val.(float64)), nil
+		// long values as passed as strings by system engine
+		if unpacked, ok := val.(float64); ok {
+			return int64(unpacked), nil
+		}
+		return strconv.ParseInt(val.(string) /*base*/, 10 /*bitSize*/, 64)
 	case floatType:
 		v, err := parseFloatValue(val)
 		return float32(v), err
