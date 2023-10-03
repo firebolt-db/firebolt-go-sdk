@@ -61,7 +61,7 @@ func TestDriverQueryResult(t *testing.T) {
 		t.Errorf("failed unexpectedly with %v", err)
 	}
 	rows, err := db.Query(
-		"SELECT CAST('2020-01-03 19:08:45' AS DATETIME) as dt, CAST('2020-01-03' AS DATE) as d, CAST(1 AS INT) as i, CAST(-1/0 as FLOAT) as f" +
+		"SELECT CAST('2020-01-03 19:08:45' AS DATETIME) as dt, CAST('2020-01-03' AS DATE) as d, CAST(1 AS INT) as i, CAST(-1/0 as FLOAT) as f " +
 			"UNION " +
 			"SELECT CAST('2021-01-03 19:38:34' AS DATETIME) as dt, CAST('2000-12-03' AS DATE) as d, CAST(2 AS INT) as i, CAST(0/0 as FLOAT) as f ORDER BY i")
 	if err != nil {
