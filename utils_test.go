@@ -117,7 +117,7 @@ func TestFormatValue(t *testing.T) {
 	runTestFormatValue(t, -10, "-10")
 	runTestFormatValue(t, nil, "NULL")
 	// Timestamp is converted to UTC according to the provided loc value
-	runTestFormatValue(t, time.Date(2022, 01, 10, 2, 3, 2, 0, loc), "'2022-01-10 01:03:02'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 2, 3, 2, 123000, loc), "'2022-01-10 01:03:02.000123'")
 
 }
 
