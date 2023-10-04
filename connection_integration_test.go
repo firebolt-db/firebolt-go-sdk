@@ -347,15 +347,15 @@ func TestConnectionPreparedStatement(t *testing.T) {
 		t.Errorf("timestamptz results are not equal Expected: %s Got: %s", ts, dest[7])
 	}
 	assert(dest[8], true, t, "boolean results are not equal")
-	ba_value := dest[9].([]byte)
-	if len(ba_value) != len(ba) {
+	baValue := dest[9].([]byte)
+	if len(baValue) != len(ba) {
 		t.Log(string(debug.Stack()))
-		t.Errorf("bytea results are not equal Expected length: %d Got: %d", len(ba), len(ba_value))
+		t.Errorf("bytea results are not equal Expected length: %d Got: %d", len(ba), len(baValue))
 	}
 	for i := range ba {
-		if ba[i] != ba_value[i] {
+		if ba[i] != baValue[i] {
 			t.Log(string(debug.Stack()))
-			t.Errorf("bytea results are not equal Expected: %s Got: %s", ba, ba_value)
+			t.Errorf("bytea results are not equal Expected: %s Got: %s", ba, baValue)
 			break
 		}
 	}
