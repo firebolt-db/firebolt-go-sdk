@@ -108,15 +108,17 @@ func TestFormatValue(t *testing.T) {
 	runTestFormatValue(t, "test' OR '1' == '1", "'test\\' OR \\'1\\' == \\'1'")
 
 	runTestFormatValue(t, 1, "1")
+	runTestFormatValue(t, 1.123, "1.123")
 	runTestFormatValue(t, 1.123456, "1.123456")
+	runTestFormatValue(t, 1.1234567, "1.1234567")
+	runTestFormatValue(t, 1/float64(3), "0.3333333333333333")
 	runTestFormatValue(t, true, "1")
 	runTestFormatValue(t, false, "0")
 	runTestFormatValue(t, -10, "-10")
 	runTestFormatValue(t, nil, "NULL")
-	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 0, loc), "'2022-01-10 01:03:02 +01:00'")
+	// Timestamp is converted to UTC according to the provided loc value
+	runTestFormatValue(t, time.Date(2022, 01, 10, 2, 3, 2, 0, loc), "'2022-01-10 01:03:02'")
 
-	// not passing, but should: runTestFormatValue(t, 1.1234567, "1.1234567")
-	// not passing, but should: runTestFormatValue(t, 1.123, "1.123")
 }
 
 func TestConstructUserAgentString(t *testing.T) {

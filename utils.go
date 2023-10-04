@@ -108,7 +108,7 @@ func formatValue(value driver.Value) (string, error) {
 	case int64, uint64, int32, uint32, int16, uint16, int8, uint8, int, uint:
 		return fmt.Sprintf("%d", value), nil
 	case float64, float32:
-		return fmt.Sprintf("%f", value), nil
+		return fmt.Sprintf("%g", value), nil
 	case bool:
 		if value.(bool) {
 			return "1", nil
@@ -116,7 +116,10 @@ func formatValue(value driver.Value) (string, error) {
 			return "0", nil
 		}
 	case time.Time:
-		return fmt.Sprintf("'%s'", value.(time.Time).Format("2006-01-02 15:04:05 -07:00")), nil
+		// Convert timestamp to UTC and don't add timezone to format
+		// This way we ensure that all Firebolt time types support this string,
+		// while providing the same time data to the engine
+		return fmt.Sprintf("'%s'", value.(time.Time).UTC().Format("2006-01-02 15:04:05")), nil
 	case nil:
 		return "NULL", nil
 	default:
