@@ -116,9 +116,6 @@ func formatValue(value driver.Value) (string, error) {
 			return "0", nil
 		}
 	case time.Time:
-		// Convert timestamp to UTC and don't add timezone to format
-		// This way we ensure that all Firebolt time types support this string,
-		// while providing the same time data to the engine
 		timeValue := value.(time.Time)
 		layout := "2006-01-02 15:04:05.000000"
 		// Subtract date part from value and check if remaining time part is zero
