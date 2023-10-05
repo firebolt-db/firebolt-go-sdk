@@ -108,15 +108,22 @@ func TestFormatValue(t *testing.T) {
 	runTestFormatValue(t, "test' OR '1' == '1", "'test\\' OR \\'1\\' == \\'1'")
 
 	runTestFormatValue(t, 1, "1")
+	runTestFormatValue(t, 1.123, "1.123")
 	runTestFormatValue(t, 1.123456, "1.123456")
+	runTestFormatValue(t, 1.1234567, "1.1234567")
+	runTestFormatValue(t, 1/float64(3), "0.3333333333333333")
 	runTestFormatValue(t, true, "1")
 	runTestFormatValue(t, false, "0")
 	runTestFormatValue(t, -10, "-10")
 	runTestFormatValue(t, nil, "NULL")
-	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 0, loc), "'2022-01-10 01:03:02 +01:00'")
+	runTestFormatValue(t, []byte("abcd"), "'\\x61\\x62\\x63\\x64'")
+	// Time
+	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 123000, time.UTC), "'2022-01-10 01:03:02.000123'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 123000, time.FixedZone("", 0)), "'2022-01-10 01:03:02.000123'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 0, 0, 0, 0, time.UTC), "'2022-01-10'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 0, 0, 0, 0, loc), "'2022-01-10 00:00:00.000000+01:00'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 123000, loc), "'2022-01-10 01:03:02.000123+01:00'")
 
-	// not passing, but should: runTestFormatValue(t, 1.1234567, "1.1234567")
-	// not passing, but should: runTestFormatValue(t, 1.123, "1.123")
 }
 
 func TestConstructUserAgentString(t *testing.T) {
