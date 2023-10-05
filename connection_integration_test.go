@@ -288,7 +288,8 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	loc, _ := time.LoadLocation("Europe/Berlin")
 
 	d := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
-	ts := time.Date(2021, 1, 1, 2, 10, 20, 3000, loc)
+	ts := time.Date(2021, 1, 1, 2, 10, 20, 3000, time.UTC)
+	tstz := time.Date(2021, 1, 1, 2, 10, 20, 3000, loc)
 	ba := []byte("abc123")
 
 	_, err = conn.QueryContext(
@@ -302,7 +303,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 			{Name: "t", Value: "text"},
 			{Name: "d", Value: d},
 			{Name: "ts", Value: ts},
-			{Name: "tstz", Value: ts},
+			{Name: "tstz", Value: tstz},
 			{Name: "b", Value: true},
 			{Name: "ba", Value: ba},
 		},
@@ -343,8 +344,8 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	assert(dest[5], d, t, "date results are not equal")
 	assert(dest[6], ts.UTC(), t, "timestamp results are not equal")
 	// Use .Equal to correctly compare timezones
-	if !dest[7].(time.Time).Equal(ts) {
-		t.Errorf("timestamptz results are not equal Expected: %s Got: %s", ts, dest[7])
+	if !dest[7].(time.Time).Equal(tstz) {
+		t.Errorf("timestamptz results are not equal Expected: %s Got: %s", tstz, dest[7])
 	}
 	assert(dest[8], true, t, "boolean results are not equal")
 	baValue := dest[9].([]byte)
