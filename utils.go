@@ -119,12 +119,15 @@ func formatValue(value driver.Value) (string, error) {
 		// Convert timestamp to UTC and don't add timezone to format
 		// This way we ensure that all Firebolt time types support this string,
 		// while providing the same time data to the engine
-		timeValue := value.(time.Time).UTC()
+		timeValue := value.(time.Time)
 		layout := "2006-01-02 15:04:05.000000"
 		// Subtract date part from value and check if remaining time part is zero
 		// If it is, use date only format
 		if timeValue.Sub(timeValue.Truncate(time.Hour*24)) == 0 {
 			layout = "2006-01-02"
+		} else if _, offset := timeValue.Zone(); offset != 0 {
+			// If we have a timezone info, add it to format
+			layout = "2006-01-02 15:04:05.000000-07:00"
 		}
 		return fmt.Sprintf("'%s'", timeValue.Format(layout)), nil
 	case []byte:

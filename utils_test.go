@@ -117,8 +117,12 @@ func TestFormatValue(t *testing.T) {
 	runTestFormatValue(t, -10, "-10")
 	runTestFormatValue(t, nil, "NULL")
 	runTestFormatValue(t, []byte("abcd"), "'\\x61\\x62\\x63\\x64'")
-	// Timestamp is converted to UTC according to the provided loc value
-	runTestFormatValue(t, time.Date(2022, 01, 10, 2, 3, 2, 123000, loc), "'2022-01-10 01:03:02.000123'")
+	// Time
+	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 123000, time.UTC), "'2022-01-10 01:03:02.000123'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 123000, time.FixedZone("", 0)), "'2022-01-10 01:03:02.000123'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 0, 0, 0, 0, time.UTC), "'2022-01-10'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 0, 0, 0, 0, loc), "'2022-01-10 00:00:00.000000+01:00'")
+	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 123000, loc), "'2022-01-10 01:03:02.000123+01:00'")
 
 }
 
