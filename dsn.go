@@ -14,7 +14,7 @@ type fireboltSettings struct {
 	accountName string
 }
 
-const dsnPattern = `^firebolt://(?P<username>.*@.*):(?P<password>.*)@(?P<database>\w+)(?:/(?P<engine>[^?]+))?(?:\?(?P<parameters>\w+\=[^=&]+(?:\&\w+=[^=&]+)*))?$`
+const dsnPattern = `^firebolt://(?P<username>.*@?.*):(?P<password>.*)@(?P<database>\w+)(?:/(?P<engine>[^?]+))?(?:\?(?P<parameters>\w+\=[^=&]+(?:\&\w+=[^=&]+)*))?$`
 const paramsPattern = `(?P<key>\w+)=(?P<value>[^=&]+)`
 
 // ParseDSNString parses a dsn in a format: firebolt://username:password@db_name[/engine_name][?account_name=organization]
