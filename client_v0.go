@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type ClientImplV0 struct {
@@ -22,30 +23,15 @@ func MakeClientV0(settings *fireboltSettings, apiEndpoint string) (*ClientImplV0
 	}
 
 	var err error
-	client.AccountID, err = client.GetAccountID(context.Background(), settings.accountName)
+	client.AccountID, err = client.getAccountID(context.Background(), settings.accountName)
 	if err != nil {
 		return nil, ConstructNestedError("error during getting account id", err)
 	}
 	return client, nil
 }
 
-func (c *ClientImplV0) GetAccountId(ctx context.Context, accountName string) (string, error) {
-	var accountId string
-	var err error
-	if accountName == "" {
-		infolog.Println("account name not specified, trying to get a default account id")
-		accountId, err = c.GetDefaultAccountId(context.TODO())
-	} else {
-		accountId, err = c.GetAccountIDByName(context.TODO(), accountName)
-	}
-	if err != nil {
-		return "", ConstructNestedError("error during getting account id", err)
-	}
-	return accountId, nil
-}
-
-// GetAccountID returns account ID based on account name
-func (c *ClientImplV0) GetAccountIDByName(ctx context.Context, accountName string) (string, error) {
+// getAccountIDByName returns account ID based on account name
+func (c *ClientImplV0) getAccountIDByName(ctx context.Context, accountName string) (string, error) {
 	infolog.Printf("get account id by name: %s", accountName)
 
 	type AccountIdByNameResponse struct {
@@ -64,6 +50,44 @@ func (c *ClientImplV0) GetAccountIDByName(ctx context.Context, accountName strin
 		return "", ConstructNestedError("error during unmarshalling account id by name response", errors.New(string(response)))
 	}
 	return accountIdByNameResponse.AccountId, nil
+}
+
+// getDefaultAccountID returns an id of the default account
+func (c *ClientImplV0) getDefaultAccountID(ctx context.Context) (string, error) {
+	type AccountResponse struct {
+		Id   string `json:"id"`
+		Name string `json:"name"`
+	}
+	type DefaultAccountResponse struct {
+		Account AccountResponse `json:"account"`
+	}
+
+	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), make(map[string]string), "")
+	if err != nil {
+		return "", ConstructNestedError("error during getting default account id request", err)
+	}
+
+	var defaultAccountResponse DefaultAccountResponse
+	if err = json.Unmarshal(response, &defaultAccountResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling default account response", errors.New(string(response)))
+	}
+
+	return defaultAccountResponse.Account.Id, nil
+}
+
+func (c *ClientImplV0) getAccountID(ctx context.Context, accountName string) (string, error) {
+	var accountId string
+	var err error
+	if accountName == "" {
+		infolog.Println("account name not specified, trying to get a default account id")
+		accountId, err = c.getDefaultAccountID(context.TODO())
+	} else {
+		accountId, err = c.getAccountIDByName(context.TODO(), accountName)
+	}
+	if err != nil {
+		return "", ConstructNestedError("error during getting account id", err)
+	}
+	return accountId, nil
 }
 
 // GetEngineIdByName returns engineId based on engineName and accountId
@@ -115,29 +139,6 @@ func (c *ClientImplV0) GetEngineUrlById(ctx context.Context, engineId string, ac
 	return makeCanonicalUrl(engineByIdResponse.Engine.Endpoint), nil
 }
 
-// GetDefaultAccount returns an id of the default account
-func (c *ClientImplV0) GetDefaultAccountId(ctx context.Context) (string, error) {
-	type AccountResponse struct {
-		Id   string `json:"id"`
-		Name string `json:"name"`
-	}
-	type DefaultAccountResponse struct {
-		Account AccountResponse `json:"account"`
-	}
-
-	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), make(map[string]string), "")
-	if err != nil {
-		return "", ConstructNestedError("error during getting default account id request", err)
-	}
-
-	var defaultAccountResponse DefaultAccountResponse
-	if err = json.Unmarshal(response, &defaultAccountResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling default account response", errors.New(string(response)))
-	}
-
-	return defaultAccountResponse.Account.Id, nil
-}
-
 // GetEngineUrlByName return engine URL based on engineName and accountName
 func (c *ClientImplV0) GetEngineUrlByName(ctx context.Context, engineName string, accountId string) (string, error) {
 	infolog.Printf("get engine url by name '%s' and account id '%s'", engineName, accountId)
@@ -176,9 +177,27 @@ func (c *ClientImplV0) GetEngineUrlByDatabase(ctx context.Context, databaseName 
 	return engineUrlByDatabaseResponse.EngineUrl, nil
 }
 
-// GetEngineUrlAndName returns engine URL and engine name based on engineName and accountId
-func (c *ClientImplV0) GetEngineUrlAndName(ctx context.Context, engineName string, accountId string) (string, string, error) {
-	return "", "", nil
+// GetEngineUrlAndDB returns engine URL and engine name based on engineName and accountId
+func (c *ClientImplV0) GetEngineUrlAndDB(ctx context.Context, engineName, databaseName string) (string, string, error) {
+	// getting engineUrl either by using engineName if available,
+	// if not using default engine for the database
+	var engineUrl string
+	var err error
+	if engineName != "" {
+		if strings.Contains(engineName, ".") {
+			engineUrl, err = makeCanonicalUrl(engineName), nil
+		} else {
+			engineUrl, err = c.GetEngineUrlByName(ctx, engineName, c.AccountID)
+		}
+	} else {
+		infolog.Println("engine name not set, trying to get a default engine")
+		engineUrl, err = c.GetEngineUrlByDatabase(ctx, databaseName, c.AccountID)
+	}
+	if err != nil {
+		return "", "", ConstructNestedError("error during getting engine url", err)
+	}
+	return engineUrl, databaseName, nil
+
 }
 
 func (c *ClientImplV0) getQueryParams(databaseName string, setStatements map[string]string) (map[string]string, error) {

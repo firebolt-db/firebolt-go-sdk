@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"strings"
 )
 
 type FireboltDriver struct {
@@ -35,28 +34,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 			return nil, ConstructNestedError("error during authentication", err)
 		}
 
-		// getting accountId, either default, or by specified accountName
-		accountId := d.client.GetAccountId(context.Background(), settings.accountName)
-		if err != nil {
-			return nil, ConstructNestedError("error during getting account id", err)
-		}
-
-		// getting engineUrl either by using engineName if available,
-		// if not using default engine for the database
-		if settings.engineName != "" {
-			if strings.Contains(settings.engineName, ".") {
-				d.engineUrl, err = makeCanonicalUrl(settings.engineName), nil
-			} else {
-				d.engineUrl, err = d.client.GetEngineUrlByName(context.TODO(), settings.engineName, accountId)
-			}
-		} else {
-			infolog.Println("engine name not set, trying to get a default engine")
-			d.engineUrl, err = d.client.GetEngineUrlByDatabase(context.TODO(), settings.database, accountId)
-		}
-		if err != nil {
-			return nil, ConstructNestedError("error during getting engine url", err)
-		}
-		d.databaseName = settings.database
+		d.engineUrl, d.databaseName, err = d.client.GetEngineUrlAndDB(context.TODO(), settings.engineName, settings.database)
 		d.lastUsedDsn = dsn //nolint
 	}
 

@@ -12,24 +12,24 @@ import (
 func TestGetEnginePropsByName(t *testing.T) {
 	systemEngineURL, err := clientMockWithAccount.GetSystemEngineURL(context.TODO(), accountNameMock)
 	if err != nil {
-		t.Errorf("Error returned by GetSystemEngineURL: %s", err)
+		t.Errorf("Error returned by getSystemEngineURL: %s", err)
 	}
 	if len(systemEngineURL) == 0 {
-		t.Errorf("Empty system engine url returned by GetSystemEngineURL for account: %s", accountNameMock)
+		t.Errorf("Empty system engine url returned by getSystemEngineURL for account: %s", accountNameMock)
 	}
 
 	engineURL, status, dbName, err := clientMockWithAccount.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
 	if err != nil {
-		t.Errorf("Error returned by GetEngineUrlStatusDBByName: %s", err)
+		t.Errorf("Error returned by getEngineUrlStatusDBByName: %s", err)
 	}
 	if engineURL == "" {
-		t.Errorf("Empty engine url returned by GetEngineUrlStatusDBByName")
+		t.Errorf("Empty engine url returned by getEngineUrlStatusDBByName")
 	}
 	if status != "Running" {
-		t.Errorf("Invalid status returned by GetEngineUrlStatusDBByName. Got: %s, should be Running", status)
+		t.Errorf("Invalid status returned by getEngineUrlStatusDBByName. Got: %s, should be Running", status)
 	}
 	if dbName != databaseMock {
-		t.Errorf("Invalid database returned by GetEngineUrlStatusDBByName: expected %s, got %s", databaseMock, dbName)
+		t.Errorf("Invalid database returned by getEngineUrlStatusDBByName: expected %s, got %s", databaseMock, dbName)
 	}
 
 }

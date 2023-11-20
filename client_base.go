@@ -14,8 +14,7 @@ import (
 const outputFormat = "JSON_Compact"
 
 type Client interface {
-	GetAccountId(ctx context.Context, accountName string) (string, error)
-	GetEngineUrlAndName(ctx context.Context, engineName string, accountId string) (string, string, error)
+	GetEngineUrlAndDB(ctx context.Context, engineName string, accountId string) (string, string, error)
 	Query(ctx context.Context, engineUrl, databaseName, query string, setStatements map[string]string) (*QueryResponse, error)
 }
 

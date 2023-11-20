@@ -9,9 +9,11 @@ import (
 
 type ClientImpl struct {
 	ConnectedToSystemEngine bool
+	SystemEngineURL         string
 	BaseClient
 }
 
+const engineStatusRunning = "Running"
 const engineInfoSQL = `
 SELECT url, status, attached_to FROM information_schema.engines
 WHERE engine_name='%s'
@@ -28,14 +30,18 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 	}
 
 	var err error
-	client.AccountID, err = client.GetAccountID(context.Background(), settings.accountName)
+	client.AccountID, err = client.getAccountID(context.Background(), settings.accountName)
 	if err != nil {
 		return nil, ConstructNestedError("error during getting account id", err)
+	}
+	client.SystemEngineURL, err = client.getSystemEngineURL(context.Background(), settings.accountName)
+	if err != nil {
+		return nil, ConstructNestedError("error during getting system engine url", err)
 	}
 	return client, nil
 }
 
-func (c *ClientImpl) GetEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
+func (c *ClientImpl) getEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
 	infolog.Printf("Get info for engine '%s'", engineName)
 	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
 	queryRes, err := c.Query(ctx, systemEngineUrl, "", engineSQL, make(map[string]string))
@@ -74,7 +80,7 @@ func parseEngineInfoResponse(resp [][]interface{}) (string, string, string, erro
 	return engineUrl, status, dbName, nil
 }
 
-func (c *ClientImpl) GetSystemEngineURL(ctx context.Context, accountName string) (string, error) {
+func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string) (string, error) {
 	infolog.Printf("Get system engine URL for account '%s'", accountName)
 
 	type SystemEngineURLResponse struct {
@@ -96,7 +102,7 @@ func (c *ClientImpl) GetSystemEngineURL(ctx context.Context, accountName string)
 	return systemEngineURLResponse.EngineUrl, nil
 }
 
-func (c *ClientImpl) GetAccountID(ctx context.Context, accountName string) (string, error) {
+func (c *ClientImpl) getAccountID(ctx context.Context, accountName string) (string, error) {
 	infolog.Printf("Getting account ID for '%s'", accountName)
 
 	type AccountIdURLResponse struct {
@@ -141,4 +147,30 @@ func (c *ClientImpl) getQueryParams(databaseName string, setStatements map[strin
 
 func (c *ClientImpl) getAccessToken() (string, error) {
 	return getAccessTokenServiceAccount(c.ClientID, c.ClientSecret, c.ApiEndpoint, c.UserAgent)
+}
+
+// GetEngineUrlAndDB returns engine URL and engine name based on engineName and accountId
+func (c *ClientImpl) GetEngineUrlAndDB(ctx context.Context, engineName, databaseName string) (string, string, error) {
+	// If engine name is empty, assume system engine
+	if len(engineName) == 0 {
+		c.ConnectedToSystemEngine = true
+		return c.SystemEngineURL, databaseName, nil
+	}
+
+	engineUrl, status, dbName, err := c.getEngineUrlStatusDBByName(ctx, engineName, c.SystemEngineURL)
+	if err != nil {
+		return "", "", ConstructNestedError("error during getting engine info", err)
+	}
+	if status != engineStatusRunning {
+		return "", "", fmt.Errorf("engine %s is not running", engineName)
+	}
+	if len(dbName) == 0 {
+		return "", "", fmt.Errorf("engine %s not attached to any DB or you don't have permission to access its database", engineName)
+	}
+	if databaseName != dbName {
+		return "", "", fmt.Errorf("engine %s is not attached to database %s", engineName, databaseName)
+	}
+	c.ConnectedToSystemEngine = false
+
+	return engineUrl, dbName, nil
 }

@@ -49,7 +49,11 @@ func init() {
 	dsnDefaultEngineMock = fmt.Sprintf("firebolt://%s:%s@%s?account_name=%s", usernameMock, passwordMock, databaseMock, accountNameMock)
 	dsnDefaultAccountMock = fmt.Sprintf("firebolt://%s:%s@%s", usernameMock, passwordMock, databaseMock)
 	dsnSystemEngineMock = fmt.Sprintf("firebolt://%s:%s@%s/%s", usernameMock, passwordMock, databaseMock, "system")
-	clientMock, _ = Authenticate(usernameMock, passwordMock, GetHostNameURL())
+	clientMock, _ = Authenticate(fireboltSettings{
+		clientID:     usernameMock,
+		clientSecret: passwordMock,
+		newVersion:   false,
+	}, GetHostNameURL())
 }
 
 // TestDriverQueryResult tests query happy path, as user would do it

@@ -29,8 +29,8 @@ var (
 	engineNameMock                  string
 	engineUrlMock                   string
 	accountNameMock                 string
-	clientMock                      *ClientImplV0
-	clientMockWithAccount           *ClientImplV0
+	clientMock                      *ClientImpl
+	clientMockWithAccount           *ClientImpl
 )
 
 // init populates mock variables and client for integration tests
@@ -46,12 +46,20 @@ func init() {
 	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountNameMock, engineNameMock, clientIdMock, clientSecretMock)
 	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, clientIdMock, clientSecretMock)
 	var err error
-	clientMock, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
+	clientMock, err = Authenticate(fireboltSettings{
+		clientID:     clientIdMock,
+		clientSecret: clientSecretMock,
+		newVersion:   true,
+	}, GetHostNameURL())
 	if err != nil {
 		panic(fmt.Errorf("Error authenticating with client id %s: %v", clientIdMock, err))
 	}
-	clientMockWithAccount, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
-	clientMockWithAccount.AccountId, err = clientMockWithAccount.GetAccountID(context.TODO(), accountNameMock)
+	clientMockWithAccount, err = Authenticate(fireboltSettings{
+		clientID:     clientIdMock,
+		clientSecret: clientSecretMock,
+		newVersion:   true,
+	}, GetHostNameURL())
+	clientMockWithAccount.AccountId, err = clientMockWithAccount.getAccountID(context.TODO(), accountNameMock)
 	clientMockWithAccount.ConnectedToSystemEngine = true
 	if err != nil {
 		panic(fmt.Errorf("Error resolving account %s to an id: %v", accountNameMock, err))
@@ -65,15 +73,15 @@ func init() {
 func getEngineURL() string {
 	systemEngineURL, err := clientMockWithAccount.GetSystemEngineURL(context.TODO(), accountNameMock)
 	if err != nil {
-		panic(fmt.Sprintf("Error returned by GetSystemEngineURL: %s", err))
+		panic(fmt.Sprintf("Error returned by getSystemEngineURL: %s", err))
 	}
 	if len(systemEngineURL) == 0 {
-		panic(fmt.Sprintf("Empty system engine url returned by GetSystemEngineURL for account: %s", accountNameMock))
+		panic(fmt.Sprintf("Empty system engine url returned by getSystemEngineURL for account: %s", accountNameMock))
 	}
 
 	engineURL, _, _, err := clientMockWithAccount.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
 	if err != nil {
-		panic(fmt.Sprintf("Error returned by GetEngineUrlStatusDBByName: %s", err))
+		panic(fmt.Sprintf("Error returned by getEngineUrlStatusDBByName: %s", err))
 	}
 	return engineURL
 }

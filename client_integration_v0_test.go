@@ -12,7 +12,7 @@ import (
 func TestGetAccountId(t *testing.T) {
 	accountId, err := clientMock.GetAccountIdByName(context.TODO(), accountNameMock)
 	if err != nil {
-		t.Errorf("GetAccountID failed with: %s", err)
+		t.Errorf("getAccountID failed with: %s", err)
 	}
 	if len(accountId) == 0 {
 		t.Errorf("returned empty accountId")
@@ -20,7 +20,7 @@ func TestGetAccountId(t *testing.T) {
 
 	_, err = clientMock.GetAccountIdByName(context.TODO(), "firebolt_not_existing_account")
 	if err == nil {
-		t.Errorf("GetAccountID didn't failed with not-existing account")
+		t.Errorf("getAccountID didn't failed with not-existing account")
 	}
 }
 
@@ -28,7 +28,7 @@ func TestGetAccountId(t *testing.T) {
 func TestGetEnginePropsByName(t *testing.T) {
 	accountId, err := clientMock.GetAccountIdByName(context.TODO(), "firebolt")
 	if err != nil {
-		t.Errorf("GetAccountID failed with: %s", err)
+		t.Errorf("getAccountID failed with: %s", err)
 	}
 
 	engineId, err := clientMock.GetEngineIdByName(context.TODO(), engineNameMock, accountId)
