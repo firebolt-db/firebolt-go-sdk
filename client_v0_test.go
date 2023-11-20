@@ -21,7 +21,7 @@ func TestCacheAccessToken(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
+		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
 			_, _ = w.Write(getAuthResponse(10000))
 		} else {
@@ -31,22 +31,22 @@ func TestCacheAccessToken(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &Client{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	var err error
 	for i := 0; i < 3; i++ {
-		_, err = client.request(context.TODO(), "GET", server.URL, nil, "")
+		_, err = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
 		if err != nil {
 			t.Errorf("Did not expect an error %s", err)
 		}
 	}
 
-	token, _ := getAccessToken("client_id", "", server.URL, "")
+	token, _ := getAccessToken("username@firebolt.io", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
-	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("username@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -64,7 +64,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
+		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
 			_, _ = w.Write(getAuthResponse(10000))
 		} else {
@@ -74,10 +74,10 @@ func TestRefreshTokenOn401(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &Client{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
-	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
 
-	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("username@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -98,7 +98,7 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
+		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
 			_, _ = w.Write(getAuthResponse(1))
 		} else {
@@ -108,19 +108,19 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &Client{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
-	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
-	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
 
-	token, _ := getAccessToken("client_id", "", server.URL, "")
+	token, _ := getAccessToken("username@firebolt.io", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
-	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("username@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -144,7 +144,7 @@ func TestUserAgent(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &Client{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: userAgentValue}
+	var client = &Client{Username: "username@firebolt.io", Password: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue}
 
 	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
 	if userAgentHeader != userAgentValue {
