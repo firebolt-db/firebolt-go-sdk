@@ -40,7 +40,7 @@ func ParseDSNString(dsn string) (*fireboltSettings, error) {
 		result.engineName = dsnMatch[4]
 	}
 
-	paramsStr := dsnMatch[2]
+	paramsStr := dsnMatch[5]
 	if len(paramsStr) > 0 {
 		paramsMatch := paramsExpr.FindAllStringSubmatch(paramsStr, -1)
 		for _, m := range paramsMatch {

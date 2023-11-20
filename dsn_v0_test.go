@@ -26,6 +26,9 @@ func runDSNTest(t *testing.T, input string, expectedSettings fireboltSettings) {
 	if settings.engineName != expectedSettings.engineName {
 		t.Errorf("got %s want %s", settings.engineName, expectedSettings.engineName)
 	}
+	if settings.accountName != expectedSettings.accountName {
+		t.Errorf("got %s want %s", settings.accountName, expectedSettings.accountName)
+	}
 }
 
 func runDSNTestFail(t *testing.T, input string) {
@@ -35,7 +38,7 @@ func runDSNTestFail(t *testing.T, input string) {
 	}
 }
 
-func TestDSNHappyPath(t *testing.T) {
+func TestDSNV0HappyPath(t *testing.T) {
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name",
 		fireboltSettings{username: "user@firebolt.io", password: "password", database: "db_name"})
 
@@ -62,7 +65,7 @@ func TestDSNHappyPath(t *testing.T) {
 }
 
 // TestDSNFailed test different failure scenarios for ParseDSNString
-func TestDSNFailed(t *testing.T) {
+func TestDSNV0Failed(t *testing.T) {
 	runDSNTestFail(t, "")
 	runDSNTestFail(t, "firebolt://")
 	runDSNTestFail(t, "firebolt://user:yury_db")

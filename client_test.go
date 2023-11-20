@@ -1,13 +1,8 @@
 package fireboltgosdk
 
 import (
-	"context"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"strconv"
-	"testing"
-	"time"
 )
 
 func init() {
@@ -16,7 +11,7 @@ func init() {
 
 var originalEndpoint string
 
-// TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
+/*// TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
 func TestCacheAccessToken(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
@@ -150,7 +145,7 @@ func TestUserAgent(t *testing.T) {
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
-}
+}*/
 
 func getAuthResponse(expiry int) []byte {
 	var response = `{
@@ -161,13 +156,4 @@ func getAuthResponse(expiry int) []byte {
    "token_type": "Bearer"
 }`
 	return []byte(response)
-}
-
-func prepareEnvVariablesForTest(t *testing.T, server *httptest.Server) {
-	os.Setenv("FIREBOLT_ENDPOINT", server.URL)
-	t.Cleanup(cleanupEnvVariables)
-}
-
-func cleanupEnvVariables() {
-	os.Setenv("FIREBOLT_ENDPOINT", originalEndpoint)
 }

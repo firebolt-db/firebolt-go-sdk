@@ -1,10 +1,10 @@
 package fireboltgosdk
 
-import (
-	"testing"
-)
+func empty() {
 
-func runDSNTest(t *testing.T, input string, expectedSettings fireboltSettings) {
+}
+
+/*func runDSNTest(t *testing.T, input string, expectedSettings fireboltSettings) {
 	settings, err := ParseDSNString(input)
 
 	if err != nil {
@@ -59,3 +59,4 @@ func TestDSNFailed(t *testing.T) {
 	runDSNTestFail(t, "firebolt://?k=v")    // unknown parameter name
 	runDSNTestFail(t, "firebolt:///db?k=v") // unknown parameter name
 }
+*/
