@@ -26,7 +26,7 @@ func TestCacheAccessToken(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &Client{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &ClientImplV0{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	var err error
 	for i := 0; i < 3; i++ {
 		_, err = client.request(context.TODO(), "GET", server.URL, nil, "")
@@ -35,7 +35,7 @@ func TestCacheAccessToken(t *testing.T) {
 		}
 	}
 
-	token, _ := getAccessToken("client_id", "", server.URL, "")
+	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
@@ -69,7 +69,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &Client{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &ClientImplV0{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
@@ -103,13 +103,13 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &Client{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &ClientImplV0{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
 	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
 	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
-	token, _ := getAccessToken("client_id", "", server.URL, "")
+	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
@@ -139,7 +139,7 @@ func TestUserAgent(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &Client{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: userAgentValue}
+	var client = &ClientImplV0{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: userAgentValue}
 
 	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
 	if userAgentHeader != userAgentValue {

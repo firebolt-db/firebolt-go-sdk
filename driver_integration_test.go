@@ -29,8 +29,8 @@ var (
 	engineNameMock                  string
 	engineUrlMock                   string
 	accountNameMock                 string
-	clientMock                      *Client
-	clientMockWithAccount           *Client
+	clientMock                      *ClientImplV0
+	clientMockWithAccount           *ClientImplV0
 )
 
 // init populates mock variables and client for integration tests
@@ -51,7 +51,7 @@ func init() {
 		panic(fmt.Errorf("Error authenticating with client id %s: %v", clientIdMock, err))
 	}
 	clientMockWithAccount, err = Authenticate(clientIdMock, clientSecretMock, GetHostNameURL())
-	clientMockWithAccount.AccountId, err = clientMockWithAccount.GetAccountId(context.TODO(), accountNameMock)
+	clientMockWithAccount.AccountId, err = clientMockWithAccount.GetAccountID(context.TODO(), accountNameMock)
 	clientMockWithAccount.ConnectedToSystemEngine = true
 	if err != nil {
 		panic(fmt.Errorf("Error resolving account %s to an id: %v", accountNameMock, err))

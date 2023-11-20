@@ -32,7 +32,7 @@ var (
 	accountNameMock            string
 	serviceAccountClientId     string
 	serviceAccountClientSecret string
-	clientMock                 *Client
+	clientMock                 *ClientImplV0
 )
 
 // init populates mock variables and client for integration tests

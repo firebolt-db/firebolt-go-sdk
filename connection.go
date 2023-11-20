@@ -8,7 +8,7 @@ import (
 )
 
 type fireboltConnection struct {
-	client        *Client
+	client        Client
 	databaseName  string
 	engineUrl     string
 	setStatements map[string]string
