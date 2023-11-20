@@ -46,7 +46,7 @@ func init() {
 	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountNameMock, engineNameMock, clientIdMock, clientSecretMock)
 	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountNameMock, clientIdMock, clientSecretMock)
 	var err error
-	clientMock, err = Authenticate(fireboltSettings{
+	client, err := Authenticate(&fireboltSettings{
 		clientID:     clientIdMock,
 		clientSecret: clientSecretMock,
 		newVersion:   true,
@@ -54,19 +54,21 @@ func init() {
 	if err != nil {
 		panic(fmt.Errorf("Error authenticating with client id %s: %v", clientIdMock, err))
 	}
-	clientMockWithAccount, err = Authenticate(fireboltSettings{
+	clientMock = client.(*ClientImpl)
+	clientWithAccount, err := Authenticate(&fireboltSettings{
 		clientID:     clientIdMock,
 		clientSecret: clientSecretMock,
 		newVersion:   true,
 	}, GetHostNameURL())
-	clientMockWithAccount.AccountId, err = clientMockWithAccount.getAccountID(context.TODO(), accountNameMock)
-	clientMockWithAccount.ConnectedToSystemEngine = true
-	if err != nil {
-		panic(fmt.Errorf("Error resolving account %s to an id: %v", accountNameMock, err))
-	}
 	if err != nil {
 		panic(fmt.Sprintf("Authentication error: %v", err))
 	}
+	clientMockWithAccount = clientWithAccount.(*ClientImpl)
+	clientMockWithAccount.AccountId, err = clientMockWithAccount.getAccountID(context.TODO(), accountNameMock)
+	if err != nil {
+		panic(fmt.Errorf("Error resolving account %s to an id: %v", accountNameMock, err))
+	}
+	clientMockWithAccount.ConnectedToSystemEngine = true
 	engineUrlMock = getEngineURL()
 }
 

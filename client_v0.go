@@ -21,14 +21,14 @@ func MakeClientV0(settings *fireboltSettings, apiEndpoint string) (*ClientImplV0
 			UserAgent:    ConstructUserAgentString(),
 		},
 	}
+	client.parameterGetter = client.getQueryParams
+	client.accessTokenGetter = client.getAccessToken
 
 	var err error
-	client.AccountID, err = client.GetAccountID(context.Background(), settings.accountName)
+	client.AccountID, err = client.getAccountID(context.Background(), settings.accountName)
 	if err != nil {
 		return nil, ConstructNestedError("error during getting account id", err)
 	}
-	client.parameterGetter = client.getQueryParams
-	client.accessTokenGetter = client.getAccessToken
 	return client, nil
 }
 
@@ -77,7 +77,7 @@ func (c *ClientImplV0) getDefaultAccountID(ctx context.Context) (string, error) 
 	return defaultAccountResponse.Account.Id, nil
 }
 
-func (c *ClientImplV0) GetAccountID(ctx context.Context, accountName string) (string, error) {
+func (c *ClientImplV0) getAccountID(ctx context.Context, accountName string) (string, error) {
 	var accountId string
 	var err error
 	if accountName == "" {
@@ -92,8 +92,8 @@ func (c *ClientImplV0) GetAccountID(ctx context.Context, accountName string) (st
 	return accountId, nil
 }
 
-// GetEngineIdByName returns engineId based on engineName and accountId
-func (c *ClientImplV0) GetEngineIdByName(ctx context.Context, engineName string, accountId string) (string, error) {
+// getEngineIdByName returns engineId based on engineName and accountId
+func (c *ClientImplV0) getEngineIdByName(ctx context.Context, engineName string, accountId string) (string, error) {
 	infolog.Printf("get engine id by name '%s' and account id '%s'", engineName, accountId)
 
 	type EngineIdByNameInnerResponse struct {
@@ -117,8 +117,8 @@ func (c *ClientImplV0) GetEngineIdByName(ctx context.Context, engineName string,
 	return engineIdByNameResponse.EngineId.EngineId, nil
 }
 
-// GetEngineUrlById returns engine url based on engineId and accountId
-func (c *ClientImplV0) GetEngineUrlById(ctx context.Context, engineId string, accountId string) (string, error) {
+// getEngineUrlById returns engine url based on engineId and accountId
+func (c *ClientImplV0) getEngineUrlById(ctx context.Context, engineId string, accountId string) (string, error) {
 	infolog.Printf("get engine url by id '%s' and account id '%s'", engineId, accountId)
 
 	type EngineResponse struct {
@@ -141,16 +141,16 @@ func (c *ClientImplV0) GetEngineUrlById(ctx context.Context, engineId string, ac
 	return makeCanonicalUrl(engineByIdResponse.Engine.Endpoint), nil
 }
 
-// GetEngineUrlByName return engine URL based on engineName and accountName
-func (c *ClientImplV0) GetEngineUrlByName(ctx context.Context, engineName string, accountId string) (string, error) {
+// getEngineUrlByName return engine URL based on engineName and accountName
+func (c *ClientImplV0) getEngineUrlByName(ctx context.Context, engineName string, accountId string) (string, error) {
 	infolog.Printf("get engine url by name '%s' and account id '%s'", engineName, accountId)
 
-	engineId, err := c.GetEngineIdByName(ctx, engineName, accountId)
+	engineId, err := c.getEngineIdByName(ctx, engineName, accountId)
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine id by name", err)
 	}
 
-	engineUrl, err := c.GetEngineUrlById(ctx, engineId, accountId)
+	engineUrl, err := c.getEngineUrlById(ctx, engineId, accountId)
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by id", err)
 	}
@@ -158,8 +158,8 @@ func (c *ClientImplV0) GetEngineUrlByName(ctx context.Context, engineName string
 	return engineUrl, nil
 }
 
-// GetEngineUrlByDatabase return URL of the default engine based on databaseName and accountName
-func (c *ClientImplV0) GetEngineUrlByDatabase(ctx context.Context, databaseName string, accountId string) (string, error) {
+// getEngineUrlByDatabase return URL of the default engine based on databaseName and accountName
+func (c *ClientImplV0) getEngineUrlByDatabase(ctx context.Context, databaseName string, accountId string) (string, error) {
 	infolog.Printf("get engine url by database name '%s' and account name '%s'", databaseName, accountId)
 
 	type EngineUrlByDatabaseResponse struct {
@@ -189,11 +189,11 @@ func (c *ClientImplV0) GetEngineUrlAndDB(ctx context.Context, engineName, databa
 		if strings.Contains(engineName, ".") {
 			engineUrl, err = makeCanonicalUrl(engineName), nil
 		} else {
-			engineUrl, err = c.GetEngineUrlByName(ctx, engineName, c.AccountID)
+			engineUrl, err = c.getEngineUrlByName(ctx, engineName, c.AccountID)
 		}
 	} else {
 		infolog.Println("engine name not set, trying to get a default engine")
-		engineUrl, err = c.GetEngineUrlByDatabase(ctx, databaseName, c.AccountID)
+		engineUrl, err = c.getEngineUrlByDatabase(ctx, databaseName, c.AccountID)
 	}
 	if err != nil {
 		return "", "", ConstructNestedError("error during getting engine url", err)

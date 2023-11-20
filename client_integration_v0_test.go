@@ -10,7 +10,7 @@ import (
 
 // TestGetAccountId test getting account ID with existing and not existing accounts
 func TestGetAccountId(t *testing.T) {
-	accountId, err := clientMock.GetAccountIdByName(context.TODO(), accountNameMock)
+	accountId, err := clientMock.getAccountIDByName(context.TODO(), accountNameMock)
 	if err != nil {
 		t.Errorf("getAccountID failed with: %s", err)
 	}
@@ -18,7 +18,7 @@ func TestGetAccountId(t *testing.T) {
 		t.Errorf("returned empty accountId")
 	}
 
-	_, err = clientMock.GetAccountIdByName(context.TODO(), "firebolt_not_existing_account")
+	_, err = clientMock.getAccountIDByName(context.TODO(), "firebolt_not_existing_account")
 	if err == nil {
 		t.Errorf("getAccountID didn't failed with not-existing account")
 	}
@@ -26,62 +26,62 @@ func TestGetAccountId(t *testing.T) {
 
 // TestGetEnginePropsByName test getting engine url by name step by step
 func TestGetEnginePropsByName(t *testing.T) {
-	accountId, err := clientMock.GetAccountIdByName(context.TODO(), "firebolt")
+	accountId, err := clientMock.getAccountIDByName(context.TODO(), "firebolt")
 	if err != nil {
 		t.Errorf("getAccountID failed with: %s", err)
 	}
 
-	engineId, err := clientMock.GetEngineIdByName(context.TODO(), engineNameMock, accountId)
+	engineId, err := clientMock.getEngineIdByName(context.TODO(), engineNameMock, accountId)
 	if err != nil {
-		t.Errorf("GetEngineIdByName failed with: %s", err)
+		t.Errorf("getEngineIdByName failed with: %s", err)
 	}
 	if len(engineId) == 0 {
-		t.Errorf("GetEngineIdByName succeed but returned a zero length account id")
+		t.Errorf("getEngineIdByName succeed but returned a zero length account id")
 	}
 
-	engineUrl, err := clientMock.GetEngineUrlById(context.TODO(), engineId, accountId)
+	engineUrl, err := clientMock.getEngineUrlById(context.TODO(), engineId, accountId)
 	if err != nil {
-		t.Errorf("GetEngineUrlById failed with: %s", err)
+		t.Errorf("getEngineUrlById failed with: %s", err)
 	}
 	if len(engineUrl) == 0 {
-		t.Errorf("GetEngineUrlById succeed but returned a zero length account id")
+		t.Errorf("getEngineUrlById succeed but returned a zero length account id")
 	}
 }
 
-// TestGetEngineUrlByName test GetEngineUrlByName function and its failure scenarios
+// TestGetEngineUrlByName test getEngineUrlByName function and its failure scenarios
 func TestGetEngineUrlByName(t *testing.T) {
-	accountId, _ := clientMock.GetDefaultAccountId(context.TODO())
-	engineUrl, err := clientMock.GetEngineUrlByName(context.TODO(), engineNameMock, accountId)
+	accountId, _ := clientMock.getDefaultAccountID(context.TODO())
+	engineUrl, err := clientMock.getEngineUrlByName(context.TODO(), engineNameMock, accountId)
 	if err != nil {
-		t.Errorf("GetEngineUrlByName returned an error: %v", err)
+		t.Errorf("getEngineUrlByName returned an error: %v", err)
 	}
 	if makeCanonicalUrl(engineUrl) != makeCanonicalUrl(engineUrlMock) {
 		t.Errorf("Returned engine url is not equal to a mocked engine url %s != %s", engineUrl, engineUrlMock)
 	}
-	if res, err := clientMock.GetEngineUrlByName(context.TODO(), "not_existing_engine", accountNameMock); err == nil || res != "" {
-		t.Errorf("GetEngineUrlByName didn't return an error with not existing engine")
+	if res, err := clientMock.getEngineUrlByName(context.TODO(), "not_existing_engine", accountNameMock); err == nil || res != "" {
+		t.Errorf("getEngineUrlByName didn't return an error with not existing engine")
 	}
-	if res, err := clientMock.GetEngineUrlByName(context.TODO(), engineNameMock, "not_existing_account"); err == nil || res != "" {
-		t.Errorf("GetEngineUrlByName didn't return an error with not existing account")
+	if res, err := clientMock.getEngineUrlByName(context.TODO(), engineNameMock, "not_existing_account"); err == nil || res != "" {
+		t.Errorf("getEngineUrlByName didn't return an error with not existing account")
 	}
 }
 
 // TestGetEngineUrlByDatabase checks, that the url of the default engine returns properly
 func TestGetEngineUrlByDatabase(t *testing.T) {
-	accountId, _ := clientMock.GetAccountIdByName(context.TODO(), accountNameMock)
-	engineUrl, err := clientMock.GetEngineUrlByDatabase(context.TODO(), databaseMock, accountId)
+	accountId, _ := clientMock.getAccountIDByName(context.TODO(), accountNameMock)
+	engineUrl, err := clientMock.getEngineUrlByDatabase(context.TODO(), databaseMock, accountId)
 	if err != nil {
-		t.Errorf("GetEngineUrlByDatabase failed with: %v, %s", err, accountNameMock)
+		t.Errorf("getEngineUrlByDatabase failed with: %v, %s", err, accountNameMock)
 	}
 	if makeCanonicalUrl(engineUrl) != makeCanonicalUrl(engineUrlMock) {
 		t.Errorf("Returned engine url is not equal to a mocked engine url %s != %s", engineUrl, engineUrlMock)
 	}
 
-	if _, err = clientMock.GetEngineUrlByDatabase(context.TODO(), "not_existing_database", accountNameMock); err == nil {
-		t.Errorf("GetEngineUrlByDatabase didn't return an error with not existing database")
+	if _, err = clientMock.getEngineUrlByDatabase(context.TODO(), "not_existing_database", accountNameMock); err == nil {
+		t.Errorf("getEngineUrlByDatabase didn't return an error with not existing database")
 	}
-	if _, err = clientMock.GetEngineUrlByDatabase(context.TODO(), databaseMock, "not_existing_account"); err == nil {
-		t.Errorf("GetEngineUrlByDatabase didn't return an error with not existing account")
+	if _, err = clientMock.getEngineUrlByDatabase(context.TODO(), databaseMock, "not_existing_account"); err == nil {
+		t.Errorf("getEngineUrlByDatabase didn't return an error with not existing account")
 	}
 }
 
@@ -111,15 +111,15 @@ func TestQuerySetStatements(t *testing.T) {
 	}
 }
 
-func TestGetDefaultAccountId(t *testing.T) {
+func TestGetDefaultAccountID(t *testing.T) {
 	var defaultAccountId, accountIdFromName string
 	var err error
 
-	if defaultAccountId, err = clientMock.GetDefaultAccountId(context.TODO()); err != nil {
+	if defaultAccountId, err = clientMock.getDefaultAccountID(context.TODO()); err != nil {
 		t.Errorf("getting default id returned an error: %v", err)
 	}
 
-	if accountIdFromName, err = clientMock.GetAccountIdByName(context.TODO(), accountNameMock); err != nil {
+	if accountIdFromName, err = clientMock.getAccountIDByName(context.TODO(), accountNameMock); err != nil {
 		t.Errorf("getting account id by name resulted into an error: %v", err)
 	}
 
