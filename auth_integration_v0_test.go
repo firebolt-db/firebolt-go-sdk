@@ -1,5 +1,5 @@
-//go:build integration
-// +build integration
+//go:build integration_v0
+// +build integration_v0
 
 package fireboltgosdk
 
@@ -9,7 +9,7 @@ import (
 
 // TestAuthHappyPath tests normal authentication, and that the access token is actually set
 func TestAuthHappyPath(t *testing.T) {
-	if len(getCachedAccessToken(clientMock.ClientId, clientMock.ApiEndpoint)) == 0 {
+	if len(getCachedAccessToken(clientMock.Username, clientMock.ApiEndpoint)) == 0 {
 		t.Errorf("Token is not set properly")
 	}
 }
