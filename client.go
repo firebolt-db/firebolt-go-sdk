@@ -38,6 +38,8 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 	if err != nil {
 		return nil, ConstructNestedError("error during getting system engine url", err)
 	}
+	client.parameterGetter = client.getQueryParams
+	client.accessTokenGetter = client.getAccessToken
 	return client, nil
 }
 

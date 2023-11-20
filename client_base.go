@@ -19,18 +19,23 @@ type Client interface {
 }
 
 type BaseClient struct {
-	ClientID     string
-	ClientSecret string
-	AccountID    string
-	ApiEndpoint  string
-	UserAgent    string
+	ClientID          string
+	ClientSecret      string
+	AccountID         string
+	ApiEndpoint       string
+	UserAgent         string
+	parameterGetter   func(string, map[string]string) (map[string]string, error)
+	accessTokenGetter func() (string, error)
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
 func (c *BaseClient) Query(ctx context.Context, engineUrl, databaseName, query string, setStatements map[string]string) (*QueryResponse, error) {
 	infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
 
-	params, err := c.getQueryParams(databaseName, setStatements)
+	if c.parameterGetter == nil {
+		return nil, errors.New("parameterGetter is not set")
+	}
+	params, err := c.parameterGetter(databaseName, setStatements)
 	if err != nil {
 		return nil, err
 	}
@@ -54,15 +59,16 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, databaseName, query s
 	return &queryResponse, nil
 }
 
-func (c *BaseClient) getQueryParams(databaseName string, setStatements map[string]string) (map[string]string, error) {
-	return map[string]string{}, nil
-}
-
 // request fetches an access token from the cache or re-authenticate when the access token is not available in the cache
 // and sends a request using that token
 func (c *BaseClient) request(ctx context.Context, method string, url string, params map[string]string, bodyStr string) ([]byte, error) {
 	var err error
-	accessToken, err := getAccessTokenServiceAccount(c.ClientID, c.ClientSecret, c.ApiEndpoint, c.UserAgent)
+
+	if c.accessTokenGetter == nil {
+		return nil, errors.New("accessTokenGetter is not set")
+	}
+
+	accessToken, err := c.accessTokenGetter()
 	if err != nil {
 		return nil, ConstructNestedError("error while getting access token", err)
 	}
@@ -73,7 +79,7 @@ func (c *BaseClient) request(ctx context.Context, method string, url string, par
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
 		// Refreshing the access token as it is expired
-		accessToken, err = getAccessTokenServiceAccount(c.ClientID, c.ClientSecret, c.ApiEndpoint, c.UserAgent)
+		accessToken, err = c.accessTokenGetter()
 		if err != nil {
 			return nil, ConstructNestedError("error while refreshing access token", err)
 		}
@@ -81,10 +87,6 @@ func (c *BaseClient) request(ctx context.Context, method string, url string, par
 		response, err, _ = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
 	}
 	return response, err
-}
-
-func (c *BaseClient) getAccessToken() (string, error) {
-	return "", nil
 }
 
 // makeCanonicalUrl checks whether url starts with https:// and if not prepends it

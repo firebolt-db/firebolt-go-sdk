@@ -25,22 +25,25 @@ func TestCacheAccessTokenV0(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImplV0{Username: "username@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &ClientImplV0{
+		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+	}
+	client.accessTokenGetter = client.getAccessToken
 	var err error
 	for i := 0; i < 3; i++ {
-		_, err = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
+		_, err = client.request(context.TODO(), "GET", server.URL, nil, "")
 		if err != nil {
 			t.Errorf("Did not expect an error %s", err)
 		}
 	}
 
-	token, _ := getAccessTokenUsernamePassword("username@firebolt.io", "", server.URL, "")
+	token, _ := getAccessTokenUsernamePassword("ClientID@firebolt.io", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
-	if getCachedAccessToken("username@firebolt.io", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -68,10 +71,13 @@ func TestRefreshTokenOn401V0(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImplV0{Username: "username@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
-	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
+	var client = &ClientImplV0{
+		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
-	if getCachedAccessToken("username@firebolt.io", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -102,19 +108,22 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImplV0{Username: "username@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"}
-	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
+	var client = &ClientImplV0{
+		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
-	_, _ = client.request(context.TODO(), "GET", server.URL, "userAgent", nil, "")
+	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
-	token, _ := getAccessTokenUsernamePassword("username@firebolt.io", "", server.URL, "")
+	token, _ := getAccessTokenUsernamePassword("ClientID@firebolt.io", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
-	if getCachedAccessToken("username@firebolt.io", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -138,7 +147,11 @@ func TestUserAgentV0(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImplV0{Username: "username@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue}
+	var client = &ClientImplV0{
+		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
 
 	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
 	if userAgentHeader != userAgentValue {
