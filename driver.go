@@ -35,6 +35,9 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 		}
 
 		d.engineUrl, d.databaseName, err = d.client.GetEngineUrlAndDB(context.TODO(), settings.engineName, settings.database)
+		if err != nil {
+			return nil, ConstructNestedError("error during getting engine url", err)
+		}
 		d.lastUsedDsn = dsn //nolint
 	}
 

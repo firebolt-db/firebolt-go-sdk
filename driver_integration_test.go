@@ -49,6 +49,9 @@ func init() {
 	client, err := Authenticate(&fireboltSettings{
 		clientID:     clientIdMock,
 		clientSecret: clientSecretMock,
+		accountName:  accountNameMock,
+		engineName:   engineNameMock,
+		database:     databaseMock,
 		newVersion:   true,
 	}, GetHostNameURL())
 	if err != nil {
@@ -58,22 +61,20 @@ func init() {
 	clientWithAccount, err := Authenticate(&fireboltSettings{
 		clientID:     clientIdMock,
 		clientSecret: clientSecretMock,
+		accountName:  accountNameMock,
+		database:     databaseMock,
 		newVersion:   true,
 	}, GetHostNameURL())
 	if err != nil {
 		panic(fmt.Sprintf("Authentication error: %v", err))
 	}
 	clientMockWithAccount = clientWithAccount.(*ClientImpl)
-	clientMockWithAccount.AccountId, err = clientMockWithAccount.getAccountID(context.TODO(), accountNameMock)
-	if err != nil {
-		panic(fmt.Errorf("Error resolving account %s to an id: %v", accountNameMock, err))
-	}
 	clientMockWithAccount.ConnectedToSystemEngine = true
 	engineUrlMock = getEngineURL()
 }
 
 func getEngineURL() string {
-	systemEngineURL, err := clientMockWithAccount.GetSystemEngineURL(context.TODO(), accountNameMock)
+	systemEngineURL, err := clientMockWithAccount.getSystemEngineURL(context.TODO(), accountNameMock)
 	if err != nil {
 		panic(fmt.Sprintf("Error returned by getSystemEngineURL: %s", err))
 	}
@@ -81,7 +82,7 @@ func getEngineURL() string {
 		panic(fmt.Sprintf("Empty system engine url returned by getSystemEngineURL for account: %s", accountNameMock))
 	}
 
-	engineURL, _, _, err := clientMockWithAccount.GetEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
+	engineURL, _, _, err := clientMockWithAccount.getEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
 	if err != nil {
 		panic(fmt.Sprintf("Error returned by getEngineUrlStatusDBByName: %s", err))
 	}
@@ -154,11 +155,11 @@ func TestDriverOpenConnection(t *testing.T) {
 func runTestDriverExecStatement(t *testing.T, dsn string) {
 	db, err := sql.Open("firebolt", dsn)
 	if err != nil {
-		t.Errorf("failed unexpectedly")
+		t.Errorf("failed unexpectedly: %s", err)
 	}
 
 	if _, err = db.Exec("SELECT 1"); err != nil {
-		t.Errorf("connection is not established correctly")
+		t.Errorf("connection is not established correctly: %s", err)
 	}
 }
 

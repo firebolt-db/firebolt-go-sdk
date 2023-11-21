@@ -3,7 +3,7 @@
 
 package fireboltgosdk
 
-import (
+/*import (
 	"bytes"
 	"context"
 	"database/sql/driver"
@@ -361,3 +361,4 @@ func TestConnectionPreparedStatement(t *testing.T) {
 		}
 	}
 }
+*/

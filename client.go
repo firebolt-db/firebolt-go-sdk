@@ -153,9 +153,10 @@ func (c *ClientImpl) getAccessToken() (string, error) {
 
 // GetEngineUrlAndDB returns engine URL and engine name based on engineName and accountId
 func (c *ClientImpl) GetEngineUrlAndDB(ctx context.Context, engineName, databaseName string) (string, string, error) {
+	// Assume we are connected to a system engine in the beginning
+	c.ConnectedToSystemEngine = true
 	// If engine name is empty, assume system engine
 	if len(engineName) == 0 {
-		c.ConnectedToSystemEngine = true
 		return c.SystemEngineURL, databaseName, nil
 	}
 
@@ -169,7 +170,7 @@ func (c *ClientImpl) GetEngineUrlAndDB(ctx context.Context, engineName, database
 	if len(dbName) == 0 {
 		return "", "", fmt.Errorf("engine %s not attached to any DB or you don't have permission to access its database", engineName)
 	}
-	if databaseName != dbName {
+	if len(databaseName) != 0 && databaseName != dbName {
 		return "", "", fmt.Errorf("engine %s is not attached to database %s", engineName, databaseName)
 	}
 	c.ConnectedToSystemEngine = false
