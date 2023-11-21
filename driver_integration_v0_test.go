@@ -3,7 +3,7 @@
 
 package fireboltgosdk
 
-/*import (
+import (
 	"context"
 	"database/sql"
 	"fmt"
@@ -244,4 +244,4 @@ func containsEngine(rows *sql.Rows, engineToFind string) (bool, error) {
 		}
 	}
 	return false, nil
-}*/
+}

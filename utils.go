@@ -111,9 +111,9 @@ func formatValue(value driver.Value) (string, error) {
 		return fmt.Sprintf("%g", value), nil
 	case bool:
 		if value.(bool) {
-			return "1", nil
+			return "true", nil
 		} else {
-			return "0", nil
+			return "false", nil
 		}
 	case time.Time:
 		timeValue := value.(time.Time)
