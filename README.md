@@ -11,7 +11,7 @@ Firebolt GO driver is an implementation of `database/sql/driver`.
 ### Installation
 
 ```shell
-go get github.com/firebolt-db/firebolt-go-sdk
+go get github.com/firebolt-db/firebolt-go-sdk@1.x
 ```
 
 ### Example
