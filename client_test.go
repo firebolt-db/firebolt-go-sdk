@@ -1,8 +1,13 @@
 package fireboltgosdk
 
 import (
+	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"strconv"
+	"testing"
+	"time"
 )
 
 func init() {
@@ -11,7 +16,7 @@ func init() {
 
 var originalEndpoint string
 
-/*// TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
+// TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
 func TestCacheAccessToken(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
@@ -26,7 +31,10 @@ func TestCacheAccessToken(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImplV0{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+	}
+	client.accessTokenGetter = client.getAccessToken
 	var err error
 	for i := 0; i < 3; i++ {
 		_, err = client.request(context.TODO(), "GET", server.URL, nil, "")
@@ -35,7 +43,7 @@ func TestCacheAccessToken(t *testing.T) {
 		}
 	}
 
-	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
+	token, _ := getAccessTokenServiceAccount("client_id", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
@@ -69,7 +77,10 @@ func TestRefreshTokenOn401(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImplV0{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+	}
+	client.accessTokenGetter = client.getAccessToken
 	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
@@ -103,7 +114,10 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImplV0{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"}
+	var client = &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+	}
+	client.accessTokenGetter = client.getAccessToken
 	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
@@ -139,13 +153,17 @@ func TestUserAgent(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImplV0{ClientId: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: userAgentValue}
+	var client = &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: userAgentValue},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
 
 	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
-}*/
+}
 
 func getAuthResponse(expiry int) []byte {
 	var response = `{
