@@ -17,7 +17,7 @@ func TestCacheAccessTokenV0(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
-			_, _ = w.Write(getAuthResponse(10000))
+			_, _ = w.Write(getAuthResponseV0(10000))
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
@@ -63,7 +63,7 @@ func TestRefreshTokenOn401V0(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
-			_, _ = w.Write(getAuthResponse(10000))
+			_, _ = w.Write(getAuthResponseV0(10000))
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
 		}
@@ -100,7 +100,7 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
-			_, _ = w.Write(getAuthResponse(1))
+			_, _ = w.Write(getAuthResponseV0(1))
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
