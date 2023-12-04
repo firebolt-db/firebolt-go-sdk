@@ -37,7 +37,7 @@ jobs:
         with:
           firebolt-client-id: ${{ secrets.FIREBOLT_CLIENT_ID_NEW_IDN }}
           firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_NEW_IDN }}
-          api-endpoint: "api.dev.firebolt.io"
+          api-endpoint: "api.staging.firebolt.io"
           account: "developer"
           instance-type: "B2"
 
@@ -45,7 +45,7 @@ jobs:
         env:
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
-          FIREBOLT_ENDPOINT: "api.dev.firebolt.io"
+          FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
           ACCOUNT_NAME: "developer"
           CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_NEW_IDN }}
           CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_NEW_IDN }}
