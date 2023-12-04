@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 type fireboltSettings struct {
@@ -64,10 +65,12 @@ func makeSettings(dsnMatch []string) (*fireboltSettings, error) {
 
 func makeSettingsV0(dsnMatch []string) (*fireboltSettings, error) {
 	var result fireboltSettings
-	result.newVersion = false
 
 	result.clientID = dsnMatch[1]
 	result.clientSecret = dsnMatch[2]
+
+	result.newVersion = isServiceID(result.clientID)
+
 	result.database = dsnMatch[3]
 	if len(dsnMatch[4]) > 0 {
 		// engine name was provided
@@ -92,4 +95,8 @@ func parseParams(paramsStr string) [][]string {
 	}
 	paramsExpr := regexp.MustCompile(paramsPattern)
 	return paramsExpr.FindAllStringSubmatch(paramsStr, -1)
+}
+
+func isServiceID(username string) bool {
+	return !strings.Contains(username, "@")
 }

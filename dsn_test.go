@@ -89,7 +89,7 @@ func TestDSNV0HappyPath(t *testing.T) {
 		fireboltSettings{clientID: "user@fire:bolt.io", clientSecret: "passwo@rd", database: "db_name", accountName: "firebolt_account", newVersion: false})
 
 	runDSNTest(t, "firebolt://client_id:client_secret@db_name?account_name=firebolt_account",
-		fireboltSettings{clientID: "client_id", clientSecret: "client_secret", database: "db_name", accountName: "firebolt_account", newVersion: false})
+		fireboltSettings{clientID: "client_id", clientSecret: "client_secret", database: "db_name", accountName: "firebolt_account", newVersion: true})
 }
 
 // TestDSNFailed test different failure scenarios for ParseDSNString
