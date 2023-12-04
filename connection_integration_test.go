@@ -1,5 +1,5 @@
-//go:build integration
-// +build integration
+//go:build integration || integration_v0
+// +build integration integration_v0
 
 package fireboltgosdk
 
