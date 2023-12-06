@@ -10,20 +10,14 @@ import (
 	"time"
 )
 
-func init() {
-	originalEndpoint = os.Getenv("FIREBOLT_ENDPOINT")
-}
-
-var originalEndpoint string
-
 // TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
-func TestCacheAccessToken(t *testing.T) {
+func TestCacheAccessTokenV0(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
+		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
-			_, _ = w.Write(getAuthResponse(10000))
+			_, _ = w.Write(getAuthResponseV0(10000))
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
@@ -31,8 +25,8 @@ func TestCacheAccessToken(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+	var client = &ClientImplV0{
+		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
 	var err error
@@ -43,13 +37,13 @@ func TestCacheAccessToken(t *testing.T) {
 		}
 	}
 
-	token, _ := getAccessTokenServiceAccount("client_id", "", server.URL, "")
+	token, _ := getAccessTokenUsernamePassword("ClientID@firebolt.io", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
-	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -63,13 +57,13 @@ func TestCacheAccessToken(t *testing.T) {
 }
 
 // TestRefreshTokenOn401 tests that a token is refreshed when the server returns a 401
-func TestRefreshTokenOn401(t *testing.T) {
+func TestRefreshTokenOn401V0(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
+		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
-			_, _ = w.Write(getAuthResponse(10000))
+			_, _ = w.Write(getAuthResponseV0(10000))
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
 		}
@@ -77,13 +71,13 @@ func TestRefreshTokenOn401(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+	var client = &ClientImplV0{
+		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
 	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
-	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -100,13 +94,13 @@ func TestRefreshTokenOn401(t *testing.T) {
 }
 
 // TestFetchTokenWhenExpired tests that a new token is fetched upon expiry
-func TestFetchTokenWhenExpired(t *testing.T) {
+func TestFetchTokenWhenExpiredV0(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
+		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
-			_, _ = w.Write(getAuthResponse(1))
+			_, _ = w.Write(getAuthResponseV0(1))
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
@@ -114,8 +108,8 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+	var client = &ClientImplV0{
+		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
 	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
@@ -123,13 +117,13 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	time.Sleep(2 * time.Millisecond)
 	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
-	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
+	token, _ := getAccessTokenUsernamePassword("ClientID@firebolt.io", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
-	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
+	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
 	}
 
@@ -144,7 +138,7 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 }
 
 // TestUserAgent tests that UserAgent is correctly set on request
-func TestUserAgent(t *testing.T) {
+func TestUserAgentV0(t *testing.T) {
 	var userAgentValue = "userAgent"
 	var userAgentHeader = ""
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -153,8 +147,8 @@ func TestUserAgent(t *testing.T) {
 	}))
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: userAgentValue},
+	var client = &ClientImplV0{
+		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue},
 	}
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
@@ -165,7 +159,7 @@ func TestUserAgent(t *testing.T) {
 	}
 }
 
-func getAuthResponse(expiry int) []byte {
+func getAuthResponseV0(expiry int) []byte {
 	var response = `{
    "access_token": "aMysteriousToken",
    "refresh_token": "refresh",
@@ -174,4 +168,13 @@ func getAuthResponse(expiry int) []byte {
    "token_type": "Bearer"
 }`
 	return []byte(response)
+}
+
+func prepareEnvVariablesForTest(t *testing.T, server *httptest.Server) {
+	os.Setenv("FIREBOLT_ENDPOINT", server.URL)
+	t.Cleanup(cleanupEnvVariables)
+}
+
+func cleanupEnvVariables() {
+	os.Setenv("FIREBOLT_ENDPOINT", originalEndpoint)
 }

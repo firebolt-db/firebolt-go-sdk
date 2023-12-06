@@ -6,7 +6,7 @@ import (
 
 // TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
 func TestConnectionPrepareStatement(t *testing.T) {
-	emptyClient := Client{}
+	emptyClient := ClientImplV0{}
 	fireboltConnection := fireboltConnection{&emptyClient, "database_name", "engine_url", map[string]string{}}
 
 	queryMock := "SELECT 1"
@@ -19,7 +19,7 @@ func TestConnectionPrepareStatement(t *testing.T) {
 // TestConnectionClose, tests that connection close doesn't result an error
 // and prepare statement on closed connection is not possible
 func TestConnectionClose(t *testing.T) {
-	emptyClient := Client{}
+	emptyClient := ClientImplV0{}
 	fireboltConnection := fireboltConnection{&emptyClient, "database_name", "engine_url", map[string]string{}}
 	if err := fireboltConnection.Close(); err != nil {
 		t.Errorf("Close failed with an err: %v", err)

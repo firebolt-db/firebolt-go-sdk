@@ -1,294 +1,179 @@
 package fireboltgosdk
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"strings"
 )
 
-type Client struct {
-	Username    string
-	Password    string
-	ApiEndpoint string
-	UserAgent   string
+type ClientImpl struct {
+	ConnectedToSystemEngine bool
+	SystemEngineURL         string
+	BaseClient
 }
 
-// GetAccountIdByName returns account ID based on account name
-func (c *Client) GetAccountIdByName(ctx context.Context, accountName string) (string, error) {
-	infolog.Printf("get account id by name: %s", accountName)
-	type AccountIdByNameResponse struct {
-		AccountId string `json:"account_id"`
+const engineStatusRunning = "Running"
+const engineInfoSQL = `
+SELECT url, status, attached_to FROM information_schema.engines
+WHERE engine_name='%s'
+`
+
+func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, error) {
+	client := &ClientImpl{
+		BaseClient: BaseClient{
+			ClientID:     settings.clientID,
+			ClientSecret: settings.clientSecret,
+			ApiEndpoint:  apiEndpoint,
+			UserAgent:    ConstructUserAgentString(),
+		},
 	}
+	client.parameterGetter = client.getQueryParams
+	client.accessTokenGetter = client.getAccessToken
 
-	params := map[string]string{"account_name": accountName}
-
-	response, err := c.request(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, c.UserAgent, params, "")
+	var err error
+	client.AccountID, err = client.getAccountID(context.Background(), settings.accountName)
 	if err != nil {
-		return "", ConstructNestedError("error during getting account id by name request", err)
+		return nil, ConstructNestedError("error during getting account id", err)
 	}
-
-	var accountIdByNameResponse AccountIdByNameResponse
-	if err = json.Unmarshal(response, &accountIdByNameResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling account id by name response", errors.New(string(response)))
+	client.SystemEngineURL, err = client.getSystemEngineURL(context.Background(), settings.accountName)
+	if err != nil {
+		return nil, ConstructNestedError("error during getting system engine url", err)
 	}
-	return accountIdByNameResponse.AccountId, nil
+	return client, nil
 }
 
-// GetEngineIdByName returns engineId based on engineName and accountId
-func (c *Client) GetEngineIdByName(ctx context.Context, engineName string, accountId string) (string, error) {
-	infolog.Printf("get engine id by name '%s' and account id '%s'", engineName, accountId)
-
-	type EngineIdByNameInnerResponse struct {
-		AccountId string `json:"account_id"`
-		EngineId  string `json:"engine_id"`
-	}
-	type EngineIdByNameResponse struct {
-		EngineId EngineIdByNameInnerResponse `json:"engine_id"`
-	}
-
-	params := map[string]string{"engine_name": engineName}
-	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), c.UserAgent, params, "")
+func (c *ClientImpl) getEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
+	infolog.Printf("Get info for engine '%s'", engineName)
+	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
+	queryRes, err := c.Query(ctx, systemEngineUrl, "", engineSQL, make(map[string]string))
 	if err != nil {
-		return "", ConstructNestedError("error during getting engine id by name request", err)
+		return "", "", "", ConstructNestedError("error executing engine info sql query", err)
 	}
 
-	var engineIdByNameResponse EngineIdByNameResponse
-	if err = json.Unmarshal(response, &engineIdByNameResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling engine id by name response", errors.New(string(response)))
+	if len(queryRes.Data) == 0 {
+		return "", "", "", fmt.Errorf("engine with name %s doesn't exist", engineName)
 	}
-	return engineIdByNameResponse.EngineId.EngineId, nil
+
+	engineUrl, status, dbName, err := parseEngineInfoResponse(queryRes.Data)
+	if err != nil {
+		return "", "", "", ConstructNestedError("error parsing server response for engine info SQL query", err)
+	}
+	return engineUrl, status, dbName, nil
 }
 
-// GetEngineUrlById returns engine url based on engineId and accountId
-func (c *Client) GetEngineUrlById(ctx context.Context, engineId string, accountId string) (string, error) {
-	infolog.Printf("get engine url by id '%s' and account id '%s'", engineId, accountId)
-
-	type EngineResponse struct {
-		Endpoint string `json:"endpoint"`
+func parseEngineInfoResponse(resp [][]interface{}) (string, string, string, error) {
+	if len(resp) != 1 || len(resp[0]) != 3 {
+		return "", "", "", fmt.Errorf("invalid response shape: %v", resp)
 	}
-	type EngineByIdResponse struct {
-		Engine EngineResponse `json:"engine"`
+	engineUrl, ok := resp[0][0].(string)
+	if !ok {
+		return "", "", "", fmt.Errorf("expected string for engine URL, got %v", resp[0][0])
 	}
-
-	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), c.UserAgent, make(map[string]string), "")
-
-	if err != nil {
-		return "", ConstructNestedError("error during getting engine url by id request", err)
+	status, ok := resp[0][1].(string)
+	if !ok {
+		return "", "", "", fmt.Errorf("expected string for engine status, got %v", resp[0][1])
 	}
-
-	var engineByIdResponse EngineByIdResponse
-	if err = json.Unmarshal(response, &engineByIdResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling engine url by id response", errors.New(string(response)))
+	dbName, ok := resp[0][2].(string)
+	// NULL is also acceptable for database name
+	if !ok && resp[0][2] != nil {
+		return "", "", "", fmt.Errorf("expected string for engine status, got %v", resp[0][1])
 	}
-	return makeCanonicalUrl(engineByIdResponse.Engine.Endpoint), nil
+	return engineUrl, status, dbName, nil
 }
 
-// GetDefaultAccount returns an id of the default account
-func (c *Client) GetDefaultAccountId(ctx context.Context) (string, error) {
-	type AccountResponse struct {
-		Id   string `json:"id"`
-		Name string `json:"name"`
-	}
-	type DefaultAccountResponse struct {
-		Account AccountResponse `json:"account"`
+func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string) (string, error) {
+	infolog.Printf("Get system engine URL for account '%s'", accountName)
+
+	type SystemEngineURLResponse struct {
+		EngineUrl string `json:"engineUrl"`
 	}
 
-	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), c.UserAgent, make(map[string]string), "")
+	url := fmt.Sprintf(c.ApiEndpoint+EngineUrlByAccountName, accountName)
+
+	response, err := c.request(ctx, "GET", url, make(map[string]string), "")
 	if err != nil {
-		return "", ConstructNestedError("error during getting default account id request", err)
+		return "", ConstructNestedError("error during system engine url http request", err)
 	}
 
-	var defaultAccountResponse DefaultAccountResponse
-	if err = json.Unmarshal(response, &defaultAccountResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling default account response", errors.New(string(response)))
+	var systemEngineURLResponse SystemEngineURLResponse
+	if err = json.Unmarshal(response, &systemEngineURLResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(response)))
 	}
 
-	return defaultAccountResponse.Account.Id, nil
+	return systemEngineURLResponse.EngineUrl, nil
 }
 
-// GetEngineUrlByName return engine URL based on engineName and accountName
-func (c *Client) GetEngineUrlByName(ctx context.Context, engineName string, accountId string) (string, error) {
-	infolog.Printf("get engine url by name '%s' and account id '%s'", engineName, accountId)
+func (c *ClientImpl) getAccountID(ctx context.Context, accountName string) (string, error) {
+	infolog.Printf("Getting account ID for '%s'", accountName)
 
-	engineId, err := c.GetEngineIdByName(ctx, engineName, accountId)
-	if err != nil {
-		return "", ConstructNestedError("error during getting engine id by name", err)
+	type AccountIdURLResponse struct {
+		Id     string `json:"id"`
+		Region string `json:"region"`
 	}
 
-	engineUrl, err := c.GetEngineUrlById(ctx, engineId, accountId)
+	url := fmt.Sprintf(c.ApiEndpoint+AccountIdByAccountName, accountName)
+
+	response, err := c.request(ctx, "GET", url, make(map[string]string), "")
 	if err != nil {
-		return "", ConstructNestedError("error during getting engine url by id", err)
+		return "", ConstructNestedError("error during account id resolution http request", err)
 	}
 
-	return engineUrl, nil
+	var accountIdURLResponse AccountIdURLResponse
+	if err = json.Unmarshal(response, &accountIdURLResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(response)))
+	}
+
+	infolog.Printf("Resolved account %s to id %s", accountName, accountIdURLResponse.Id)
+
+	return accountIdURLResponse.Id, nil
 }
 
-// GetEngineUrlByDatabase return URL of the default engine based on databaseName and accountName
-func (c *Client) GetEngineUrlByDatabase(ctx context.Context, databaseName string, accountId string) (string, error) {
-	infolog.Printf("get engine url by database name '%s' and account name '%s'", databaseName, accountId)
-
-	type EngineUrlByDatabaseResponse struct {
-		EngineUrl string `json:"engine_url"`
+func (c *ClientImpl) getQueryParams(databaseName string, setStatements map[string]string) (map[string]string, error) {
+	params := map[string]string{"output_format": outputFormat}
+	if len(databaseName) > 0 {
+		params["database"] = databaseName
 	}
-
-	params := map[string]string{"database_name": databaseName}
-	response, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), c.UserAgent, params, "")
-	if err != nil {
-		return "", ConstructNestedError("error during getting engine url by database request", err)
-	}
-
-	var engineUrlByDatabaseResponse EngineUrlByDatabaseResponse
-	if err = json.Unmarshal(response, &engineUrlByDatabaseResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling engine url by database response", errors.New(string(response)))
-	}
-	return engineUrlByDatabaseResponse.EngineUrl, nil
-}
-
-// Query sends a query to the engine URL and populates queryResponse, if query was successful
-func (c *Client) Query(ctx context.Context, engineUrl, databaseName, query string, setStatements map[string]string) (*QueryResponse, error) {
-	infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
-
-	params := map[string]string{"database": databaseName, "output_format": "JSON_Compact"}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
-
-	response, err := c.request(ctx, "POST", engineUrl, c.UserAgent, params, query)
-	if err != nil {
-		return nil, ConstructNestedError("error during query request", err)
-	}
-
-	var queryResponse QueryResponse
-	if len(response) == 0 {
-		// response could be empty, which doesn't mean it is an error
-		return &queryResponse, nil
-	}
-
-	if err = json.Unmarshal(response, &queryResponse); err != nil {
-		return nil, ConstructNestedError("wrong response", errors.New(string(response)))
-	}
-
-	infolog.Printf("Query was successful")
-	return &queryResponse, nil
-}
-
-// makeCanonicalUrl checks whether url starts with https:// and if not prepends it
-func makeCanonicalUrl(url string) string {
-	if strings.HasPrefix(url, "https://") || strings.HasPrefix(url, "http://") {
-		return url
-	} else {
-		return fmt.Sprintf("https://%s", url)
-	}
-}
-
-// checkErrorResponse, checks whether error response is returned instead of a desired response.
-func checkErrorResponse(response []byte) error {
-	// ErrorResponse definition of any response with some error
-	type ErrorResponse struct {
-		Error   string        `json:"error"`
-		Code    int           `json:"code"`
-		Message string        `json:"message"`
-		Details []interface{} `json:"details"`
-	}
-
-	var errorResponse ErrorResponse
-
-	if err := json.Unmarshal(response, &errorResponse); err == nil && errorResponse.Code != 0 {
-		// return error only if error response was
-		// unmarshalled correctly and error code is not zero
-		return errors.New(errorResponse.Message)
-	}
-	return nil
-}
-
-// request fetches an access token from the cache or re-authenticate when the access token is not available in the cache
-// and sends a request using that token
-func (c Client) request(ctx context.Context, method string, url string, userAgent string, params map[string]string, bodyStr string) ([]byte, error) {
-	var err error
-	accessToken, err := getAccessToken(c.Username, c.Password, c.ApiEndpoint, userAgent)
-	if err != nil {
-		return nil, ConstructNestedError("error while getting access token", err)
-	}
-	var response []byte
-	var responseCode int
-	response, err, responseCode = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
-	if responseCode == http.StatusUnauthorized {
-		deleteAccessTokenFromCache(c.Username, c.ApiEndpoint)
-
-		// Refreshing the access token as it is expired
-		accessToken, err = getAccessToken(c.Username, c.Password, GetHostNameURL(), c.UserAgent)
-		if err != nil {
-			return nil, ConstructNestedError("error while refreshing access token", err)
+	// Account id is only used when querying system engine
+	if c.ConnectedToSystemEngine {
+		if len(c.AccountID) == 0 {
+			return nil, fmt.Errorf("Trying to run a query against system engine without account id defined")
 		}
-		// Trying to send the same request again now that the access token has been refreshed
-		response, err, _ = request(ctx, accessToken, method, url, userAgent, params, bodyStr, ContentTypeJSON)
+		params["account_id"] = c.AccountID
 	}
-	return response, err
+	return params, nil
 }
 
-// request sends a request using "POST" or "GET" method on a specified url
-// additionally it passes the parameters and a bodyStr as a payload
-// if accessToken is passed, it is used for authorization
-// returns response and an error
-func request(ctx context.Context, accessToken string, method string, url string, userAgent string, params map[string]string, bodyStr string, contentType string) ([]byte, error, int) {
-	req, _ := http.NewRequestWithContext(ctx, method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
-
-	// adding sdk usage tracking
-	req.Header.Set("User-Agent", userAgent)
-
-	if len(accessToken) > 0 {
-		var bearer = "Bearer " + accessToken
-		req.Header.Add("Authorization", bearer)
-	}
-
-	if len(contentType) > 0 {
-		req.Header.Set("Content-Type", contentType)
-	}
-
-	q := req.URL.Query()
-	for key, value := range params {
-		q.Add(key, value)
-	}
-	req.URL.RawQuery = q.Encode()
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		infolog.Println(err)
-		return nil, ConstructNestedError("error during a request execution", err), 0
-	}
-
-	defer resp.Body.Close()
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		infolog.Println(err)
-		return nil, ConstructNestedError("error during reading a request response", err), 0
-	}
-
-	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-		if err = checkErrorResponse(body); err != nil {
-			return nil, ConstructNestedError("request returned an error", err), resp.StatusCode
-		}
-		if resp.StatusCode == 500 {
-			// this is a database error
-			return nil, fmt.Errorf("%s", string(body)), resp.StatusCode
-		}
-		return nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body)), resp.StatusCode
-	}
-
-	return body, nil, resp.StatusCode
+func (c *ClientImpl) getAccessToken() (string, error) {
+	return getAccessTokenServiceAccount(c.ClientID, c.ClientSecret, c.ApiEndpoint, c.UserAgent)
 }
 
-// jsonStrictUnmarshall unmarshalls json into object, and returns an error
-// if some fields are missing, or extra fields are present
-func jsonStrictUnmarshall(data []byte, v interface{}) error {
-	decoder := json.NewDecoder(bytes.NewReader(data))
-	decoder.DisallowUnknownFields()
-	return decoder.Decode(v)
+// GetEngineUrlAndDB returns engine URL and engine name based on engineName and accountId
+func (c *ClientImpl) GetEngineUrlAndDB(ctx context.Context, engineName, databaseName string) (string, string, error) {
+	// Assume we are connected to a system engine in the beginning
+	c.ConnectedToSystemEngine = true
+	// If engine name is empty, assume system engine
+	if len(engineName) == 0 {
+		return c.SystemEngineURL, databaseName, nil
+	}
+
+	engineUrl, status, dbName, err := c.getEngineUrlStatusDBByName(ctx, engineName, c.SystemEngineURL)
+	if err != nil {
+		return "", "", ConstructNestedError("error during getting engine info", err)
+	}
+	if status != engineStatusRunning {
+		return "", "", fmt.Errorf("engine %s is not running", engineName)
+	}
+	if len(dbName) == 0 {
+		return "", "", fmt.Errorf("engine %s not attached to any DB or you don't have permission to access its database", engineName)
+	}
+	if len(databaseName) != 0 && databaseName != dbName {
+		return "", "", fmt.Errorf("engine %s is not attached to database %s", engineName, databaseName)
+	}
+	c.ConnectedToSystemEngine = false
+
+	return engineUrl, dbName, nil
 }
