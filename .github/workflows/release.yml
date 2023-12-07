@@ -17,10 +17,13 @@ jobs:
       environment: 'staging'
       branch: main
     secrets:
+
       FIREBOLT_USERNAME_STAGING: ${{ secrets.FIREBOLT_USERNAME_STAGING }}
       FIREBOLT_PASSWORD_STAGING: ${{ secrets.FIREBOLT_PASSWORD_STAGING }}
       FIREBOLT_CLIENT_ID_STAGING: ${{ secrets.FIREBOLT_CLIENT_ID_STAGING }}
       FIREBOLT_CLIENT_SECRET_STAGING: ${{ secrets.FIREBOLT_CLIENT_SECRET_STAGING }}
+      FIREBOLT_CLIENT_ID_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
+      FIREBOLT_CLIENT_SECRET_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
 
   publish:
     runs-on: ubuntu-latest
