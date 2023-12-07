@@ -1,3 +1,3 @@
 package fireboltgosdk
 
-const sdkVersion string = "0.4.1"
+const sdkVersion string = "1.0.0"
