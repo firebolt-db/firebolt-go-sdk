@@ -26,9 +26,9 @@ on:
         required: false
       FIREBOLT_CLIENT_SECRET_STG_NEW_IDN:
         required: false
-      FIREBOLT_CLIENT_ID_NEW_IDN:
+      FIREBOLT_CLIENT_ID_DEV_NEW_IDN:
         required: false
-      FIREBOLT_CLIENT_SECRET_NEW_IDN:
+      FIREBOLT_CLIENT_SECRET_DEV_NEW_IDN:
         required: false
       FIREBOLT_USERNAME_STAGING:
         required: false
