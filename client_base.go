@@ -40,7 +40,7 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, databaseName, query s
 		return nil, err
 	}
 
-	response, err := c.request(ctx, "POST", engineUrl, params, query)
+	response, err, _ := c.request(ctx, "POST", engineUrl, params, query)
 	if err != nil {
 		return nil, ConstructNestedError("error during query request", err)
 	}
@@ -61,16 +61,16 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, databaseName, query s
 
 // request fetches an access token from the cache or re-authenticate when the access token is not available in the cache
 // and sends a request using that token
-func (c *BaseClient) request(ctx context.Context, method string, url string, params map[string]string, bodyStr string) ([]byte, error) {
+func (c *BaseClient) request(ctx context.Context, method string, url string, params map[string]string, bodyStr string) ([]byte, error, int) {
 	var err error
 
 	if c.accessTokenGetter == nil {
-		return nil, errors.New("accessTokenGetter is not set")
+		return nil, errors.New("accessTokenGetter is not set"), 0
 	}
 
 	accessToken, err := c.accessTokenGetter()
 	if err != nil {
-		return nil, ConstructNestedError("error while getting access token", err)
+		return nil, ConstructNestedError("error while getting access token", err), 0
 	}
 	var response []byte
 	var responseCode int
@@ -81,12 +81,12 @@ func (c *BaseClient) request(ctx context.Context, method string, url string, par
 		// Refreshing the access token as it is expired
 		accessToken, err = c.accessTokenGetter()
 		if err != nil {
-			return nil, ConstructNestedError("error while refreshing access token", err)
+			return nil, ConstructNestedError("error while refreshing access token", err), 0
 		}
 		// Trying to send the same request again now that the access token has been refreshed
-		response, err, _ = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
+		response, err, responseCode = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
 	}
-	return response, err
+	return response, err, responseCode
 }
 
 // makeCanonicalUrl checks whether url starts with https:// and if not prepends it

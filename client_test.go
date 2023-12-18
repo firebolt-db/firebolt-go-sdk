@@ -2,10 +2,12 @@ package fireboltgosdk
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 )
@@ -37,7 +39,7 @@ func TestCacheAccessToken(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	var err error
 	for i := 0; i < 3; i++ {
-		_, err = client.request(context.TODO(), "GET", server.URL, nil, "")
+		_, err, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 		if err != nil {
 			t.Errorf("Did not expect an error %s", err)
 		}
@@ -81,7 +83,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
@@ -118,10 +120,10 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
-	_, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
 
@@ -174,4 +176,57 @@ func getAuthResponse(expiry int) []byte {
    "token_type": "Bearer"
 }`
 	return []byte(response)
+}
+
+func setupTestServerAndClient(t *testing.T) (*httptest.Server, *ClientImpl) {
+	testAccountName := "testAccount"
+	// Create a mock server that returns a 404 status code
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == fmt.Sprintf(EngineUrlByAccountName, testAccountName) || req.URL.Path == fmt.Sprintf(AccountIdByAccountName, testAccountName) {
+			rw.WriteHeader(http.StatusNotFound)
+		} else {
+			_, _ = rw.Write(getAuthResponse(10000))
+		}
+	}))
+
+	prepareEnvVariablesForTest(t, server)
+	client := &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
+
+	return server, client
+}
+
+func TestGetSystemEngineURLReturnsErrorOn404(t *testing.T) {
+	server, client := setupTestServerAndClient(t)
+	defer server.Close()
+
+	testAccountName := "testAccount"
+
+	// Call the getSystemEngineURL method and check if it returns an error
+	_, err := client.getSystemEngineURL(context.Background(), testAccountName)
+	if err == nil {
+		t.Errorf("Expected an error, got nil")
+	}
+	if !strings.HasPrefix(err.Error(), fmt.Sprintf("account '%s' does not exist", testAccountName)) {
+		t.Errorf("Expected error to start with \"account '%s' does not exist\", got \"%s\"", testAccountName, err.Error())
+	}
+}
+
+func TestGetAccountIdReturnsErrorOn404(t *testing.T) {
+	server, client := setupTestServerAndClient(t)
+	defer server.Close()
+
+	testAccountName := "testAccount"
+
+	// Call the getAccountID method and check if it returns an error
+	_, err := client.getAccountID(context.Background(), testAccountName)
+	if err == nil {
+		t.Errorf("Expected an error, got nil")
+	}
+	if !strings.HasPrefix(err.Error(), fmt.Sprintf("account '%s' does not exist", testAccountName)) {
+		t.Errorf("Expected error to start with \"account '%s' does not exist\", got \"%s\"", testAccountName, err.Error())
+	}
 }
