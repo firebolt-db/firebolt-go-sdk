@@ -29,6 +29,7 @@ var (
 	engineNameMock                  string
 	engineUrlMock                   string
 	accountNameMock                 string
+	serviceAccountNoUserName        string
 	clientMock                      *ClientImpl
 	clientMockWithAccount           *ClientImpl
 )
@@ -71,6 +72,7 @@ func init() {
 	clientMockWithAccount = clientWithAccount.(*ClientImpl)
 	clientMockWithAccount.ConnectedToSystemEngine = true
 	engineUrlMock = getEngineURL()
+	serviceAccountNoUserName = databaseMock + "_sa_no_user"
 }
 
 func getEngineURL() string {
@@ -264,4 +266,95 @@ func containsEngine(rows *sql.Rows, engineToFind string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+func TestIncorrectAccount(t *testing.T) {
+	_, err := Authenticate(&fireboltSettings{
+		clientID:     clientIdMock,
+		clientSecret: clientSecretMock,
+		accountName:  "incorrect_account",
+		engineName:   engineNameMock,
+		database:     databaseMock,
+		newVersion:   true,
+	}, GetHostNameURL())
+	if err == nil {
+		t.Errorf("Authentication didn't return an error, although it should")
+	}
+	if !strings.HasPrefix(err.Error(), "error during getting account id: account 'incorrect_account' does not exist") {
+		t.Errorf("Authentication didn't return an error with correct message, got: %s", err.Error())
+	}
+}
+
+// function that creates a service account and returns its id and secret
+func createServiceAccountNoUser(t *testing.T, serviceAccountName string) (string, string) {
+	serviceAccountDescription := "test_service_account_description"
+
+	db, err := sql.Open("firebolt", dsnSystemEngineMock)
+	if err != nil {
+		t.Errorf("failed unexpectedly with %v", err)
+	}
+	// create service account
+	createServiceAccountQuery := fmt.Sprintf("CREATE SERVICE ACCOUNT \"%s\" WITH DESCRIPTION = \"%s\"", serviceAccountName, serviceAccountDescription)
+	_, err = db.Query(createServiceAccountQuery)
+	if err != nil {
+		t.Errorf("The query %s returned an error: %v", createServiceAccountQuery, err)
+	}
+	// generate credentials for service account
+	generateServiceAccountKeyQuery := fmt.Sprintf("CALL fb_GENERATESERVICEACCOUNTKEY('%s')", serviceAccountName)
+	// get service account id and secret from the result
+	rows, err := db.Query(generateServiceAccountKeyQuery)
+	var serviceAccountNameReturned, serviceAccountID, serviceAccountSecret string
+	for rows.Next() {
+		if err := rows.Scan(&serviceAccountNameReturned, &serviceAccountID, &serviceAccountSecret); err != nil {
+			t.Errorf("Failed to retrieve service account id and secret: %v", err)
+		}
+	}
+	// Currently this is bugged so retrieve id via a query if not returned otherwise. FIR-28719
+	if serviceAccountID == "" {
+		getServiceAccountIDQuery := fmt.Sprintf("SELECT service_account_id FROM information_schema.service_accounts WHERE service_account_name = '%s'", serviceAccountName)
+		rows, err := db.Query(getServiceAccountIDQuery)
+		if err != nil {
+			t.Errorf("Failed to retrieve service account id: %v", err)
+		}
+		for rows.Next() {
+			if err := rows.Scan(&serviceAccountID); err != nil {
+				t.Errorf("Failed to retrieve service account id: %v", err)
+			}
+		}
+	}
+	return serviceAccountID, serviceAccountSecret
+}
+
+func deleteServiceAccount(t *testing.T, serviceAccountName string) {
+	db, err := sql.Open("firebolt", dsnSystemEngineMock)
+	if err != nil {
+		t.Errorf("failed unexpectedly with %v", err)
+	}
+	// delete service account
+	deleteServiceAccountQuery := fmt.Sprintf("DROP SERVICE ACCOUNT \"%s\"", serviceAccountName)
+	_, err = db.Query(deleteServiceAccountQuery)
+	if err != nil {
+		t.Errorf("The query %s returned an error: %v", deleteServiceAccountQuery, err)
+	}
+}
+
+// test authentication with service account without a user fails
+func TestServiceAccountAuthentication(t *testing.T) {
+	serviceAccountID, serviceAccountSecret := createServiceAccountNoUser(t, serviceAccountNoUserName)
+	defer deleteServiceAccount(t, serviceAccountNoUserName) // Delete service account after the test
+
+	_, err := Authenticate(&fireboltSettings{
+		clientID:     serviceAccountID,
+		clientSecret: serviceAccountSecret,
+		accountName:  accountNameMock,
+		engineName:   engineNameMock,
+		database:     databaseMock,
+		newVersion:   true,
+	}, GetHostNameURL())
+	if err == nil {
+		t.Errorf("Authentication didn't return an error, although it should")
+	}
+	if !strings.HasPrefix(err.Error(), fmt.Sprintf("error during getting account id: account '%s' does not exist", accountNameMock)) {
+		t.Errorf("Authentication didn't return an error with correct message, got: %s", err.Error())
+	}
 }
