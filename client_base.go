@@ -17,7 +17,7 @@ const protocolVersion = "2.0"
 
 type Client interface {
 	GetEngineUrlAndDB(ctx context.Context, engineName string, accountId string) (string, string, error)
-	Query(ctx context.Context, engineUrl, databaseName, query string, setStatements map[string]string) (*QueryResponse, error)
+	Query(ctx context.Context, engineUrl, query string, parameters map[string]string) (*QueryResponse, error)
 }
 
 type BaseClient struct {
@@ -26,18 +26,18 @@ type BaseClient struct {
 	AccountID         string
 	ApiEndpoint       string
 	UserAgent         string
-	parameterGetter   func(string, map[string]string) (map[string]string, error)
+	parameterGetter   func(map[string]string) (map[string]string, error)
 	accessTokenGetter func() (string, error)
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
-func (c *BaseClient) Query(ctx context.Context, engineUrl, databaseName, query string, setStatements map[string]string) (*QueryResponse, error) {
+func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string) (*QueryResponse, error) {
 	infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
 
 	if c.parameterGetter == nil {
 		return nil, errors.New("parameterGetter is not set")
 	}
-	params, err := c.parameterGetter(databaseName, setStatements)
+	params, err := c.parameterGetter(parameters)
 	if err != nil {
 		return nil, err
 	}

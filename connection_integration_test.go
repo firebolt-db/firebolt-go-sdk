@@ -16,7 +16,7 @@ import (
 
 // TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
 func TestConnectionSetStatement(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 
 	_, err := conn.ExecContext(context.TODO(), "SET use_standard_sql=1", nil)
 	assert(err, nil, t, "set use_standard_sql returned an error, but shouldn't")
@@ -28,7 +28,7 @@ func TestConnectionSetStatement(t *testing.T) {
 
 // TestConnectionQuery checks simple SELECT 1 exec
 func TestConnectionQueryWrong(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 
 	if _, err := conn.ExecContext(context.TODO(), "SELECT wrong query", nil); err == nil {
 		t.Errorf("wrong statement didn't return an error")
@@ -37,7 +37,7 @@ func TestConnectionQueryWrong(t *testing.T) {
 
 // TestConnectionInsertQuery checks simple Insert works
 func TestConnectionInsertQuery(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 	createTableSQL := "CREATE FACT TABLE integration_tests (id INT, name STRING) PRIMARY INDEX id"
 	deleteTableSQL := "DROP TABLE IF EXISTS integration_tests"
 	insertSQL := "INSERT INTO integration_tests (id, name) VALUES (0, 'some_text')"
@@ -55,7 +55,7 @@ func TestConnectionInsertQuery(t *testing.T) {
 
 // TestConnectionQuery checks simple SELECT query
 func TestConnectionQuery(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 
 	sql := "SELECT -3213212 as \"const\", 2.3 as \"float\", 'some_text' as \"text\""
 	rows, err := conn.QueryContext(context.TODO(), sql, nil)
@@ -81,7 +81,7 @@ func TestConnectionQuery(t *testing.T) {
 }
 
 func TestConnectionQueryDate32Type(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 	loc, _ := time.LoadLocation("UTC")
 
 	rows, err := conn.QueryContext(context.TODO(), "select '2004-07-09'::DATE", nil)
@@ -100,7 +100,7 @@ func TestConnectionQueryDate32Type(t *testing.T) {
 }
 
 func TestConnectionQueryDecimalType(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT cast (123.23 as NUMERIC (12,6))", nil)
 	if err != nil {
@@ -118,7 +118,7 @@ func TestConnectionQueryDecimalType(t *testing.T) {
 }
 
 func TestConnectionQueryDateTime64Type(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 	loc, _ := time.LoadLocation("UTC")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '1980-01-01 02:03:04.321321'::TIMESTAMPNTZ;", nil)
@@ -137,7 +137,7 @@ func TestConnectionQueryDateTime64Type(t *testing.T) {
 }
 
 func TestConnectionQueryPGDateType(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 	loc, _ := time.LoadLocation("UTC")
 
 	// Value 0001-01-01 is outside of range of regular DATE
@@ -157,7 +157,7 @@ func TestConnectionQueryPGDateType(t *testing.T) {
 }
 
 func TestConnectionQueryTimestampNTZType(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 	loc, _ := time.LoadLocation("UTC")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '0001-01-05 17:04:42.123456' :: TIMESTAMPNTZ;", nil)
@@ -176,7 +176,7 @@ func TestConnectionQueryTimestampNTZType(t *testing.T) {
 }
 
 func TestConnectionQueryTimestampTZType(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 	loc, _ := time.LoadLocation("UTC")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.1234 Europe/Berlin'::TIMESTAMPTZ;", nil)
@@ -198,7 +198,7 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 }
 
 func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{"time_zone": "Asia/Calcutta"}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"time_zone": "Asia/Calcutta", "database": databaseMock}}
 	loc, _ := time.LoadLocation("Asia/Calcutta")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.123456 Europe/Berlin'::TIMESTAMPTZ;", nil)
@@ -220,7 +220,7 @@ func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
 }
 
 func TestConnectionMultipleStatement(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 	if rows, err := conn.QueryContext(context.TODO(), "SELECT -1; SELECT -2", nil); err != nil {
 		t.Errorf("Query multistement returned err: %v", err)
 	} else {
@@ -250,7 +250,7 @@ func TestConnectionMultipleStatement(t *testing.T) {
 }
 
 func TestConnectionQueryBooleanType(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT true, false, null::boolean;", nil)
 	if err != nil {
@@ -268,7 +268,7 @@ func TestConnectionQueryBooleanType(t *testing.T) {
 }
 
 func TestConnectionQueryByteaType(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT 'abc123'::bytea", nil)
 	if err != nil {
@@ -288,7 +288,7 @@ func TestConnectionQueryByteaType(t *testing.T) {
 }
 
 func TestConnectionPreparedStatement(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
+	conn := fireboltConnection{clientMock, engineUrlMock, map[string]string{"database": databaseMock}}
 
 	_, err := conn.QueryContext(
 		context.Background(),

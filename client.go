@@ -49,7 +49,7 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 func (c *ClientImpl) getEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
 	infolog.Printf("Get info for engine '%s'", engineName)
 	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
-	queryRes, err := c.Query(ctx, systemEngineUrl, "", engineSQL, make(map[string]string))
+	queryRes, err := c.Query(ctx, systemEngineUrl, engineSQL, make(map[string]string))
 	if err != nil {
 		return "", "", "", ConstructNestedError("error executing engine info sql query", err)
 	}
@@ -138,11 +138,8 @@ func (c *ClientImpl) getAccountID(ctx context.Context, accountName string) (stri
 	return accountIdURLResponse.Id, nil
 }
 
-func (c *ClientImpl) getQueryParams(databaseName string, setStatements map[string]string) (map[string]string, error) {
+func (c *ClientImpl) getQueryParams(setStatements map[string]string) (map[string]string, error) {
 	params := map[string]string{"output_format": outputFormat}
-	if len(databaseName) > 0 {
-		params["database"] = databaseName
-	}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}

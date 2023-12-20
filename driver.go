@@ -42,7 +42,7 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	}
 
 	infolog.Printf("firebolt connection is created")
-	return &fireboltConnection{d.client, d.databaseName, d.engineUrl, map[string]string{}}, nil
+	return &fireboltConnection{d.client, d.engineUrl, map[string]string{"database": d.databaseName}}, nil
 }
 
 // init registers a firebolt driver

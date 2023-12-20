@@ -8,16 +8,15 @@ import (
 )
 
 type fireboltConnection struct {
-	client        Client
-	databaseName  string
-	engineUrl     string
-	setStatements map[string]string
+	client     Client
+	engineUrl  string
+	parameters map[string]string
 }
 
 // Prepare returns a firebolt prepared statement
 // returns an error if the connection isn't initialized or closed
 func (c *fireboltConnection) Prepare(query string) (driver.Stmt, error) {
-	if c.client != nil && len(c.databaseName) != 0 && len(c.engineUrl) != 0 {
+	if c.client != nil && len(c.engineUrl) != 0 {
 		return &fireboltStmt{execer: c, queryer: c, query: query}, nil
 	}
 	return nil, errors.New("fireboltConnection isn't properly initialized")
@@ -26,7 +25,7 @@ func (c *fireboltConnection) Prepare(query string) (driver.Stmt, error) {
 // Close closes the connection, and make the fireboltConnection unusable
 func (c *fireboltConnection) Close() error {
 	c.client = nil
-	c.databaseName = ""
+	c.parameters = make(map[string]string)
 	c.engineUrl = ""
 	return nil
 }
@@ -71,7 +70,7 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 			}
 		}
 
-		if response, err := c.client.Query(ctx, c.engineUrl, c.databaseName, query, c.setStatements); err != nil {
+		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters); err != nil {
 			return &rows, ConstructNestedError("error during query execution", err)
 		} else {
 			rows.response = append(rows.response, *response)
@@ -89,9 +88,17 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 		return false, nil
 	}
 
-	_, err = c.client.Query(ctx, c.engineUrl, c.databaseName, "SELECT 1", map[string]string{setKey: setValue})
+	if setKey == "database" {
+		return true, fmt.Errorf("`SET database` query is not allowed. Please use `USE database` syntax")
+	}
+
+	parameters := map[string]string{setKey: setValue}
+	if db, ok := c.parameters["database"]; ok {
+		parameters["database"] = db
+	}
+	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", parameters)
 	if err == nil {
-		c.setStatements[setKey] = setValue
+		c.parameters[setKey] = setValue
 		return true, nil
 	}
 	return true, err

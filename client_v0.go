@@ -202,8 +202,8 @@ func (c *ClientImplV0) GetEngineUrlAndDB(ctx context.Context, engineName, databa
 
 }
 
-func (c *ClientImplV0) getQueryParams(databaseName string, setStatements map[string]string) (map[string]string, error) {
-	params := map[string]string{"database": databaseName, "output_format": outputFormat}
+func (c *ClientImplV0) getQueryParams(setStatements map[string]string) (map[string]string, error) {
+	params := map[string]string{"output_format": outputFormat}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
