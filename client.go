@@ -18,6 +18,9 @@ const engineInfoSQL = `
 SELECT url, status, attached_to FROM information_schema.engines
 WHERE engine_name='%s'
 `
+const accountError = `account '%s' does not exist in this organization or is not authorized.
+Please verify the account name and make sure your service account has the
+correct RBAC permissions and is linked to a user`
 
 func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, error) {
 	client := &ClientImpl{
@@ -91,7 +94,10 @@ func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string)
 
 	url := fmt.Sprintf(c.ApiEndpoint+EngineUrlByAccountName, accountName)
 
-	response, err := c.request(ctx, "GET", url, make(map[string]string), "")
+	response, err, err_code := c.request(ctx, "GET", url, make(map[string]string), "")
+	if err_code == 404 {
+		return "", fmt.Errorf(accountError, accountName)
+	}
 	if err != nil {
 		return "", ConstructNestedError("error during system engine url http request", err)
 	}
@@ -114,7 +120,10 @@ func (c *ClientImpl) getAccountID(ctx context.Context, accountName string) (stri
 
 	url := fmt.Sprintf(c.ApiEndpoint+AccountIdByAccountName, accountName)
 
-	response, err := c.request(ctx, "GET", url, make(map[string]string), "")
+	response, err, err_code := c.request(ctx, "GET", url, make(map[string]string), "")
+	if err_code == 404 {
+		return "", fmt.Errorf(accountError, accountName)
+	}
 	if err != nil {
 		return "", ConstructNestedError("error during account id resolution http request", err)
 	}
