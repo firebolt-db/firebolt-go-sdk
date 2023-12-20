@@ -22,7 +22,7 @@ var allowedUpdateParameters = []string{"database"}
 
 type Client interface {
 	GetEngineUrlAndDB(ctx context.Context, engineName string, accountId string) (string, string, error)
-	Query(ctx context.Context, engineUrl, query string, parameters map[string]string) (*QueryResponse, error)
+	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, updateParameters func(string, string)) (*QueryResponse, error)
 }
 
 type BaseClient struct {
@@ -36,7 +36,7 @@ type BaseClient struct {
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
-func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string) (*QueryResponse, error) {
+func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, updateParameters func(string, string)) (*QueryResponse, error) {
 	infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
 
 	if c.parameterGetter == nil {
@@ -52,7 +52,7 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 		return nil, ConstructNestedError("error during query request", err)
 	}
 
-	if err = processResponseHeaders(headers, parameters); err != nil {
+	if err = processResponseHeaders(headers, updateParameters); err != nil {
 		return nil, ConstructNestedError("error during processing response headers", err)
 	}
 
@@ -70,7 +70,7 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 	return &queryResponse, nil
 }
 
-func processResponseHeaders(headers http.Header, parameters map[string]string) error {
+func processResponseHeaders(headers http.Header, updateParameters func(string, string)) error {
 	if updateParametersRaw, ok := headers[updateParametersHeader]; ok {
 		updateParametersPairs := strings.Split(updateParametersRaw[0], ",")
 		for _, parameter := range updateParametersPairs {
@@ -79,7 +79,7 @@ func processResponseHeaders(headers http.Header, parameters map[string]string) e
 				return fmt.Errorf("invalid parameter assignment %s", parameter)
 			}
 			if slices.Contains(allowedUpdateParameters, kv[0]) {
-				parameters[kv[0]] = kv[1]
+				updateParameters(kv[0], kv[1])
 			} else {
 				infolog.Printf("Warning: received unknown update parameter %s", kv[0])
 			}

@@ -7,14 +7,15 @@ import (
 )
 
 type FireboltDriver struct {
-	engineUrl    string
-	databaseName string
-	client       Client
-	lastUsedDsn  string
+	engineUrl        string
+	databaseName     string
+	client           Client
+	lastUsedDsn      string
+	cachedParameters map[string]string
 }
 
 // Open parses the dsn string, and if correct tries to establish a connection
-func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
+func (d *FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	infolog.Println("Opening firebolt driver")
 
 	if d.lastUsedDsn != dsn || d.lastUsedDsn == "" {
@@ -41,8 +42,13 @@ func (d FireboltDriver) Open(dsn string) (driver.Conn, error) {
 		d.lastUsedDsn = dsn //nolint
 	}
 
+	parameters := map[string]string{"database": d.databaseName}
+	for k, v := range d.cachedParameters {
+		parameters[k] = v
+	}
+
 	infolog.Printf("firebolt connection is created")
-	return &fireboltConnection{d.client, d.engineUrl, map[string]string{"database": d.databaseName}}, nil
+	return &fireboltConnection{d.client, d.engineUrl, parameters, d}, nil
 }
 
 // init registers a firebolt driver

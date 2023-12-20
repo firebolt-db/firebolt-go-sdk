@@ -11,6 +11,7 @@ type fireboltConnection struct {
 	client     Client
 	engineUrl  string
 	parameters map[string]string
+	driver     *FireboltDriver
 }
 
 // Prepare returns a firebolt prepared statement
@@ -70,7 +71,7 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 			}
 		}
 
-		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters); err != nil {
+		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, c.setParameter); err != nil {
 			return &rows, ConstructNestedError("error during query execution", err)
 		} else {
 			rows.response = append(rows.response, *response)
@@ -96,10 +97,22 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 	if db, ok := c.parameters["database"]; ok {
 		parameters["database"] = db
 	}
-	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", parameters)
+	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", parameters, c.setParameter)
 	if err == nil {
-		c.parameters[setKey] = setValue
+		c.setParameter(setKey, setValue)
 		return true, nil
 	}
 	return true, err
+}
+
+func (c *fireboltConnection) setParameter(key, value string) {
+	if c.parameters == nil {
+		c.parameters = make(map[string]string)
+	}
+	c.parameters[key] = value
+	// Cache parameter in driver as well in case connection will be recreated by the pool
+	if c.driver.cachedParameters == nil {
+		c.driver.cachedParameters = make(map[string]string)
+	}
+	c.driver.cachedParameters[key] = value
 }

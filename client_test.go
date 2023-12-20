@@ -161,7 +161,7 @@ func TestUserAgent(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {})
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
@@ -182,7 +182,7 @@ func TestProtocolVersion(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {})
 	if protocolVersionValue != protocolVersion {
 		t.Errorf("Did not set Protocol-Version value correctly on a query request")
 	}
@@ -210,7 +210,9 @@ func TestUpdateParameters(t *testing.T) {
 	params := map[string]string{
 		"database": "db",
 	}
-	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params)
+	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, func(key, value string) {
+		params[key] = value
+	})
 	if err != nil {
 		t.Errorf("Error during query execution with update parameters header in response %s", err)
 	}
