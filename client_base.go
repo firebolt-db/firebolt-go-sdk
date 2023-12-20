@@ -12,6 +12,8 @@ import (
 )
 
 const outputFormat = "JSON_Compact"
+const protocolVersionHeader = "Firebolt-Protocol-Version"
+const protocolVersion = "2.0"
 
 type Client interface {
 	GetEngineUrlAndDB(ctx context.Context, engineName string, accountId string) (string, string, error)
@@ -127,6 +129,9 @@ func request(ctx context.Context, accessToken string, method string, url string,
 
 	// adding sdk usage tracking
 	req.Header.Set("User-Agent", userAgent)
+
+	// add protocol version header
+	req.Header.Set(protocolVersionHeader, protocolVersion)
 
 	if len(accessToken) > 0 {
 		var bearer = "Bearer " + accessToken

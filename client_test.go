@@ -167,6 +167,27 @@ func TestUserAgent(t *testing.T) {
 	}
 }
 
+// TestProtocolVersion tests that protocol version is correctly set on request
+func TestProtocolVersion(t *testing.T) {
+	var protocolVersionValue = ""
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		protocolVersionValue = r.Header.Get(protocolVersionHeader)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+	prepareEnvVariablesForTest(t, server)
+	var client = &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
+
+	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
+	if protocolVersionValue != protocolVersion {
+		t.Errorf("Did not set Protocol-Version value correctly on a query request")
+	}
+}
+
 func getAuthResponse(expiry int) []byte {
 	var response = `{
    "access_token": "aMysteriousToken",
