@@ -178,8 +178,7 @@ func getAuthResponse(expiry int) []byte {
 	return []byte(response)
 }
 
-func setupTestServerAndClient(t *testing.T) (*httptest.Server, *ClientImpl) {
-	testAccountName := "testAccount"
+func setupTestServerAndClient(t *testing.T, testAccountName string) (*httptest.Server, *ClientImpl) {
 	// Create a mock server that returns a 404 status code
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == fmt.Sprintf(EngineUrlByAccountName, testAccountName) || req.URL.Path == fmt.Sprintf(AccountIdByAccountName, testAccountName) {
@@ -200,10 +199,9 @@ func setupTestServerAndClient(t *testing.T) (*httptest.Server, *ClientImpl) {
 }
 
 func TestGetSystemEngineURLReturnsErrorOn404(t *testing.T) {
-	server, client := setupTestServerAndClient(t)
-	defer server.Close()
-
 	testAccountName := "testAccount"
+	server, client := setupTestServerAndClient(t, testAccountName)
+	defer server.Close()
 
 	// Call the getSystemEngineURL method and check if it returns an error
 	_, err := client.getSystemEngineURL(context.Background(), testAccountName)
@@ -216,10 +214,9 @@ func TestGetSystemEngineURLReturnsErrorOn404(t *testing.T) {
 }
 
 func TestGetAccountIdReturnsErrorOn404(t *testing.T) {
-	server, client := setupTestServerAndClient(t)
-	defer server.Close()
-
 	testAccountName := "testAccount"
+	server, client := setupTestServerAndClient(t, testAccountName)
+	defer server.Close()
 
 	// Call the getAccountID method and check if it returns an error
 	_, err := client.getAccountID(context.Background(), testAccountName)
