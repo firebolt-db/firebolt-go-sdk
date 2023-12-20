@@ -188,6 +188,37 @@ func TestProtocolVersion(t *testing.T) {
 	}
 }
 
+// TestUpdateParameters tests that update parameters are correctly set on request
+func TestUpdateParameters(t *testing.T) {
+	var newDatabaseName = "new_database"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == ServiceAccountLoginURLSuffix {
+			_, _ = w.Write(getAuthResponse(10000))
+		} else {
+			w.Header().Set(updateParametersHeader, fmt.Sprintf("%s=%s", "database", newDatabaseName))
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+	prepareEnvVariablesForTest(t, server)
+	var client = &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
+
+	params := map[string]string{
+		"database": "db",
+	}
+	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params)
+	if err != nil {
+		t.Errorf("Error during query execution with update parameters header in response %s", err)
+	}
+	if params["database"] != newDatabaseName {
+		t.Errorf("Did not set Update-Parameters value correctly")
+	}
+}
+
 func getAuthResponse(expiry int) []byte {
 	var response = `{
    "access_token": "aMysteriousToken",
