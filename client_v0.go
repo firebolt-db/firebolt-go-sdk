@@ -42,7 +42,7 @@ func (c *ClientImplV0) getAccountIDByName(ctx context.Context, accountName strin
 
 	params := map[string]string{"account_name": accountName}
 
-	response, err, _ := c.request(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, params, "")
+	response, _, _, err := c.request(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting account id by name request", err)
 	}
@@ -64,7 +64,7 @@ func (c *ClientImplV0) getDefaultAccountID(ctx context.Context) (string, error) 
 		Account AccountResponse `json:"account"`
 	}
 
-	response, err, _ := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), make(map[string]string), "")
+	response, _, _, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), make(map[string]string), "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting default account id request", err)
 	}
@@ -105,7 +105,7 @@ func (c *ClientImplV0) getEngineIdByName(ctx context.Context, engineName string,
 	}
 
 	params := map[string]string{"engine_name": engineName}
-	response, err, _ := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), params, "")
+	response, _, _, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine id by name request", err)
 	}
@@ -128,7 +128,7 @@ func (c *ClientImplV0) getEngineUrlById(ctx context.Context, engineId string, ac
 		Engine EngineResponse `json:"engine"`
 	}
 
-	response, err, _ := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), make(map[string]string), "")
+	response, _, _, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), make(map[string]string), "")
 
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by id request", err)
@@ -167,7 +167,7 @@ func (c *ClientImplV0) getEngineUrlByDatabase(ctx context.Context, databaseName 
 	}
 
 	params := map[string]string{"database_name": databaseName}
-	response, err, _ := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), params, "")
+	response, _, _, err := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), params, "")
 	if err != nil {
 		return "", ConstructNestedError("error during getting engine url by database request", err)
 	}

@@ -8,12 +8,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"slices"
 	"strings"
 )
 
 const outputFormat = "JSON_Compact"
 const protocolVersionHeader = "Firebolt-Protocol-Version"
 const protocolVersion = "2.0"
+
+const updateParametersHeader = "Firebolt-Update-Parameters"
+
+var allowedUpdateParameters = []string{"database"}
 
 type Client interface {
 	GetEngineUrlAndDB(ctx context.Context, engineName string, accountId string) (string, string, error)
@@ -42,9 +47,13 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 		return nil, err
 	}
 
-	response, err, _ := c.request(ctx, "POST", engineUrl, params, query)
+	response, headers, _, err := c.request(ctx, "POST", engineUrl, params, query)
 	if err != nil {
 		return nil, ConstructNestedError("error during query request", err)
+	}
+
+	if err = processResponseHeaders(headers, parameters); err != nil {
+		return nil, ConstructNestedError("error during processing response headers", err)
 	}
 
 	var queryResponse QueryResponse
@@ -61,34 +70,53 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 	return &queryResponse, nil
 }
 
+func processResponseHeaders(headers http.Header, parameters map[string]string) error {
+	if updateParametersRaw, ok := headers[updateParametersHeader]; ok {
+		updateParametersPairs := strings.Split(updateParametersRaw[0], ",")
+		for _, parameter := range updateParametersPairs {
+			kv := strings.Split(parameter, "=")
+			if len(kv) != 2 {
+				return fmt.Errorf("invalid parameter assignment %s", parameter)
+			}
+			if slices.Contains(allowedUpdateParameters, kv[0]) {
+				parameters[kv[0]] = kv[1]
+			} else {
+				infolog.Printf("Warning: received unknown update parameter %s", kv[0])
+			}
+		}
+	}
+	return nil
+}
+
 // request fetches an access token from the cache or re-authenticate when the access token is not available in the cache
 // and sends a request using that token
-func (c *BaseClient) request(ctx context.Context, method string, url string, params map[string]string, bodyStr string) ([]byte, error, int) {
+func (c *BaseClient) request(ctx context.Context, method string, url string, params map[string]string, bodyStr string) ([]byte, http.Header, int, error) {
 	var err error
 
 	if c.accessTokenGetter == nil {
-		return nil, errors.New("accessTokenGetter is not set"), 0
+		return nil, nil, 0, errors.New("accessTokenGetter is not set")
 	}
 
 	accessToken, err := c.accessTokenGetter()
 	if err != nil {
-		return nil, ConstructNestedError("error while getting access token", err), 0
+		return nil, nil, 0, ConstructNestedError("error while getting access token", err)
 	}
 	var response []byte
 	var responseCode int
-	response, err, responseCode = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
+	var headers http.Header
+	response, err, responseCode, headers = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
 	if responseCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
 		// Refreshing the access token as it is expired
 		accessToken, err = c.accessTokenGetter()
 		if err != nil {
-			return nil, ConstructNestedError("error while refreshing access token", err), 0
+			return nil, nil, 0, ConstructNestedError("error while refreshing access token", err)
 		}
 		// Trying to send the same request again now that the access token has been refreshed
-		response, err, responseCode = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
+		response, err, responseCode, headers = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
 	}
-	return response, err, responseCode
+	return response, headers, responseCode, err
 }
 
 // makeCanonicalUrl checks whether url starts with https:// and if not prepends it
@@ -124,7 +152,15 @@ func checkErrorResponse(response []byte) error {
 // additionally it passes the parameters and a bodyStr as a payload
 // if accessToken is passed, it is used for authorization
 // returns response and an error
-func request(ctx context.Context, accessToken string, method string, url string, userAgent string, params map[string]string, bodyStr string, contentType string) ([]byte, error, int) {
+func request(
+	ctx context.Context,
+	accessToken string,
+	method string,
+	url string,
+	userAgent string,
+	params map[string]string,
+	bodyStr string,
+	contentType string) ([]byte, error, int, http.Header) {
 	req, _ := http.NewRequestWithContext(ctx, method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
 
 	// adding sdk usage tracking
@@ -152,7 +188,7 @@ func request(ctx context.Context, accessToken string, method string, url string,
 	resp, err := client.Do(req)
 	if err != nil {
 		infolog.Println(err)
-		return nil, ConstructNestedError("error during a request execution", err), 0
+		return nil, ConstructNestedError("error during a request execution", err), 0, nil
 	}
 
 	defer resp.Body.Close()
@@ -160,21 +196,21 @@ func request(ctx context.Context, accessToken string, method string, url string,
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		infolog.Println(err)
-		return nil, ConstructNestedError("error during reading a request response", err), 0
+		return nil, ConstructNestedError("error during reading a request response", err), 0, nil
 	}
 
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		if err = checkErrorResponse(body); err != nil {
-			return nil, ConstructNestedError("request returned an error", err), resp.StatusCode
+			return nil, ConstructNestedError("request returned an error", err), resp.StatusCode, nil
 		}
 		if resp.StatusCode == 500 {
 			// this is a database error
-			return nil, fmt.Errorf("%s", string(body)), resp.StatusCode
+			return nil, fmt.Errorf("%s", string(body)), resp.StatusCode, nil
 		}
-		return nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body)), resp.StatusCode
+		return nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body)), resp.StatusCode, nil
 	}
 
-	return body, nil, resp.StatusCode
+	return body, nil, resp.StatusCode, resp.Header
 }
 
 // jsonStrictUnmarshall unmarshalls json into object, and returns an error

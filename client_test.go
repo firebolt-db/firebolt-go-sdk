@@ -39,7 +39,7 @@ func TestCacheAccessToken(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	var err error
 	for i := 0; i < 3; i++ {
-		_, err, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+		_, _, _, err = client.request(context.TODO(), "GET", server.URL, nil, "")
 		if err != nil {
 			t.Errorf("Did not expect an error %s", err)
 		}
@@ -83,7 +83,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_, _, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
@@ -120,10 +120,10 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_, _, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
-	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_, _, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
 

@@ -94,7 +94,7 @@ func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string)
 
 	url := fmt.Sprintf(c.ApiEndpoint+EngineUrlByAccountName, accountName)
 
-	response, err, err_code := c.request(ctx, "GET", url, make(map[string]string), "")
+	response, _, err_code, err := c.request(ctx, "GET", url, make(map[string]string), "")
 	if err_code == 404 {
 		return "", fmt.Errorf(accountError, accountName)
 	}
@@ -120,7 +120,7 @@ func (c *ClientImpl) getAccountID(ctx context.Context, accountName string) (stri
 
 	url := fmt.Sprintf(c.ApiEndpoint+AccountIdByAccountName, accountName)
 
-	response, err, err_code := c.request(ctx, "GET", url, make(map[string]string), "")
+	response, _, err_code, err := c.request(ctx, "GET", url, make(map[string]string), "")
 	if err_code == 404 {
 		return "", fmt.Errorf(accountError, accountName)
 	}
