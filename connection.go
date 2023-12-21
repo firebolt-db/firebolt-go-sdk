@@ -89,8 +89,7 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 		return false, nil
 	}
 
-	_, err = c.client.Query(ctx, c.engineUrl, c.databaseName, "SELECT 1",
-		map[string]string{setKey: setValue, "advanced_mode": "1", "hidden_query": "1"})
+	_, err = c.client.Query(ctx, c.engineUrl, c.databaseName, "SELECT 1", map[string]string{setKey: setValue})
 	if err == nil {
 		c.setStatements[setKey] = setValue
 		return true, nil

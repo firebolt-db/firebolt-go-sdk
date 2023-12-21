@@ -45,9 +45,6 @@ func TestConnectionInsertQuery(t *testing.T) {
 	if _, err := conn.ExecContext(context.TODO(), createTableSQL, nil); err != nil {
 		t.Errorf("statement returned an error: %v", err)
 	}
-	if _, err := conn.ExecContext(context.TODO(), "SET advanced_mode=1", nil); err != nil {
-		t.Errorf("statement returned an error: %v", err)
-	}
 	if _, err := conn.ExecContext(context.TODO(), insertSQL, nil); err != nil {
 		t.Errorf("statement returned an error: %v", err)
 	}
@@ -201,7 +198,7 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 }
 
 func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
-	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{"advanced_mode": "1", "time_zone": "Asia/Calcutta"}}
+	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{"time_zone": "Asia/Calcutta"}}
 	loc, _ := time.LoadLocation("Asia/Calcutta")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.123456 Europe/Berlin'::TIMESTAMPTZ;", nil)
@@ -254,16 +251,6 @@ func TestConnectionMultipleStatement(t *testing.T) {
 
 func TestConnectionQueryBooleanType(t *testing.T) {
 	conn := fireboltConnection{clientMock, databaseMock, engineUrlMock, map[string]string{}}
-
-	//setting params that are needed to use the boolean type
-	paramStatements := []string{"SET advanced_mode=1;",
-		"SET output_format_firebolt_type_names=1",
-		"SET bool_output_format=postgres"}
-	for _, statement := range paramStatements {
-		if _, err := conn.ExecContext(context.TODO(), statement, nil); err != nil {
-			t.Errorf("statement '%s' returned an error: %v", statement, err)
-		}
-	}
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT true, false, null::boolean;", nil)
 	if err != nil {

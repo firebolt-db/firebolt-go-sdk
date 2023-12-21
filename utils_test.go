@@ -34,11 +34,11 @@ func runParseSetStatementFail(t *testing.T, value string) {
 }
 
 func TestParseSetStatementSuccess(t *testing.T) {
-	runParseSetStatementSuccess(t, "SET advanced_mode=1", "advanced_mode", "1")
-	runParseSetStatementSuccess(t, "     SET advanced_mode=1  ", "advanced_mode", "1")
-	runParseSetStatementSuccess(t, "     SET      advanced_mode      =       1  ", "advanced_mode", "1")
-	runParseSetStatementSuccess(t, "set advanced_mode=1", "advanced_mode", "1")
-	runParseSetStatementSuccess(t, "sEt advanced_mode=1", "advanced_mode", "1")
+	runParseSetStatementSuccess(t, "SET time_zone=America/New_York", "time_zone", "America/New_York")
+	runParseSetStatementSuccess(t, "     SET time_zone=America/New_York  ", "time_zone", "America/New_York")
+	runParseSetStatementSuccess(t, "     SET      time_zone      =       America/New_York  ", "time_zone", "America/New_York")
+	runParseSetStatementSuccess(t, "set time_zone=America/New_York", "time_zone", "America/New_York")
+	runParseSetStatementSuccess(t, "sEt time_zone=America/New_York", "time_zone", "America/New_York")
 }
 
 func TestParseSetStatementFail(t *testing.T) {
@@ -46,7 +46,7 @@ func TestParseSetStatementFail(t *testing.T) {
 	runParseSetStatementFail(t, "SET")
 	runParseSetStatementFail(t, "SET ==")
 	runParseSetStatementFail(t, "SET =1")
-	runParseSetStatementFail(t, "SET advanced_mode=")
+	runParseSetStatementFail(t, "SET time_zone=")
 }
 
 func runPrepareStatementSuccess(t *testing.T, query string, params []driver.Value, expected string) {
@@ -183,8 +183,8 @@ func TestSplitStatements(t *testing.T) {
 	runSplitStatement(t, "SELECT 1", []string{"SELECT 1"})
 	runSplitStatement(t, "SELECT 1; ; ; ; ", []string{"SELECT 1", " ", " ", " ", " "})
 
-	runSplitStatement(t, "SET advanced_mode=1; SELECT 2 /*some ; comment*/", []string{"SET advanced_mode=1", " SELECT 2 /*some ; comment*/"})
-	runSplitStatement(t, "SET advanced_mode=';'; SELECT 2 /*some ; comment*/", []string{"SET advanced_mode=';'", " SELECT 2 /*some ; comment*/"})
+	runSplitStatement(t, "SET time_zone=America/New_York; SELECT 2 /*some ; comment*/", []string{"SET time_zone=America/New_York", " SELECT 2 /*some ; comment*/"})
+	runSplitStatement(t, "SET time_zone='America/New_York'; SELECT 2 /*some ; comment*/", []string{"SET time_zone='America/New_York'", " SELECT 2 /*some ; comment*/"})
 	runSplitStatement(t, "SELECT 1; SELECT 2; SELECT 3; SELECT 4; SELECT 5; SELECT 6", []string{"SELECT 1", " SELECT 2", " SELECT 3", " SELECT 4", " SELECT 5", " SELECT 6"})
 }
 
