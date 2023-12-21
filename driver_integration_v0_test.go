@@ -110,7 +110,7 @@ func TestDriverQueryResult(t *testing.T) {
 	}
 }
 
-// TestDriverOpenConnection checks making a connection on opened driver
+// TestDriverOpenConnection checks making a connection on opened connector
 func TestDriverOpenConnection(t *testing.T) {
 	db, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
@@ -134,12 +134,12 @@ func runTestDriverExecStatement(t *testing.T, dsn string) {
 	}
 }
 
-// TestDriverOpenEngineUrl checks opening driver with a default engine
+// TestDriverOpenEngineUrl checks opening connector with a default engine
 func TestDriverOpenEngineUrl(t *testing.T) {
 	runTestDriverExecStatement(t, dsnEngineUrlMock)
 }
 
-// TestDriverOpenDefaultEngine checks opening driver with a default engine
+// TestDriverOpenDefaultEngine checks opening connector with a default engine
 func TestDriverOpenDefaultEngine(t *testing.T) {
 	runTestDriverExecStatement(t, dsnDefaultEngineMock)
 }
@@ -164,7 +164,7 @@ func TestDriverSystemEngine(t *testing.T) {
 		fmt.Sprintf("CREATE DATABASE %s", databaseName),
 		fmt.Sprintf("CREATE ENGINE %s WITH SPEC = 'C1' SCALE = 1", engineName),
 		fmt.Sprintf("ATTACH ENGINE %s TO %s", engineName, databaseName),
-		fmt.Sprintf("ALTER DATABASE %s WITH DESCRIPTION = 'GO SDK Integration test'", databaseName),
+		fmt.Sprintf("ALTER DATABASE %s SET DESCRIPTION = 'GO SDK Integration test'", databaseName),
 		fmt.Sprintf("ALTER ENGINE %s RENAME TO %s", engineName, engineNewName),
 		fmt.Sprintf("START ENGINE %s", engineNewName),
 		fmt.Sprintf("STOP ENGINE %s", engineNewName),

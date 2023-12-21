@@ -11,7 +11,7 @@ type fireboltConnection struct {
 	client     Client
 	engineUrl  string
 	parameters map[string]string
-	driver     *FireboltDriver
+	connector  *FireboltConnector
 }
 
 // Prepare returns a firebolt prepared statement
@@ -110,9 +110,9 @@ func (c *fireboltConnection) setParameter(key, value string) {
 		c.parameters = make(map[string]string)
 	}
 	c.parameters[key] = value
-	// Cache parameter in driver as well in case connection will be recreated by the pool
-	if c.driver.cachedParameters == nil {
-		c.driver.cachedParameters = make(map[string]string)
+	// Cache parameter in connector as well in case connection will be recreated by the pool
+	if c.connector.cachedParameters == nil {
+		c.connector.cachedParameters = make(map[string]string)
 	}
-	c.driver.cachedParameters[key] = value
+	c.connector.cachedParameters[key] = value
 }

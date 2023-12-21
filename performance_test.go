@@ -1,3 +1,6 @@
+//go:build performance
+// +build performance
+
 package fireboltgosdk
 
 import (
@@ -25,7 +28,7 @@ func TestMain(m *testing.M) {
 	pool, err = sql.Open("firebolt", dsn)
 
 	if err != nil {
-		log.Fatal("error during opening a driver", err)
+		log.Fatal("error during opening a connector", err)
 	}
 	code := m.Run()
 	err = pool.Close()
