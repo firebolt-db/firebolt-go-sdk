@@ -241,6 +241,17 @@ func TestDriverSystemEngine(t *testing.T) {
 	}
 }
 
+func TestLongQuery(t *testing.T) {
+	db, err := sql.Open("firebolt", dsnSystemEngineMock)
+	if err != nil {
+		t.Errorf("failed unexpectedly with %v", err)
+	}
+	_, err = db.Query("SELECT checksum(*) FROM generate_series(1, 100000000000)")
+	if err != nil {
+		t.Errorf("failed to run long query %v", err)
+	}
+}
+
 func containsDatabase(rows *sql.Rows, databaseToFind string) (bool, error) {
 	var databaseName, region, attachedEngines, createdOn, createdBy, errors string
 	for rows.Next() {
