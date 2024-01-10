@@ -213,7 +213,7 @@ func request(
 		}
 		return response{nil, resp.StatusCode, nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body))}
 	}
-	co
+
 	return response{body, resp.StatusCode, resp.Header, nil}
 }
 
