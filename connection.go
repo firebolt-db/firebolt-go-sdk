@@ -89,10 +89,6 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 		return false, nil
 	}
 
-	if setKey == "database" {
-		return true, fmt.Errorf("`SET database` query is not allowed. Please use `USE database` syntax")
-	}
-
 	parameters := map[string]string{setKey: setValue}
 	if db, ok := c.parameters["database"]; ok {
 		parameters["database"] = db
