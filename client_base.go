@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"slices"
 	"strings"
 )
 
@@ -77,6 +76,16 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 	return &queryResponse, nil
 }
 
+// check whether a string is present in a slice
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
 func processResponseHeaders(headers http.Header, updateParameters func(string, string)) error {
 	if updateParametersRaw, ok := headers[updateParametersHeader]; ok {
 		updateParametersPairs := strings.Split(updateParametersRaw[0], ",")
@@ -85,7 +94,7 @@ func processResponseHeaders(headers http.Header, updateParameters func(string, s
 			if len(kv) != 2 {
 				return fmt.Errorf("invalid parameter assignment %s", parameter)
 			}
-			if slices.Contains(allowedUpdateParameters, kv[0]) {
+			if contains(allowedUpdateParameters, kv[0]) {
 				updateParameters(kv[0], kv[1])
 			} else {
 				infolog.Printf("Warning: received unknown update parameter %s", kv[0])
