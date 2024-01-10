@@ -166,58 +166,23 @@ func TestUserAgent(t *testing.T) {
 	}
 }
 
-// TestProtocolVersion tests that protocol version is correctly set on request
-func TestProtocolVersion(t *testing.T) {
-	var protocolVersionValue = ""
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		protocolVersionValue = r.Header.Get(protocolVersionHeader)
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer server.Close()
-	prepareEnvVariablesForTest(t, server)
+func clientFactory(apiEndpoint string) Client {
 	var client = &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: apiEndpoint},
 	}
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
+	return client
+}
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {})
-	if protocolVersionValue != protocolVersion {
-		t.Errorf("Did not set Protocol-Version value correctly on a query request")
-	}
+// TestProtocolVersion tests that protocol version is correctly set on request
+func TestProtocolVersion(t *testing.T) {
+	testProtocolVersion(t, clientFactory)
 }
 
 // TestUpdateParameters tests that update parameters are correctly set on request
 func TestUpdateParameters(t *testing.T) {
-	var newDatabaseName = "new_database"
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
-			_, _ = w.Write(getAuthResponse(10000))
-		} else {
-			w.Header().Set(updateParametersHeader, fmt.Sprintf("%s=%s", "database", newDatabaseName))
-			w.WriteHeader(http.StatusOK)
-		}
-	}))
-	defer server.Close()
-	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
-	}
-	client.accessTokenGetter = client.getAccessToken
-	client.parameterGetter = client.getQueryParams
-
-	params := map[string]string{
-		"database": "db",
-	}
-	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, func(key, value string) {
-		params[key] = value
-	})
-	if err != nil {
-		t.Errorf("Error during query execution with update parameters header in response %s", err)
-	}
-	if params["database"] != newDatabaseName {
-		t.Errorf("Database is not set correctly. Expected %s but was %s", newDatabaseName, params["database"])
-	}
+	testUpdateParameters(t, clientFactory)
 }
 
 func getAuthResponse(expiry int) []byte {
