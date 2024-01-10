@@ -217,7 +217,7 @@ func TestUpdateParameters(t *testing.T) {
 		t.Errorf("Error during query execution with update parameters header in response %s", err)
 	}
 	if params["database"] != newDatabaseName {
-		t.Errorf("Did not set Update-Parameters value correctly")
+		t.Errorf("Database is not set correctly. Expected %s but was %s", newDatabaseName, params["database"])
 	}
 }
 
