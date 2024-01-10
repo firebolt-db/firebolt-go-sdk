@@ -94,17 +94,17 @@ func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string)
 
 	url := fmt.Sprintf(c.ApiEndpoint+EngineUrlByAccountName, accountName)
 
-	response, _, err_code, err := c.request(ctx, "GET", url, make(map[string]string), "")
-	if err_code == 404 {
+	resp := c.request(ctx, "GET", url, make(map[string]string), "")
+	if resp.statusCode == 404 {
 		return "", fmt.Errorf(accountError, accountName)
 	}
-	if err != nil {
-		return "", ConstructNestedError("error during system engine url http request", err)
+	if resp.err != nil {
+		return "", ConstructNestedError("error during system engine url http request", resp.err)
 	}
 
 	var systemEngineURLResponse SystemEngineURLResponse
-	if err = json.Unmarshal(response, &systemEngineURLResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(response)))
+	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
 	}
 
 	return systemEngineURLResponse.EngineUrl, nil
@@ -120,17 +120,17 @@ func (c *ClientImpl) getAccountID(ctx context.Context, accountName string) (stri
 
 	url := fmt.Sprintf(c.ApiEndpoint+AccountIdByAccountName, accountName)
 
-	response, _, err_code, err := c.request(ctx, "GET", url, make(map[string]string), "")
-	if err_code == 404 {
+	resp := c.request(ctx, "GET", url, make(map[string]string), "")
+	if resp.statusCode == 404 {
 		return "", fmt.Errorf(accountError, accountName)
 	}
-	if err != nil {
-		return "", ConstructNestedError("error during account id resolution http request", err)
+	if resp.err != nil {
+		return "", ConstructNestedError("error during account id resolution http request", resp.err)
 	}
 
 	var accountIdURLResponse AccountIdURLResponse
-	if err = json.Unmarshal(response, &accountIdURLResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(response)))
+	if err := json.Unmarshal(resp.data, &accountIdURLResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(resp.data)))
 	}
 
 	infolog.Printf("Resolved account %s to id %s", accountName, accountIdURLResponse.Id)

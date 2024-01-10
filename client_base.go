@@ -35,6 +35,13 @@ type BaseClient struct {
 	accessTokenGetter func() (string, error)
 }
 
+type response struct {
+	data       []byte
+	statusCode int
+	headers    http.Header
+	err        error
+}
+
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
 func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, updateParameters func(string, string)) (*QueryResponse, error) {
 	infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
@@ -47,23 +54,23 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 		return nil, err
 	}
 
-	response, headers, _, err := c.request(ctx, "POST", engineUrl, params, query)
-	if err != nil {
+	resp := c.request(ctx, "POST", engineUrl, params, query)
+	if resp.err != nil {
 		return nil, ConstructNestedError("error during query request", err)
 	}
 
-	if err = processResponseHeaders(headers, updateParameters); err != nil {
+	if err = processResponseHeaders(resp.headers, updateParameters); err != nil {
 		return nil, ConstructNestedError("error during processing response headers", err)
 	}
 
 	var queryResponse QueryResponse
-	if len(response) == 0 {
+	if len(resp.data) == 0 {
 		// response could be empty, which doesn't mean it is an error
 		return &queryResponse, nil
 	}
 
-	if err = json.Unmarshal(response, &queryResponse); err != nil {
-		return nil, ConstructNestedError("wrong response", errors.New(string(response)))
+	if err = json.Unmarshal(resp.data, &queryResponse); err != nil {
+		return nil, ConstructNestedError("wrong response", errors.New(string(resp.data)))
 	}
 
 	infolog.Printf("Query was successful")
@@ -90,33 +97,30 @@ func processResponseHeaders(headers http.Header, updateParameters func(string, s
 
 // request fetches an access token from the cache or re-authenticate when the access token is not available in the cache
 // and sends a request using that token
-func (c *BaseClient) request(ctx context.Context, method string, url string, params map[string]string, bodyStr string) ([]byte, http.Header, int, error) {
+func (c *BaseClient) request(ctx context.Context, method string, url string, params map[string]string, bodyStr string) response {
 	var err error
 
 	if c.accessTokenGetter == nil {
-		return nil, nil, 0, errors.New("accessTokenGetter is not set")
+		return response{nil, 0, nil, errors.New("accessTokenGetter is not set")}
 	}
 
 	accessToken, err := c.accessTokenGetter()
 	if err != nil {
-		return nil, nil, 0, ConstructNestedError("error while getting access token", err)
+		return response{nil, 0, nil, ConstructNestedError("error while getting access token", err)}
 	}
-	var response []byte
-	var responseCode int
-	var headers http.Header
-	response, err, responseCode, headers = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
-	if responseCode == http.StatusUnauthorized {
+	resp := request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
+	if resp.statusCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
 		// Refreshing the access token as it is expired
 		accessToken, err = c.accessTokenGetter()
 		if err != nil {
-			return nil, nil, 0, ConstructNestedError("error while refreshing access token", err)
+			return response{nil, 0, nil, ConstructNestedError("error while getting access token", err)}
 		}
 		// Trying to send the same request again now that the access token has been refreshed
-		response, err, responseCode, headers = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
+		resp = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
 	}
-	return response, headers, responseCode, err
+	return resp
 }
 
 // makeCanonicalUrl checks whether url starts with https:// and if not prepends it
@@ -160,7 +164,7 @@ func request(
 	userAgent string,
 	params map[string]string,
 	bodyStr string,
-	contentType string) ([]byte, error, int, http.Header) {
+	contentType string) response {
 	req, _ := http.NewRequestWithContext(ctx, method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
 
 	// adding sdk usage tracking
@@ -188,7 +192,7 @@ func request(
 	resp, err := client.Do(req)
 	if err != nil {
 		infolog.Println(err)
-		return nil, ConstructNestedError("error during a request execution", err), 0, nil
+		return response{nil, 0, nil, ConstructNestedError("error during a request execution", err)}
 	}
 
 	defer resp.Body.Close()
@@ -196,21 +200,21 @@ func request(
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		infolog.Println(err)
-		return nil, ConstructNestedError("error during reading a request response", err), 0, nil
+		return response{nil, 0, nil, ConstructNestedError("error during reading a request response", err)}
 	}
 
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		if err = checkErrorResponse(body); err != nil {
-			return nil, ConstructNestedError("request returned an error", err), resp.StatusCode, nil
+			return response{nil, resp.StatusCode, nil, ConstructNestedError("request returned an error", err)}
 		}
 		if resp.StatusCode == 500 {
 			// this is a database error
-			return nil, fmt.Errorf("%s", string(body)), resp.StatusCode, nil
+			return response{nil, resp.StatusCode, nil, fmt.Errorf("%s", string(body))}
 		}
-		return nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body)), resp.StatusCode, nil
+		return response{nil, resp.StatusCode, nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body))}
 	}
-
-	return body, nil, resp.StatusCode, resp.Header
+	co
+	return response{body, resp.StatusCode, resp.Header, nil}
 }
 
 // jsonStrictUnmarshall unmarshalls json into object, and returns an error

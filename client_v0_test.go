@@ -30,11 +30,10 @@ func TestCacheAccessTokenV0(t *testing.T) {
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	var err error
 	for i := 0; i < 3; i++ {
-		_, _, _, err = client.request(context.TODO(), "GET", server.URL, nil, "")
-		if err != nil {
-			t.Errorf("Did not expect an error %s", err)
+		resp := client.request(context.TODO(), "GET", server.URL, nil, "")
+		if resp.err != nil {
+			t.Errorf("Did not expect an error %s", resp.err)
 		}
 	}
 
@@ -76,7 +75,7 @@ func TestRefreshTokenOn401V0(t *testing.T) {
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
@@ -113,10 +112,10 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
-	_, _, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	token, _ := getAccessTokenUsernamePassword("ClientID@firebolt.io", "", server.URL, "")
 
