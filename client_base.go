@@ -56,7 +56,7 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 
 	resp := c.request(ctx, "POST", engineUrl, params, query)
 	if resp.err != nil {
-		return nil, ConstructNestedError("error during query request", err)
+		return nil, ConstructNestedError("error during query request", resp.err)
 	}
 
 	if err = processResponseHeaders(resp.headers, updateParameters); err != nil {
