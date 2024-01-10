@@ -13,6 +13,7 @@ func TestConnectionUseDatabase(t *testing.T) {
 	tableName := "test_use_database"
 	createTableSQL := "CREATE TABLE IF NOT EXISTS " + tableName + " (id INT)"
 	selectTableSQL := "SELECT table_name FROM information_schema.tables WHERE table_name = ?"
+	useDatabaseSQL := "USE DATABASE "
 	newDatabaseName := databaseMock + "_new"
 
 	conn, err := sql.Open("firebolt", dsnSystemEngineMock)
@@ -21,7 +22,7 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err = conn.ExecContext(context.Background(), "USE DATABASE "+databaseMock)
+	_, err = conn.ExecContext(context.Background(), useDatabaseSQL+databaseMock)
 	if err != nil {
 		t.Errorf("use database statement failed with %v", err)
 		t.FailNow()
@@ -32,7 +33,7 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.Errorf("create table statement failed with %v", err)
 		t.FailNow()
 	}
-	defer conn.Exec("USE DATABASE " + databaseMock + "; DROP TABLE " + tableName)
+	defer conn.Exec(useDatabaseSQL + databaseMock + "; DROP TABLE " + tableName)
 
 	rows, err := conn.QueryContext(context.Background(), selectTableSQL, tableName)
 	if err != nil {
@@ -49,9 +50,9 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.Errorf("create database statement failed with %v", err)
 		t.FailNow()
 	}
-	defer conn.Exec("USE DATABASE " + databaseMock + "; DROP DATABASE " + newDatabaseName)
+	defer conn.Exec(useDatabaseSQL + databaseMock + "; DROP DATABASE " + newDatabaseName)
 
-	_, err = conn.ExecContext(context.Background(), "USE DATABASE "+newDatabaseName)
+	_, err = conn.ExecContext(context.Background(), useDatabaseSQL+newDatabaseName)
 	if err != nil {
 		t.Errorf("use database statement failed with %v", err)
 		t.FailNow()

@@ -36,7 +36,9 @@ func TestGetEnginePropsByName(t *testing.T) {
 
 // TestQuery tests simple query
 func TestQuery(t *testing.T) {
-	queryResponse, err := clientMock.Query(context.TODO(), engineUrlMock, "SELECT 1", map[string]string{"database": databaseMock}, func(key, value string) {})
+	queryResponse, err := clientMock.Query(context.TODO(), engineUrlMock, "SELECT 1", map[string]string{"database": databaseMock}, func(key, value string) {
+		// Do nothing
+	})
 	if err != nil {
 		t.Errorf("Query returned an error: %v", err)
 	}
@@ -52,10 +54,14 @@ func TestQuery(t *testing.T) {
 // TestQuery with set statements
 func TestQuerySetStatements(t *testing.T) {
 	query := "SELECT * FROM information_schema.tables"
-	if _, err := clientMock.Query(context.TODO(), engineUrlMock, query, map[string]string{"use_standard_sql": "1", "database": databaseMock}, func(key, value string) {}); err != nil {
+	if _, err := clientMock.Query(context.TODO(), engineUrlMock, query, map[string]string{"use_standard_sql": "1", "database": databaseMock}, func(key, value string) {
+		// Do nothing
+	}); err != nil {
 		t.Errorf("Query returned an error: %v", err)
 	}
-	if _, err := clientMock.Query(context.TODO(), engineUrlMock, query, map[string]string{"use_standard_sql": "0", "database": databaseMock}, func(key, value string) {}); err == nil {
+	if _, err := clientMock.Query(context.TODO(), engineUrlMock, query, map[string]string{"use_standard_sql": "0", "database": databaseMock}, func(key, value string) {
+		// Do nothing
+	}); err == nil {
 		t.Errorf("Query didn't return an error, but should")
 	}
 }

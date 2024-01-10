@@ -49,7 +49,9 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 func (c *ClientImpl) getEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
 	infolog.Printf("Get info for engine '%s'", engineName)
 	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
-	queryRes, err := c.Query(ctx, systemEngineUrl, engineSQL, make(map[string]string), func(key, value string) {})
+	queryRes, err := c.Query(ctx, systemEngineUrl, engineSQL, make(map[string]string), func(key, value string) {
+		// No need to support set statements for engine info query
+	})
 	if err != nil {
 		return "", "", "", ConstructNestedError("error executing engine info sql query", err)
 	}

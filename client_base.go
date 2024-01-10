@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -108,7 +108,7 @@ func (c *BaseClient) request(ctx context.Context, method string, url string, par
 	if err != nil {
 		return response{nil, 0, nil, ConstructNestedError("error while getting access token", err)}
 	}
-	resp := request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
+	resp := request(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
 	if resp.statusCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
@@ -118,7 +118,7 @@ func (c *BaseClient) request(ctx context.Context, method string, url string, par
 			return response{nil, 0, nil, ConstructNestedError("error while getting access token", err)}
 		}
 		// Trying to send the same request again now that the access token has been refreshed
-		resp = request(ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON)
+		resp = request(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
 	}
 	return resp
 }
@@ -152,38 +152,43 @@ func checkErrorResponse(response []byte) error {
 	return nil
 }
 
+// Collect arguments for request function
+type requestParameters struct {
+	ctx         context.Context
+	accessToken string
+	method      string
+	url         string
+	userAgent   string
+	params      map[string]string
+	bodyStr     string
+	contentType string
+}
+
 // request sends a request using "POST" or "GET" method on a specified url
 // additionally it passes the parameters and a bodyStr as a payload
 // if accessToken is passed, it is used for authorization
 // returns response and an error
 func request(
-	ctx context.Context,
-	accessToken string,
-	method string,
-	url string,
-	userAgent string,
-	params map[string]string,
-	bodyStr string,
-	contentType string) response {
-	req, _ := http.NewRequestWithContext(ctx, method, makeCanonicalUrl(url), strings.NewReader(bodyStr))
+	reqParams requestParameters) response {
+	req, _ := http.NewRequestWithContext(reqParams.ctx, reqParams.method, makeCanonicalUrl(reqParams.url), strings.NewReader(reqParams.bodyStr))
 
 	// adding sdk usage tracking
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", reqParams.userAgent)
 
 	// add protocol version header
 	req.Header.Set(protocolVersionHeader, protocolVersion)
 
-	if len(accessToken) > 0 {
-		var bearer = "Bearer " + accessToken
+	if len(reqParams.accessToken) > 0 {
+		var bearer = "Bearer " + reqParams.accessToken
 		req.Header.Add("Authorization", bearer)
 	}
 
-	if len(contentType) > 0 {
-		req.Header.Set("Content-Type", contentType)
+	if len(reqParams.contentType) > 0 {
+		req.Header.Set("Content-Type", reqParams.contentType)
 	}
 
 	q := req.URL.Query()
-	for key, value := range params {
+	for key, value := range reqParams.params {
 		q.Add(key, value)
 	}
 	req.URL.RawQuery = q.Encode()
@@ -197,7 +202,7 @@ func request(
 
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		infolog.Println(err)
 		return response{nil, 0, nil, ConstructNestedError("error during reading a request response", err)}

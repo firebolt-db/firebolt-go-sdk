@@ -19,7 +19,9 @@ func testProtocolVersion(t *testing.T, clientFactory func(string) Client) {
 
 	client := clientFactory(server.URL)
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {
+		// Do nothing
+	})
 	if protocolVersionValue != protocolVersion {
 		t.Errorf("Did not set Protocol-Version value correctly on a query request")
 	}

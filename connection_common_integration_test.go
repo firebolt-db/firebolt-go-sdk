@@ -14,11 +14,18 @@ import (
 	"time"
 )
 
+const OPEN_CONNECTION_ERROR_MSG = "opening a connection failed unexpectedly"
+const STATEMENT_ERROR_MSG = "firebolt statement failed with %v"
+const NEXT_STATEMENT_ERROR_MSG = "Next() call returned false"
+const SCAN_STATEMENT_ERROR_MSG = "firebolt rows Scan() call failed with %v"
+const VALUES_ARE_NOT_EQUAL_ERROR_MSG = "values are not equal: %v and %v\n"
+const RESULTS_ARE_NOT_EQUAL_ERROR_MSG = "results are not equal "
+
 // TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
 func TestConnectionSetStatement(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 
@@ -34,7 +41,7 @@ func TestConnectionSetStatement(t *testing.T) {
 func TestConnectionQueryWrong(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 
@@ -47,7 +54,7 @@ func TestConnectionQueryWrong(t *testing.T) {
 func TestConnectionInsertQuery(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 
@@ -56,13 +63,13 @@ func TestConnectionInsertQuery(t *testing.T) {
 	insertSQL := "INSERT INTO integration_tests (id, name) VALUES (0, 'some_text')"
 
 	if _, err = conn.ExecContext(context.TODO(), createTableSQL); err != nil {
-		t.Errorf("statement returned an error: %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 	if _, err = conn.ExecContext(context.TODO(), insertSQL); err != nil {
-		t.Errorf("statement returned an error: %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 	if _, err = conn.ExecContext(context.TODO(), deleteTableSQL); err != nil {
-		t.Errorf("statement returned an error: %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 }
 
@@ -70,14 +77,14 @@ func TestConnectionInsertQuery(t *testing.T) {
 func TestConnectionQuery(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 
 	sql := "SELECT -3213212 as \"const\", 2.3 as \"float\", 'some_text' as \"text\""
 	rows, err := conn.QueryContext(context.TODO(), sql)
 	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	columnNames := []string{"const", "float", "text"}
@@ -92,7 +99,7 @@ func TestConnectionQuery(t *testing.T) {
 	var i int32
 	var f float64
 	var s string
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	err = rows.Scan(&i, &f, &s)
 	if err != nil {
 		t.Errorf("Next returned an error, but shouldn't")
@@ -107,21 +114,21 @@ func TestConnectionQuery(t *testing.T) {
 func TestConnectionQueryDate32Type(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 	loc, _ := time.LoadLocation("UTC")
 
 	rows, err := conn.QueryContext(context.TODO(), "select '2004-07-09'::DATE")
 	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	if dest != time.Date(2004, 7, 9, 0, 0, 0, 0, loc) {
 		t.Errorf("values are not equal: %v\n", dest)
@@ -131,20 +138,20 @@ func TestConnectionQueryDate32Type(t *testing.T) {
 func TestConnectionQueryDecimalType(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT cast (123.23 as NUMERIC (12,6))")
 	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest float64
 
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	if dest != 123.23 {
 		t.Errorf("values are not equal: %v\n", dest)
@@ -154,31 +161,31 @@ func TestConnectionQueryDecimalType(t *testing.T) {
 func TestConnectionQueryDateTime64Type(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 	loc, _ := time.LoadLocation("UTC")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '1980-01-01 02:03:04.321321'::TIMESTAMPNTZ;")
 	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	if expected := time.Date(1980, 1, 1, 2, 3, 4, 321321000, loc); expected != dest {
-		t.Errorf("values are not equal: %v and %v\n", dest, expected)
+		t.Errorf(VALUES_ARE_NOT_EQUAL_ERROR_MSG, dest, expected)
 	}
 }
 
 func TestConnectionQueryPGDateType(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 	loc, _ := time.LoadLocation("UTC")
@@ -186,62 +193,62 @@ func TestConnectionQueryPGDateType(t *testing.T) {
 	// Value 0001-01-01 is outside of range of regular DATE
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '0001-01-01' :: PGDATE;")
 	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	if expected := time.Date(0001, 1, 1, 0, 0, 0, 0, loc); expected != dest {
-		t.Errorf("values are not equal: %v and %v\n", dest, expected)
+		t.Errorf(VALUES_ARE_NOT_EQUAL_ERROR_MSG, dest, expected)
 	}
 }
 
 func TestConnectionQueryTimestampNTZType(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 	loc, _ := time.LoadLocation("UTC")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '0001-01-05 17:04:42.123456' :: TIMESTAMPNTZ;")
 	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	if expected := time.Date(0001, 1, 5, 17, 4, 42, 123456000, loc); expected != dest {
-		t.Errorf("values are not equal: %v and %v\n", dest, expected)
+		t.Errorf(VALUES_ARE_NOT_EQUAL_ERROR_MSG, dest, expected)
 	}
 }
 
 func TestConnectionQueryTimestampTZType(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 	loc, _ := time.LoadLocation("UTC")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.1234 Europe/Berlin'::TIMESTAMPTZ;")
 	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	// Expected offset by 1 hour when converted to UTC
 	expected := time.Date(2023, 1, 5, 16, 4, 42, 123400000, loc)
@@ -253,25 +260,25 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 	if _, err = conn.ExecContext(context.Background(), "SET time_zone=Asia/Calcutta"); err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 		t.FailNow()
 	}
 	loc, _ := time.LoadLocation("Asia/Calcutta")
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT '2023-01-05 17:04:42.123456 Europe/Berlin'::TIMESTAMPTZ;")
 	if err != nil {
-		t.Errorf("firebolt statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	// Expected offset by 5:30 when converted to Asia/Calcutta
 	expected := time.Date(2023, 1, 5, 21, 34, 42, 123456000, loc)
@@ -283,7 +290,7 @@ func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
 func TestConnectionMultipleStatement(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 	if rows, err := conn.QueryContext(context.TODO(), "SELECT -1; SELECT -2"); err != nil {
@@ -292,16 +299,16 @@ func TestConnectionMultipleStatement(t *testing.T) {
 
 		var dest int32
 
-		assert(rows.Next(), true, t, "Next returned false")
+		assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 		err = rows.Scan(&dest)
 		assert(err, nil, t, "rows.Scan returned an error")
-		assert(dest, int32(-1), t, "results are not equal")
+		assert(dest, int32(-1), t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
 
 		assert(rows.NextResultSet(), true, t, "NextResultSet returned false")
-		assert(rows.Next(), true, t, "Next returned false")
+		assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 		err = rows.Scan(&dest)
 		assert(err, nil, t, "rows.Scan returned an error")
-		assert(dest, int32(-2), t, "results are not equal")
+		assert(dest, int32(-2), t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
 
 		assert(rows.NextResultSet(), false, t, "NextResultSet returned true")
 		assert(rows.Next(), false, t, "Next returned true")
@@ -311,7 +318,7 @@ func TestConnectionMultipleStatement(t *testing.T) {
 func TestConnectionQueryBooleanType(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 
@@ -324,19 +331,19 @@ func TestConnectionQueryBooleanType(t *testing.T) {
 	// Nil value can only be assigned to an interface{}
 	var b3 interface{}
 
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&b1, &b2, &b3); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
-	assert(b1, true, t, "results are not equal")
-	assert(b2, false, t, "results are not equal")
-	assert(b3, nil, t, "results are not equal")
+	assert(b1, true, t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
+	assert(b2, false, t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
+	assert(b3, nil, t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
 }
 
 func TestConnectionQueryByteaType(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 
@@ -347,9 +354,9 @@ func TestConnectionQueryByteaType(t *testing.T) {
 
 	var dest []byte
 
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
-		t.Errorf("firebolt rows Next failed with %v", err)
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	expected := []byte("abc123")
 	if !bytes.Equal(dest, expected) {
@@ -360,7 +367,7 @@ func TestConnectionQueryByteaType(t *testing.T) {
 func TestConnectionPreparedStatement(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 
@@ -420,7 +427,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	for i := range pointers {
 		pointers[i] = &dest[i]
 	}
-	assert(rows.Next(), true, t, "Next returned false")
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(pointers...); err != nil {
 		t.Errorf("firebolt rows Scan failed with %v", err)
 		t.FailNow()

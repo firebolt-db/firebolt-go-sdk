@@ -67,7 +67,7 @@ func getAccessTokenUsernamePassword(username string, password string, apiEndpoin
 			return "", err
 		}
 		infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
-		resp := request(context.TODO(), "", "POST", apiEndpoint+loginUrl, userAgent, nil, body, contentType)
+		resp := request(requestParameters{context.TODO(), "", "POST", apiEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.err != nil {
 			return "", ConstructNestedError("authentication request failed", resp.err)
 		}
@@ -116,7 +116,7 @@ func getAccessTokenServiceAccount(clientId string, clientSecret string, apiEndpo
 			return "", ConstructNestedError("error building auth endpoint", err)
 		}
 		infolog.Printf("Start authentication into '%s' using '%s'", authEndpoint, loginUrl)
-		resp := request(context.TODO(), "", "POST", authEndpoint+loginUrl, userAgent, nil, body, contentType)
+		resp := request(requestParameters{context.TODO(), "", "POST", authEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.err != nil {
 			return "", ConstructNestedError("authentication request failed", resp.err)
 		}
