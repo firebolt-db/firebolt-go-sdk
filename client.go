@@ -49,7 +49,9 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 func (c *ClientImpl) getEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
 	infolog.Printf("Get info for engine '%s'", engineName)
 	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
-	queryRes, err := c.Query(ctx, systemEngineUrl, "", engineSQL, make(map[string]string))
+	queryRes, err := c.Query(ctx, systemEngineUrl, engineSQL, make(map[string]string), func(key, value string) {
+		// No need to support set statements for engine info query
+	})
 	if err != nil {
 		return "", "", "", ConstructNestedError("error executing engine info sql query", err)
 	}
@@ -94,17 +96,17 @@ func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string)
 
 	url := fmt.Sprintf(c.ApiEndpoint+EngineUrlByAccountName, accountName)
 
-	response, err, err_code := c.request(ctx, "GET", url, make(map[string]string), "")
-	if err_code == 404 {
+	resp := c.request(ctx, "GET", url, make(map[string]string), "")
+	if resp.statusCode == 404 {
 		return "", fmt.Errorf(accountError, accountName)
 	}
-	if err != nil {
-		return "", ConstructNestedError("error during system engine url http request", err)
+	if resp.err != nil {
+		return "", ConstructNestedError("error during system engine url http request", resp.err)
 	}
 
 	var systemEngineURLResponse SystemEngineURLResponse
-	if err = json.Unmarshal(response, &systemEngineURLResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(response)))
+	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
 	}
 
 	return systemEngineURLResponse.EngineUrl, nil
@@ -120,17 +122,17 @@ func (c *ClientImpl) getAccountID(ctx context.Context, accountName string) (stri
 
 	url := fmt.Sprintf(c.ApiEndpoint+AccountIdByAccountName, accountName)
 
-	response, err, err_code := c.request(ctx, "GET", url, make(map[string]string), "")
-	if err_code == 404 {
+	resp := c.request(ctx, "GET", url, make(map[string]string), "")
+	if resp.statusCode == 404 {
 		return "", fmt.Errorf(accountError, accountName)
 	}
-	if err != nil {
-		return "", ConstructNestedError("error during account id resolution http request", err)
+	if resp.err != nil {
+		return "", ConstructNestedError("error during account id resolution http request", resp.err)
 	}
 
 	var accountIdURLResponse AccountIdURLResponse
-	if err = json.Unmarshal(response, &accountIdURLResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(response)))
+	if err := json.Unmarshal(resp.data, &accountIdURLResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(resp.data)))
 	}
 
 	infolog.Printf("Resolved account %s to id %s", accountName, accountIdURLResponse.Id)
@@ -138,11 +140,8 @@ func (c *ClientImpl) getAccountID(ctx context.Context, accountName string) (stri
 	return accountIdURLResponse.Id, nil
 }
 
-func (c *ClientImpl) getQueryParams(databaseName string, setStatements map[string]string) (map[string]string, error) {
+func (c *ClientImpl) getQueryParams(setStatements map[string]string) (map[string]string, error) {
 	params := map[string]string{"output_format": outputFormat}
-	if len(databaseName) > 0 {
-		params["database"] = databaseName
-	}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}

@@ -42,14 +42,14 @@ func (c *ClientImplV0) getAccountIDByName(ctx context.Context, accountName strin
 
 	params := map[string]string{"account_name": accountName}
 
-	response, err, _ := c.request(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, params, "")
-	if err != nil {
-		return "", ConstructNestedError("error during getting account id by name request", err)
+	resp := c.request(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, params, "")
+	if resp.err != nil {
+		return "", ConstructNestedError("error during getting account id by name request", resp.err)
 	}
 
 	var accountIdByNameResponse AccountIdByNameResponse
-	if err = json.Unmarshal(response, &accountIdByNameResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling account id by name response", errors.New(string(response)))
+	if err := json.Unmarshal(resp.data, &accountIdByNameResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling account id by name response", errors.New(string(resp.data)))
 	}
 	return accountIdByNameResponse.AccountId, nil
 }
@@ -64,14 +64,14 @@ func (c *ClientImplV0) getDefaultAccountID(ctx context.Context) (string, error) 
 		Account AccountResponse `json:"account"`
 	}
 
-	response, err, _ := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), make(map[string]string), "")
-	if err != nil {
-		return "", ConstructNestedError("error during getting default account id request", err)
+	resp := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), make(map[string]string), "")
+	if resp.err != nil {
+		return "", ConstructNestedError("error during getting default account id request", resp.err)
 	}
 
 	var defaultAccountResponse DefaultAccountResponse
-	if err = json.Unmarshal(response, &defaultAccountResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling default account response", errors.New(string(response)))
+	if err := json.Unmarshal(resp.data, &defaultAccountResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling default account response", errors.New(string(resp.data)))
 	}
 
 	return defaultAccountResponse.Account.Id, nil
@@ -105,14 +105,14 @@ func (c *ClientImplV0) getEngineIdByName(ctx context.Context, engineName string,
 	}
 
 	params := map[string]string{"engine_name": engineName}
-	response, err, _ := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), params, "")
-	if err != nil {
-		return "", ConstructNestedError("error during getting engine id by name request", err)
+	resp := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), params, "")
+	if resp.err != nil {
+		return "", ConstructNestedError("error during getting engine id by name request", resp.err)
 	}
 
 	var engineIdByNameResponse EngineIdByNameResponse
-	if err = json.Unmarshal(response, &engineIdByNameResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling engine id by name response", errors.New(string(response)))
+	if err := json.Unmarshal(resp.data, &engineIdByNameResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling engine id by name response", errors.New(string(resp.data)))
 	}
 	return engineIdByNameResponse.EngineId.EngineId, nil
 }
@@ -128,15 +128,15 @@ func (c *ClientImplV0) getEngineUrlById(ctx context.Context, engineId string, ac
 		Engine EngineResponse `json:"engine"`
 	}
 
-	response, err, _ := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), make(map[string]string), "")
+	resp := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), make(map[string]string), "")
 
-	if err != nil {
-		return "", ConstructNestedError("error during getting engine url by id request", err)
+	if resp.err != nil {
+		return "", ConstructNestedError("error during getting engine url by id request", resp.err)
 	}
 
 	var engineByIdResponse EngineByIdResponse
-	if err = json.Unmarshal(response, &engineByIdResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling engine url by id response", errors.New(string(response)))
+	if err := json.Unmarshal(resp.data, &engineByIdResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling engine url by id response", errors.New(string(resp.data)))
 	}
 	return makeCanonicalUrl(engineByIdResponse.Engine.Endpoint), nil
 }
@@ -167,14 +167,14 @@ func (c *ClientImplV0) getEngineUrlByDatabase(ctx context.Context, databaseName 
 	}
 
 	params := map[string]string{"database_name": databaseName}
-	response, err, _ := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), params, "")
-	if err != nil {
-		return "", ConstructNestedError("error during getting engine url by database request", err)
+	resp := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), params, "")
+	if resp.err != nil {
+		return "", ConstructNestedError("error during getting engine url by database request", resp.err)
 	}
 
 	var engineUrlByDatabaseResponse EngineUrlByDatabaseResponse
-	if err = json.Unmarshal(response, &engineUrlByDatabaseResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling engine url by database response", errors.New(string(response)))
+	if err := json.Unmarshal(resp.data, &engineUrlByDatabaseResponse); err != nil {
+		return "", ConstructNestedError("error during unmarshalling engine url by database response", errors.New(string(resp.data)))
 	}
 	return engineUrlByDatabaseResponse.EngineUrl, nil
 }
@@ -202,8 +202,8 @@ func (c *ClientImplV0) GetEngineUrlAndDB(ctx context.Context, engineName, databa
 
 }
 
-func (c *ClientImplV0) getQueryParams(databaseName string, setStatements map[string]string) (map[string]string, error) {
-	params := map[string]string{"database": databaseName, "output_format": outputFormat}
+func (c *ClientImplV0) getQueryParams(setStatements map[string]string) (map[string]string, error) {
+	params := map[string]string{"output_format": outputFormat}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}

@@ -29,11 +29,10 @@ func TestCacheAccessTokenV0(t *testing.T) {
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	var err error
 	for i := 0; i < 3; i++ {
-		_, err, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
-		if err != nil {
-			t.Errorf("Did not expect an error %s", err)
+		resp := client.request(context.TODO(), "GET", server.URL, nil, "")
+		if resp.err != nil {
+			t.Errorf("Did not expect an error %s", resp.err)
 		}
 	}
 
@@ -75,7 +74,7 @@ func TestRefreshTokenOn401V0(t *testing.T) {
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
@@ -98,7 +97,7 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/auth/v1/login" {
+		if r.URL.Path == UsernamePasswordURLSuffix {
 			fetchTokenCount++
 			_, _ = w.Write(getAuthResponseV0(1))
 		} else {
@@ -112,10 +111,10 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
-	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	token, _ := getAccessTokenUsernamePassword("ClientID@firebolt.io", "", server.URL, "")
 
@@ -153,10 +152,30 @@ func TestUserAgentV0(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
 
-	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {
+		// Do nothing
+	})
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
+}
+
+func clientFactoryV0(apiEndpoint string) Client {
+	var client = &ClientImplV0{
+		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: apiEndpoint},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
+	return client
+}
+
+// TestProtocolVersion tests that protocol version is correctly set on request
+func TestProtocolVersionV0(t *testing.T) {
+	testProtocolVersion(t, clientFactoryV0)
+}
+
+func TestUpdateParametersV0(t *testing.T) {
+	testUpdateParameters(t, clientFactoryV0)
 }
 
 func getAuthResponseV0(expiry int) []byte {

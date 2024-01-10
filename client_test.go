@@ -37,11 +37,10 @@ func TestCacheAccessToken(t *testing.T) {
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	var err error
 	for i := 0; i < 3; i++ {
-		_, err, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
-		if err != nil {
-			t.Errorf("Did not expect an error %s", err)
+		resp := client.request(context.TODO(), "GET", server.URL, nil, "")
+		if resp.err != nil {
+			t.Errorf("Did not expect an error %s", resp.err)
 		}
 	}
 
@@ -83,7 +82,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
@@ -120,10 +119,10 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
-	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
-	_, _, _ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
 
 	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
 
@@ -161,10 +160,31 @@ func TestUserAgent(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
 
-	_, _ = client.Query(context.TODO(), server.URL, "dummy", "SELECT 1", map[string]string{})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {
+		// Do nothing
+	})
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
+}
+
+func clientFactory(apiEndpoint string) Client {
+	var client = &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: apiEndpoint},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
+	return client
+}
+
+// TestProtocolVersion tests that protocol version is correctly set on request
+func TestProtocolVersion(t *testing.T) {
+	testProtocolVersion(t, clientFactory)
+}
+
+// TestUpdateParameters tests that update parameters are correctly set on request
+func TestUpdateParameters(t *testing.T) {
+	testUpdateParameters(t, clientFactory)
 }
 
 func getAuthResponse(expiry int) []byte {
