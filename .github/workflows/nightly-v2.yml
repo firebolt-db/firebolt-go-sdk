@@ -35,8 +35,8 @@ jobs:
         id: setup
         uses: firebolt-db/integration-testing-setup@v2
         with:
-          firebolt-client-id: ${{ secrets.FIREBOLT_CLIENT_ID_DEV_NEW_IDN }}
-          firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_DEV_NEW_IDN }}
+          firebolt-client-id: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
+          firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
           api-endpoint: "api.staging.firebolt.io"
           account: "developer"
           instance-type: "B2"
@@ -47,8 +47,8 @@ jobs:
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
           FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
           ACCOUNT_NAME: "developer"
-          CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_DEV_NEW_IDN }}
-          CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_DEV_NEW_IDN }}
+          CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
+          CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
         run: |
           go test . -timeout=30m -v -coverprofile cover.out --tags=integration
 
