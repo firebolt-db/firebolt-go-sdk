@@ -29,9 +29,9 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 
 	resp, err := conn.client.Query(context.Background(), conn.engineUrl, "SELECT 1", nil, func(string, string) {})
 	if err != nil {
-		t.Errorf("failed unexpectedly with %v", err)
+		t.Errorf("failed unexpectedly with: %v", err)
 	}
 	assert(len(resp.Data), 1, t, "result data length is not 1")
-	assert(len(resp.Data[0]), 1, t, "result value is not invalid")
+	assert(len(resp.Data[0]), 1, t, "result value is invalid")
 	assert(resp.Data[0][0].(float64), float64(1), t, "result is not 1")
 }
