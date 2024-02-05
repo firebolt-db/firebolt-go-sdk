@@ -2,33 +2,11 @@ name: Integration tests V2
 
 on:
   workflow_dispatch:
-    inputs:
-      environment:
-        description: 'Environment to run the tests against'
-        type: choice
-        required: true
-        default: 'dev'
-        options:
-          - dev
-          - staging
   workflow_call:
-    inputs:
-      environment:
-        default: 'staging'
-        required: false
-        type: string
-      branch:
-        required: false
-        type: string
-        description: 'Branch to run on'
     secrets:
       FIREBOLT_CLIENT_ID_STG_NEW_IDN:
         required: false
       FIREBOLT_CLIENT_SECRET_STG_NEW_IDN:
-        required: false
-      FIREBOLT_CLIENT_ID_DEV_NEW_IDN:
-        required: false
-      FIREBOLT_CLIENT_SECRET_DEV_NEW_IDN:
         required: false
 
 jobs:
@@ -37,43 +15,28 @@ jobs:
     steps:
       - name: Check out code
         uses: actions/checkout@v3
-        with:
-          ref: ${{ inputs.branch }}
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: '1.19.0'
 
-      - name: Determine env variables
-        run: |
-          if [ "${{ inputs.environment }}" == 'staging' ]; then
-             echo "CLIENT_ID=${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}" >> "$GITHUB_ENV"
-             echo "CLIENT_SECRET=${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}" >> "$GITHUB_ENV"
-          else
-             echo "CLIENT_ID=${{ secrets.FIREBOLT_CLIENT_ID_DEV_NEW_IDN }}" >> "$GITHUB_ENV"
-             echo "CLIENT_SECRET=${{ secrets.FIREBOLT_CLIENT_SECRET_DEV_NEW_IDN }}" >> "$GITHUB_ENV"
-          fi
-
-      - name: Keep environment name in the summary
-        run: echo '### Ran integration tests against ${{ inputs.environment }} ' >> $GITHUB_STEP_SUMMARY
-
       - name: Setup database and engine
         id: setup
         uses: firebolt-db/integration-testing-setup@v2
         with:
-          firebolt-client-id: ${{ env.CLIENT_ID }}
-          firebolt-client-secret: ${{ env.CLIENT_SECRET }}
-          api-endpoint: "api.${{ inputs.environment }}.firebolt.io"
-          account: "developer"
+          firebolt-client-id: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
+          firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN}}
+          api-endpoint: "api.staging.firebolt.io"
+          account: ${{ vars.FIREBOLT_ACCOUNT }}
           instance-type: "B2"
 
       - name: Run integration tests
         env:
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
-          FIREBOLT_ENDPOINT: "api.${{ inputs.environment }}.firebolt.io"
-          ACCOUNT_NAME: "developer"
-          CLIENT_ID: ${{ env.CLIENT_ID }}
-          CLIENT_SECRET: ${{ env.CLIENT_SECRET }}
+          FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
+          ACCOUNT_NAME: ${{ vars.FIREBOLT_ACCOUNT }}
+          CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
+          CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
         run: |
           go test . -timeout=30m -v --tags=integration

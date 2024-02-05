@@ -8,6 +8,7 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v3
+
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -17,8 +18,8 @@ jobs:
         id: setup
         uses: firebolt-db/integration-testing-setup@master
         with:
-          firebolt-username: ${{ secrets.FIREBOLT_USERNAME_STAGING }}
-          firebolt-password: ${{ secrets.FIREBOLT_PASSWORD_STAGING }}
+          firebolt-username: ${{ secrets.FIREBOLT_STG_USERNAME }}
+          firebolt-password: ${{ secrets.FIREBOLT_STG_PASSWORD }}
           api-endpoint: "api.staging.firebolt.io"
           region: "us-east-1"
           instance-type: "C2"
@@ -26,8 +27,8 @@ jobs:
 
       - name: Add data to database
         env:
-          USER_NAME: ${{ secrets.FIREBOLT_USERNAME_STAGING }}
-          PASSWORD: ${{ secrets.FIREBOLT_PASSWORD_STAGING }}
+          USER_NAME: ${{ secrets.FIREBOLT_STG_USERNAME }}
+          PASSWORD: ${{ secrets.FIREBOLT_STG_PASSWORD }}
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
           ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
@@ -48,8 +49,8 @@ jobs:
           GO_BENCHMARKS: BenchmarkSelect
           BENCHMARKS_OUT: benchmark/benchmarks.json
         env:
-          USER_NAME: ${{ secrets.FIREBOLT_USERNAME_STAGING }}
-          PASSWORD: ${{ secrets.FIREBOLT_PASSWORD_STAGING }}
+          USER_NAME: ${{ secrets.FIREBOLT_STG_USERNAME }}
+          PASSWORD: ${{ secrets.FIREBOLT_STG_PASSWORD }}
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
           ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
