@@ -10,20 +10,25 @@ import (
 )
 
 func TestConnectionUseDatabase(t *testing.T) {
-	tableName := "test_use_database"
-	createTableSQL := "CREATE TABLE IF NOT EXISTS " + tableName + " (id INT)"
-	selectTableSQL := "SELECT table_name FROM information_schema.tables WHERE table_name = ?"
+	// tableName := "test_use_database"
+	// createTableSQL := "CREATE TABLE IF NOT EXISTS " + tableName + " (id INT)"
+	// selectTableSQL := "SELECT table_name FROM information_schema.tables WHERE table_name = ?"
 	useDatabaseSQL := "USE DATABASE "
-	newDatabaseName := databaseMock + "_new"
+	// newDatabaseName := databaseMock + "_new"
 
-	conn, err := sql.Open("firebolt", dsnSystemEngineMock)
+	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
 		t.Errorf("opening a connection failed unexpectedly")
 		t.FailNow()
 	}
 
 	_, err = conn.ExecContext(context.Background(), useDatabaseSQL+databaseMock)
-	if err != nil {
+	if err == nil {
+		t.Errorf("use database works on a user engine. The test can be enabled")
+		t.FailNow()
+	}
+
+	/*if err != nil {
 		t.Errorf("use database statement failed with %v", err)
 		t.FailNow()
 	}
@@ -66,5 +71,5 @@ func TestConnectionUseDatabase(t *testing.T) {
 	if rows.Next() {
 		t.Errorf("use database statement didn't update the database")
 		t.FailNow()
-	}
+	}*/
 }
