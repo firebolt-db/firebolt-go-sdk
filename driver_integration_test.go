@@ -100,9 +100,9 @@ func TestDriverQueryResult(t *testing.T) {
 		t.Errorf("failed unexpectedly with %v", err)
 	}
 	rows, err := db.Query(
-		"SELECT CAST('2020-01-03 19:08:45' AS DATETIME) as dt, CAST('2020-01-03' AS DATE) as d, CAST(1 AS INT) as i, CAST(-1/0 as FLOAT) as f " +
+		"SELECT CAST('2020-01-03 19:08:45' AS DATETIME) as dt, CAST('2020-01-03' AS DATE) as d, CAST(1 AS INT) as i, '-inf'::float as f " +
 			"UNION " +
-			"SELECT CAST('2021-01-03 19:38:34' AS DATETIME) as dt, CAST('2000-12-03' AS DATE) as d, CAST(2 AS INT) as i, CAST(0/0 as FLOAT) as f ORDER BY i")
+			"SELECT CAST('2021-01-03 19:38:34' AS DATETIME) as dt, CAST('2000-12-03' AS DATE) as d, CAST(2 AS INT) as i, 'nan'::float as f ORDER BY i")
 	if err != nil {
 		t.Errorf("db.Query returned an error: %v", err)
 	}
@@ -138,6 +138,36 @@ func TestDriverQueryResult(t *testing.T) {
 
 	if rows.Next() {
 		t.Errorf("Next didn't returned false, although no data is expected")
+	}
+}
+
+// TestDriverInfNanValues tests query with inf and nan values
+func TestDriverInfNanValues(t *testing.T) {
+	db, err := sql.Open("firebolt", dsnMock)
+	if err != nil {
+		t.Errorf("failed unexpectedly with %v", err)
+	}
+	rows, err := db.Query("SELECT '-inf'::double as f, 'inf'::double as f2, 'nan'::double as f3, '-nan'::double as f4")
+	if err != nil {
+		t.Errorf("db.Query returned an error: %v", err)
+	}
+	var f, f2, f3, f4 float64
+
+	if !rows.Next() {
+		t.Errorf("Next returned end of output")
+	}
+	assert(rows.Scan(&f, &f2, &f3, &f4), nil, t, "Scan returned an error")
+	if !math.IsInf(f, -1) {
+		t.Errorf("results not equal for float Expected: -Inf Got: %f", f)
+	}
+	if !math.IsInf(f2, 1) {
+		t.Errorf("results not equal for float Expected: Inf Got: %f", f2)
+	}
+	if !math.IsNaN(f3) {
+		t.Errorf("results not equal for float Expected: NaN Got: %f", f3)
+	}
+	if !math.IsNaN(f4) {
+		t.Errorf("results not equal for float Expected: NaN Got: %f", f4)
 	}
 }
 
