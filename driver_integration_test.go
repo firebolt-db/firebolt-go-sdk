@@ -34,6 +34,8 @@ var (
 	clientMockWithAccount           *ClientImpl
 )
 
+const v1Test = false
+
 // init populates mock variables and client for integration tests
 func init() {
 	clientIdMock = os.Getenv("CLIENT_ID")
@@ -268,17 +270,6 @@ func TestDriverSystemEngine(t *testing.T) {
 	_, err = db.Query(dropDbQuery)
 	if err != nil {
 		t.Errorf("The query %s returned an error: %v", dropDbQuery, err)
-	}
-}
-
-func TestLongQuery(t *testing.T) {
-	db, err := sql.Open("firebolt", dsnSystemEngineMock)
-	if err != nil {
-		t.Errorf("failed unexpectedly with %v", err)
-	}
-	_, err = db.Query("SELECT checksum(*) FROM generate_series(1, 100000000000)")
-	if err != nil {
-		t.Errorf("failed to run long query %v", err)
 	}
 }
 

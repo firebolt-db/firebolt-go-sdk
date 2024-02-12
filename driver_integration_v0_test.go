@@ -35,6 +35,8 @@ var (
 	clientMock                 *ClientImplV0
 )
 
+const v1Test = true
+
 // init populates mock variables and client for integration tests
 func init() {
 	usernameMock = os.Getenv("USER_NAME")
