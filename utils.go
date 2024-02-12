@@ -22,6 +22,29 @@ func ConstructNestedError(message string, err error) error {
 	return fmt.Errorf("%s: %v", message, err)
 }
 
+func validateSetStatement(key string) error {
+	useParameterList := []string{"database", "engine"}
+	disallowedParameterList := []string{"account_id", "output_format"}
+
+	for _, denyKey := range useParameterList {
+		if key == denyKey {
+			return fmt.Errorf("could not set parameter. "+
+				"Set parameter '%s' is not allowed. "+
+				"Try again with 'USE %s' instead of SET", key, strings.ToUpper(key))
+		}
+	}
+
+	for _, denyKey := range disallowedParameterList {
+		if key == denyKey {
+			return fmt.Errorf("could not set parameter. "+
+				"Set parameter '%s' is not allowed. "+
+				"Try again with a different parameter name", key)
+		}
+	}
+
+	return nil
+}
+
 // parseSetStatement parses a single set statement and returns a key-value pair,
 // or returns an error, if it isn't a set statement
 func parseSetStatement(query string) (string, string, error) {

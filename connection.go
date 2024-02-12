@@ -88,6 +88,10 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 		// if parsing of set statement returned an error, we will not handle the request as a set statement
 		return false, nil
 	}
+	err = validateSetStatement(setKey)
+	if err != nil {
+		return false, err
+	}
 
 	parameters := map[string]string{setKey: setValue}
 	if db, ok := c.parameters["database"]; ok {
