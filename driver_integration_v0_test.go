@@ -35,7 +35,7 @@ var (
 	clientMock                 *ClientImplV0
 )
 
-const v1Test = true
+const v0Testing = true
 
 // init populates mock variables and client for integration tests
 func init() {

@@ -461,7 +461,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 
 func TestLongQuery(t *testing.T) {
 	var maxValue = 0
-	if v1Test {
+	if v0Testing {
 		maxValue = 250000000000
 	} else {
 		maxValue = 430000000000

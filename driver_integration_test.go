@@ -34,7 +34,7 @@ var (
 	clientMockWithAccount           *ClientImpl
 )
 
-const v1Test = false
+const v0Testing = false
 
 // init populates mock variables and client for integration tests
 func init() {
