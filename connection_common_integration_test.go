@@ -458,3 +458,34 @@ func TestConnectionPreparedStatement(t *testing.T) {
 		}
 	}
 }
+
+func TestLongQuery(t *testing.T) {
+	var maxValue = 0
+	if v0Testing {
+		maxValue = 250000000000
+	} else {
+		maxValue = 430000000000
+	}
+
+	finished_in := make(chan time.Duration, 1)
+	go func() {
+		started := time.Now()
+		db, err := sql.Open("firebolt", dsnSystemEngineMock)
+		if err != nil {
+			t.Errorf("failed unexpectedly with %v", err)
+		}
+		_, err = db.Query("SELECT checksum(*) FROM generate_series(1, ?)", maxValue)
+		if err != nil {
+			t.Errorf("failed to run long query %v", err)
+		}
+		finished_in <- time.Since(started)
+	}()
+	select {
+	case elapsed := <-finished_in:
+		if elapsed > 350*time.Minute {
+			t.Errorf("Expected execution time to be more than 350 sec but was %v sec", elapsed)
+		}
+	case <-time.After(10 * time.Minute):
+		t.Errorf("Long query didn't finish in 10 minutes")
+	}
+}
