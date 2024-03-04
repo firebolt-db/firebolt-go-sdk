@@ -3,7 +3,7 @@ package fireboltgosdk
 const (
 	ServiceAccountLoginURLSuffix = "/oauth/token"
 	EngineUrlByAccountName       = "/web/v3/account/%s/engineUrl"
-	AccountIdByAccountName       = "/web/v3/account/%s/resolve"
+	AccountInfoByAccountName     = "/web/v3/account/%s/resolve"
 	//API v0
 	UsernamePasswordURLSuffix  = "/auth/v1/login"
 	DefaultAccountURL          = "/iam/v2/account"

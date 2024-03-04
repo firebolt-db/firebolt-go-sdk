@@ -10,6 +10,7 @@ import (
 type ClientImpl struct {
 	ConnectedToSystemEngine bool
 	SystemEngineURL         string
+	AccountVersion          int
 	BaseClient
 }
 
@@ -35,7 +36,7 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 	client.accessTokenGetter = client.getAccessToken
 
 	var err error
-	client.AccountID, err = client.getAccountID(context.Background(), settings.accountName)
+	client.AccountID, client.AccountVersion, err = client.getAccountInfo(context.Background(), settings.accountName)
 	if err != nil {
 		return nil, ConstructNestedError("error during getting account id", err)
 	}
@@ -112,32 +113,35 @@ func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string)
 	return systemEngineURLResponse.EngineUrl, nil
 }
 
-func (c *ClientImpl) getAccountID(ctx context.Context, accountName string) (string, error) {
+func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (string, int, error) {
 	infolog.Printf("Getting account ID for '%s'", accountName)
 
 	type AccountIdURLResponse struct {
-		Id     string `json:"id"`
-		Region string `json:"region"`
+		Id           string `json:"id"`
+		Region       string `json:"region"`
+		InfraVersion int    `json:"infraVersion"`
 	}
 
-	url := fmt.Sprintf(c.ApiEndpoint+AccountIdByAccountName, accountName)
+	url := fmt.Sprintf(c.ApiEndpoint+AccountInfoByAccountName, accountName)
 
 	resp := c.request(ctx, "GET", url, make(map[string]string), "")
 	if resp.statusCode == 404 {
-		return "", fmt.Errorf(accountError, accountName)
+		return "", 0, fmt.Errorf(accountError, accountName)
 	}
 	if resp.err != nil {
-		return "", ConstructNestedError("error during account id resolution http request", resp.err)
+		return "", 0, ConstructNestedError("error during account id resolution http request", resp.err)
 	}
 
 	var accountIdURLResponse AccountIdURLResponse
+	// InfraVersion should default to 1 if not present
+	accountIdURLResponse.InfraVersion = 1
 	if err := json.Unmarshal(resp.data, &accountIdURLResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(resp.data)))
+		return "", 0, ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(resp.data)))
 	}
 
 	infolog.Printf("Resolved account %s to id %s", accountName, accountIdURLResponse.Id)
 
-	return accountIdURLResponse.Id, nil
+	return accountIdURLResponse.Id, accountIdURLResponse.InfraVersion, nil
 }
 
 func (c *ClientImpl) getQueryParams(setStatements map[string]string) (map[string]string, error) {
