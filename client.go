@@ -152,7 +152,9 @@ func (c *ClientImpl) getQueryParams(setStatements map[string]string) (map[string
 		if len(c.AccountID) == 0 {
 			return nil, fmt.Errorf("Trying to run a query against system engine without account id defined")
 		}
-		params["account_id"] = c.AccountID
+		if _, ok := params["account_id"]; !ok {
+			params["account_id"] = c.AccountID
+		}
 	}
 	return params, nil
 }
