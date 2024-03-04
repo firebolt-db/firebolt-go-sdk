@@ -12,7 +12,10 @@ func WithEngineUrl(engineUrl string) driverOption {
 // WithDatabaseName defines database name for the driver
 func WithDatabaseName(databaseName string) driverOption {
 	return func(d *FireboltDriver) {
-		d.databaseName = databaseName
+		if d.cachedParams == nil {
+			d.cachedParams = map[string]string{}
+		}
+		d.cachedParams["database"] = databaseName
 	}
 }
 
@@ -45,9 +48,8 @@ func FireboltConnectorWithOptions(opts ...driverOption) *FireboltConnector {
 
 	return &FireboltConnector{
 		d.engineUrl,
-		d.databaseName,
 		d.client,
-		map[string]string{},
+		d.cachedParams,
 		d,
 	}
 }

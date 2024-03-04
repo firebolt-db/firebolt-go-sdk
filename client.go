@@ -164,28 +164,29 @@ func (c *ClientImpl) getAccessToken() (string, error) {
 }
 
 // GetEngineUrlAndDB returns engine URL and engine name based on engineName and accountId
-func (c *ClientImpl) GetEngineUrlAndDB(ctx context.Context, engineName, databaseName string) (string, string, error) {
+func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
 	// Assume we are connected to a system engine in the beginning
 	c.ConnectedToSystemEngine = true
 	// If engine name is empty, assume system engine
 	if len(engineName) == 0 {
-		return c.SystemEngineURL, databaseName, nil
+		return c.SystemEngineURL, map[string]string{"database": databaseName}, nil
 	}
 
 	engineUrl, status, dbName, err := c.getEngineUrlStatusDBByName(ctx, engineName, c.SystemEngineURL)
+	params := map[string]string{"database": dbName}
 	if err != nil {
-		return "", "", ConstructNestedError("error during getting engine info", err)
+		return "", params, ConstructNestedError("error during getting engine info", err)
 	}
 	if status != engineStatusRunning {
-		return "", "", fmt.Errorf("engine %s is not running", engineName)
+		return "", params, fmt.Errorf("engine %s is not running", engineName)
 	}
 	if len(dbName) == 0 {
-		return "", "", fmt.Errorf("engine %s not attached to any DB or you don't have permission to access its database", engineName)
+		return "", params, fmt.Errorf("engine %s not attached to any DB or you don't have permission to access its database", engineName)
 	}
 	if len(databaseName) != 0 && databaseName != dbName {
-		return "", "", fmt.Errorf("engine %s is not attached to database %s", engineName, databaseName)
+		return "", params, fmt.Errorf("engine %s is not attached to database %s", engineName, databaseName)
 	}
 	c.ConnectedToSystemEngine = false
 
-	return engineUrl, dbName, nil
+	return engineUrl, params, nil
 }

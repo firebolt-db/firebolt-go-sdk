@@ -23,7 +23,7 @@ const resetSessionHeader = "Firebolt-Reset-Session"
 var allowedUpdateParameters = []string{"database"}
 
 type Client interface {
-	GetEngineUrlAndDB(ctx context.Context, engineName string, accountId string) (string, string, error)
+	GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error)
 	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*QueryResponse, error)
 }
 

@@ -27,7 +27,7 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 		WithClientParams(accountID, token, userAgent),
 	)
 
-	resp, err := conn.client.Query(context.Background(), conn.engineUrl, "SELECT 1", nil, func(string, string) {})
+	resp, err := conn.client.Query(context.Background(), conn.engineUrl, "SELECT 1", nil, connectionControl{})
 	if err != nil {
 		t.Errorf("failed unexpectedly with: %v", err)
 	}
