@@ -71,7 +71,11 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 			}
 		}
 
-		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, c.setParameter, c.setEngineURL); err != nil {
+		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, connectionControl{
+			updateParameters: c.setParameter,
+			setEngineURL:     c.setEngineURL,
+			resetParameters:  c.resetParameters,
+		}); err != nil {
 			return &rows, ConstructNestedError("error during query execution", err)
 		} else {
 			rows.response = append(rows.response, *response)
@@ -97,7 +101,11 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 	if db, ok := c.parameters["database"]; ok {
 		parameters["database"] = db
 	}
-	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", parameters, c.setParameter, c.setEngineURL)
+	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", parameters, connectionControl{
+		updateParameters: c.setParameter,
+		setEngineURL:     c.setEngineURL,
+		resetParameters:  c.resetParameters,
+	})
 	if err == nil {
 		c.setParameter(setKey, setValue)
 		return true, nil
@@ -119,4 +127,22 @@ func (c *fireboltConnection) setParameter(key, value string) {
 
 func (c *fireboltConnection) setEngineURL(engineUrl string) {
 	c.engineUrl = engineUrl
+}
+
+func (c *fireboltConnection) resetParameters() {
+	ignoreParameters := append(getUseParametersList(), getDisallowedParametersList()...)
+	if c.parameters != nil {
+		for k := range c.parameters {
+			if !contains(ignoreParameters, k) {
+				delete(c.parameters, k)
+			}
+		}
+	}
+	if c.connector.cachedParameters != nil {
+		for k := range c.connector.cachedParameters {
+			if !contains(ignoreParameters, k) {
+				delete(c.connector.cachedParameters, k)
+			}
+		}
+	}
 }

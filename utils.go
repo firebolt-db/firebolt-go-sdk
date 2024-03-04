@@ -18,16 +18,21 @@ import (
 
 var goInfoFunc = goInfo.GetInfo
 
+func getUseParametersList() []string {
+	return []string{"database", "engine"}
+}
+
+func getDisallowedParametersList() []string {
+	return []string{"account_id", "output_format"}
+}
+
 func ConstructNestedError(message string, err error) error {
 	infolog.Printf("%s: %v", message, err)
 	return fmt.Errorf("%s: %v", message, err)
 }
 
 func validateSetStatement(key string) error {
-	useParameterList := []string{"database", "engine"}
-	disallowedParameterList := []string{"account_id", "output_format"}
-
-	for _, denyKey := range useParameterList {
+	for _, denyKey := range getUseParametersList() {
 		if key == denyKey {
 			return fmt.Errorf("could not set parameter. "+
 				"Set parameter '%s' is not allowed. "+
@@ -35,7 +40,7 @@ func validateSetStatement(key string) error {
 		}
 	}
 
-	for _, denyKey := range disallowedParameterList {
+	for _, denyKey := range getDisallowedParametersList() {
 		if key == denyKey {
 			return fmt.Errorf("could not set parameter. "+
 				"Set parameter '%s' is not allowed. "+

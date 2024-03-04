@@ -160,7 +160,7 @@ func TestUserAgent(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {}, func(value string) {})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, connectionControl{})
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
@@ -332,10 +332,13 @@ func TestUpdateEndpoint(t *testing.T) {
 
 	engineEndpoint := "http://old-endpoint"
 
-	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, func(key, value string) {
-		params[key] = value
-	}, func(value string) {
-		engineEndpoint = value
+	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, connectionControl{
+		updateParameters: func(key, value string) {
+			params[key] = value
+		},
+		setEngineURL: func(value string) {
+			engineEndpoint = value
+		},
 	})
 	if err != nil {
 		t.Errorf("Error during query execution with update parameters header in response %s", err)
@@ -346,5 +349,36 @@ func TestUpdateEndpoint(t *testing.T) {
 	expectedEndpoint := "http://new-endpoint/path"
 	if engineEndpoint != expectedEndpoint {
 		t.Errorf("Engine endpoint was not set correctly. Expected %s but was %s", expectedEndpoint, engineEndpoint)
+	}
+}
+
+func TestResetSession(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == ServiceAccountLoginURLSuffix {
+			_, _ = w.Write(getAuthResponse(10000))
+		} else {
+			w.Header().Set(resetSessionHeader, "true")
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+	prepareEnvVariablesForTest(t, server)
+	client := clientFactory(server.URL)
+
+	resetCalled := false
+	params := map[string]string{
+		"database": "db",
+	}
+
+	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, connectionControl{
+		resetParameters: func() {
+			resetCalled = true
+		},
+	})
+	if err != nil {
+		t.Errorf("Error during query execution with reset session header in response %s", err)
+	}
+	if !resetCalled {
+		t.Errorf("Reset session was not called")
 	}
 }
