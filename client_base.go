@@ -13,7 +13,7 @@ import (
 
 const outputFormat = "JSON_Compact"
 const protocolVersionHeader = "Firebolt-Protocol-Version"
-const protocolVersion = "2.0"
+const protocolVersion = "2.1"
 
 const updateParametersHeader = "Firebolt-Update-Parameters"
 
