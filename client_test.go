@@ -160,9 +160,7 @@ func TestUserAgent(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {
-		// Do nothing
-	})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {}, func(value string) {})
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
@@ -309,5 +307,44 @@ func TestGetAccountInfoDefaultVersion(t *testing.T) {
 	}
 	if accountVersion != 1 {
 		t.Errorf("Expected account version to be 1, got %d", accountVersion)
+	}
+}
+
+func TestUpdateEndpoint(t *testing.T) {
+	var newEndpoint = "http://new-endpoint/path?query=param"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == ServiceAccountLoginURLSuffix {
+			_, _ = w.Write(getAuthResponse(10000))
+		} else if r.URL.Path == UsernamePasswordURLSuffix {
+			_, _ = w.Write(getAuthResponseV0(10000))
+		} else {
+			w.Header().Set(updateEndpointHeader, newEndpoint)
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+	prepareEnvVariablesForTest(t, server)
+	client := clientFactory(server.URL)
+
+	params := map[string]string{
+		"database": "db",
+	}
+
+	engineEndpoint := "http://old-endpoint"
+
+	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, func(key, value string) {
+		params[key] = value
+	}, func(value string) {
+		engineEndpoint = value
+	})
+	if err != nil {
+		t.Errorf("Error during query execution with update parameters header in response %s", err)
+	}
+	if params["query"] != "param" {
+		t.Errorf("Query parameter was not set correctly. Expected 'param' but was %s", params["query"])
+	}
+	expectedEndpoint := "http://new-endpoint/path"
+	if engineEndpoint != expectedEndpoint {
+		t.Errorf("Engine endpoint was not set correctly. Expected %s but was %s", expectedEndpoint, engineEndpoint)
 	}
 }

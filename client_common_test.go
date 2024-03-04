@@ -19,9 +19,7 @@ func testProtocolVersion(t *testing.T, clientFactory func(string) Client) {
 
 	client := clientFactory(server.URL)
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {
-		// Do nothing
-	})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {}, func(value string) {})
 	if protocolVersionValue != protocolVersion {
 		t.Errorf("Did not set Protocol-Version value correctly on a query request")
 	}
@@ -48,7 +46,7 @@ func testUpdateParameters(t *testing.T, clientFactory func(string) Client) {
 	}
 	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, func(key, value string) {
 		params[key] = value
-	})
+	}, func(value string) {})
 	if err != nil {
 		t.Errorf("Error during query execution with update parameters header in response %s", err)
 	}

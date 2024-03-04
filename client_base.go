@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -16,12 +17,13 @@ const protocolVersionHeader = "Firebolt-Protocol-Version"
 const protocolVersion = "2.1"
 
 const updateParametersHeader = "Firebolt-Update-Parameters"
+const updateEndpointHeader = "Firebolt-Update-Endpoint"
 
 var allowedUpdateParameters = []string{"database"}
 
 type Client interface {
 	GetEngineUrlAndDB(ctx context.Context, engineName string, accountId string) (string, string, error)
-	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, updateParameters func(string, string)) (*QueryResponse, error)
+	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, updateParameters func(string, string), setEngineURL func(string)) (*QueryResponse, error)
 }
 
 type BaseClient struct {
@@ -42,7 +44,7 @@ type response struct {
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
-func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, updateParameters func(string, string)) (*QueryResponse, error) {
+func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, updateParameters func(string, string), setEngineURL func(string)) (*QueryResponse, error) {
 	infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
 
 	if c.parameterGetter == nil {
@@ -58,7 +60,7 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 		return nil, ConstructNestedError("error during query request", resp.err)
 	}
 
-	if err = processResponseHeaders(resp.headers, updateParameters); err != nil {
+	if err = c.processResponseHeaders(resp.headers, updateParameters, setEngineURL); err != nil {
 		return nil, ConstructNestedError("error during processing response headers", err)
 	}
 
@@ -86,21 +88,58 @@ func contains(s []string, e string) bool {
 	return false
 }
 
-func processResponseHeaders(headers http.Header, updateParameters func(string, string)) error {
-	if updateParametersRaw, ok := headers[updateParametersHeader]; ok {
-		updateParametersPairs := strings.Split(updateParametersRaw[0], ",")
-		for _, parameter := range updateParametersPairs {
-			kv := strings.Split(parameter, "=")
-			if len(kv) != 2 {
-				return fmt.Errorf("invalid parameter assignment %s", parameter)
-			}
-			if contains(allowedUpdateParameters, kv[0]) {
-				updateParameters(kv[0], kv[1])
-			} else {
-				infolog.Printf("Warning: received unknown update parameter %s", kv[0])
-			}
+func handleUpdateParameters(updateParameters func(string, string), updateParametersRaw string) {
+	updateParametersPairs := strings.Split(updateParametersRaw, ",")
+	for _, parameter := range updateParametersPairs {
+		kv := strings.Split(parameter, "=")
+		if len(kv) != 2 {
+			infolog.Printf("Warning: invalid parameter assignment %s", parameter)
+			continue
+		}
+		if contains(allowedUpdateParameters, kv[0]) {
+			updateParameters(kv[0], kv[1])
+		} else {
+			infolog.Printf("Warning: received unknown update parameter %s", kv[0])
 		}
 	}
+}
+
+func (c *BaseClient) handleUpdateEndpoint(updateEndpointRaw string, updateParameters func(string, string), setEngineURL func(string)) error {
+	// split URL containted into updateEndpointRaw into endpoint and parameters
+	// Update parameters and set client engine endpoint
+
+	corruptUrlError := errors.New("Failed to execute USE ENGINE command. Corrupt update endpoint. Contact support")
+	updateEndpoint, err := url.Parse(updateEndpointRaw)
+	if err != nil {
+		return corruptUrlError
+	}
+	newParameters, err := url.ParseQuery(updateEndpoint.RawQuery)
+	if err != nil {
+		return corruptUrlError
+	}
+	if newParameters.Has("account_id") && newParameters.Get("account_id") != c.AccountID {
+		return errors.New("Failed to execute USE ENGINE command. Account parameter mismatch. Contact support")
+	}
+	// set engine URL as a full URL excluding query parameters
+	setEngineURL(updateEndpoint.Scheme + "://" + updateEndpoint.Host + updateEndpoint.Path)
+	// update client parameters with new parameters
+	for k, v := range newParameters {
+		updateParameters(k, v[0])
+	}
+	return nil
+}
+
+func (c *BaseClient) processResponseHeaders(headers http.Header, updateParameters func(string, string), setEngineURL func(string)) error {
+	if updateParametersRaw, ok := headers[updateParametersHeader]; ok {
+		handleUpdateParameters(updateParameters, updateParametersRaw[0])
+	}
+
+	if updateEndpoint, ok := headers[updateEndpointHeader]; ok {
+		if err := c.handleUpdateEndpoint(updateEndpoint[0], updateParameters, setEngineURL); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

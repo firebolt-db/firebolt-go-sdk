@@ -71,7 +71,7 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 			}
 		}
 
-		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, c.setParameter); err != nil {
+		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, c.setParameter, c.setEngineURL); err != nil {
 			return &rows, ConstructNestedError("error during query execution", err)
 		} else {
 			rows.response = append(rows.response, *response)
@@ -97,7 +97,7 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 	if db, ok := c.parameters["database"]; ok {
 		parameters["database"] = db
 	}
-	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", parameters, c.setParameter)
+	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", parameters, c.setParameter, c.setEngineURL)
 	if err == nil {
 		c.setParameter(setKey, setValue)
 		return true, nil
@@ -115,4 +115,8 @@ func (c *fireboltConnection) setParameter(key, value string) {
 		c.connector.cachedParameters = make(map[string]string)
 	}
 	c.connector.cachedParameters[key] = value
+}
+
+func (c *fireboltConnection) setEngineURL(engineUrl string) {
+	c.engineUrl = engineUrl
 }
