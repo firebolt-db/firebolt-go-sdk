@@ -163,10 +163,32 @@ func (c *ClientImpl) getAccessToken() (string, error) {
 	return getAccessTokenServiceAccount(c.ClientID, c.ClientSecret, c.ApiEndpoint, c.UserAgent)
 }
 
-// GetEngineUrlAndDB returns engine URL and engine name based on engineName and accountId
-func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
-	// Assume we are connected to a system engine in the beginning
-	c.ConnectedToSystemEngine = true
+func (c *ClientImpl) getConnectionParametersV2(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
+	engineURL := c.SystemEngineURL
+	parameters := make(map[string]string)
+	control := connectionControl{
+		updateParameters: func(key, value string) {
+			parameters[key] = value
+		},
+		setEngineURL: func(s string) {
+			engineURL = s
+		},
+		resetParameters: func() {},
+	}
+	if databaseName != "" {
+		if _, err := c.Query(ctx, engineURL, "USE DATABASE "+databaseName, parameters, control); err != nil {
+			return "", nil, err
+		}
+	}
+	if engineName != "" {
+		if _, err := c.Query(ctx, engineURL, "USE ENGINE "+engineName, parameters, control); err != nil {
+			return "", nil, err
+		}
+	}
+	return engineURL, parameters, nil
+}
+
+func (c *ClientImpl) getConnectionParametersV1(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
 	// If engine name is empty, assume system engine
 	if len(engineName) == 0 {
 		return c.SystemEngineURL, map[string]string{"database": databaseName}, nil
@@ -189,4 +211,14 @@ func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, da
 	c.ConnectedToSystemEngine = false
 
 	return engineUrl, params, nil
+}
+
+// GetConnectionParameters returns engine URL and parameters based on engineName and databaseName
+func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
+	// Assume we are connected to a system engine in the beginning
+	c.ConnectedToSystemEngine = true
+	if c.AccountVersion == 2 {
+		return c.getConnectionParametersV2(ctx, engineName, databaseName)
+	}
+	return c.getConnectionParametersV1(ctx, engineName, databaseName)
 }

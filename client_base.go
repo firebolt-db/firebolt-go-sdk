@@ -128,7 +128,7 @@ func (c *BaseClient) handleUpdateEndpoint(updateEndpointRaw string, control conn
 		return errors.New("Failed to execute USE ENGINE command. Account parameter mismatch. Contact support")
 	}
 	// set engine URL as a full URL excluding query parameters
-	control.setEngineURL(updateEndpoint.Scheme + "://" + updateEndpoint.Host + updateEndpoint.Path)
+	control.setEngineURL(updateEndpoint.Host + updateEndpoint.Path)
 	// update client parameters with new parameters
 	for k, v := range newParameters {
 		control.updateParameters(k, v[0])

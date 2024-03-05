@@ -22,6 +22,14 @@ func (d *FireboltDriver) Open(dsn string) (driver.Conn, error) {
 	return conn.Connect(context.Background())
 }
 
+func copyMap(original map[string]string) map[string]string {
+	newMap := make(map[string]string)
+	for k, v := range original {
+		newMap[k] = v
+	}
+	return newMap
+}
+
 func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 	infolog.Println("Opening firebolt connector")
 
@@ -49,7 +57,7 @@ func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 		d.lastUsedDsn = dsn //nolint
 	}
 
-	return &FireboltConnector{d.engineUrl, d.client, d.cachedParams, d}, nil
+	return &FireboltConnector{d.engineUrl, d.client, copyMap(d.cachedParams), d}, nil
 }
 
 // FireboltConnector is an intermediate type between a Connection and a Driver which stores session data
