@@ -311,7 +311,7 @@ func TestGetAccountInfoDefaultVersion(t *testing.T) {
 }
 
 func TestUpdateEndpoint(t *testing.T) {
-	var newEndpoint = "http://new-endpoint/path?query=param"
+	var newEndpoint = "new-endpoint/path?query=param"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
 			_, _ = w.Write(getAuthResponse(10000))
@@ -330,7 +330,7 @@ func TestUpdateEndpoint(t *testing.T) {
 		"database": "db",
 	}
 
-	engineEndpoint := "http://old-endpoint"
+	engineEndpoint := "old-endpoint"
 
 	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, connectionControl{
 		updateParameters: func(key, value string) {
