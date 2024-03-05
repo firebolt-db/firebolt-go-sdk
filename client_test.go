@@ -346,7 +346,7 @@ func TestUpdateEndpoint(t *testing.T) {
 	if params["query"] != "param" {
 		t.Errorf("Query parameter was not set correctly. Expected 'param' but was %s", params["query"])
 	}
-	expectedEndpoint := "http://new-endpoint/path"
+	expectedEndpoint := "new-endpoint/path"
 	if engineEndpoint != expectedEndpoint {
 		t.Errorf("Engine endpoint was not set correctly. Expected %s but was %s", expectedEndpoint, engineEndpoint)
 	}
