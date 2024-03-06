@@ -202,6 +202,21 @@ func TestDriverSystemEngine(t *testing.T) {
 		fmt.Sprintf("STOP ENGINE %s", engineNewName),
 	}
 
+	// Cleanup
+	defer func() {
+		stopEngineQuery := fmt.Sprintf("STOP ENGINE %s", engineName)
+		stopNewEngineQuery := fmt.Sprintf("STOP ENGINE %s", engineNewName)
+		dropEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName)
+		dropNewEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName)
+		dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
+		for _, query := range []string{stopEngineQuery, stopNewEngineQuery, dropEngineQuery, dropNewEngineQuery, dropDbQuery} {
+			_, err = db.Query(query)
+			if err != nil {
+				t.Errorf("The cleanup query %s returned an error: %v", query, err)
+			}
+		}
+	}()
+
 	for _, query := range ddlStatements {
 		_, err := db.Query(query)
 		if err != nil {
@@ -221,24 +236,17 @@ func TestDriverSystemEngine(t *testing.T) {
 	if !containsDatabase {
 		t.Errorf("Could not find database with name %s", databaseName)
 	}
-	// Uncomment once https://packboard.atlassian.net/browse/FIR-17301 is done
-	//rows, err = db.Query("SHOW ENGINES")
-	//defer rows.Close()
-	//if err != nil {
-	//	t.Errorf("Failed to execute query 'SHOW ENGINES' : %v", err)
-	//}
-	//containsEngine, err := containsEngine(rows, databaseName)
-	//if err != nil {
-	//	t.Errorf("Failed to read response for query 'SHOW ENGINES' : %v", err)
-	//}
-	//if !containsEngine {
-	//	t.Errorf("Could not find engine with name %s", engineName)
-	//}
-
-	dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
-	_, err = db.Query(dropDbQuery)
+	rows, err = db.Query("SHOW ENGINES")
+	defer rows.Close()
 	if err != nil {
-		t.Errorf("The query %s returned an error: %v", dropDbQuery, err)
+		t.Errorf("Failed to execute query 'SHOW ENGINES' : %v", err)
+	}
+	containsEngine, err := containsEngine(rows, databaseName)
+	if err != nil {
+		t.Errorf("Failed to read response for query 'SHOW ENGINES' : %v", err)
+	}
+	if !containsEngine {
+		t.Errorf("Could not find engine with name %s", engineName)
 	}
 }
 
