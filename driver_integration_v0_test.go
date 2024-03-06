@@ -202,6 +202,22 @@ func TestDriverSystemEngine(t *testing.T) {
 		fmt.Sprintf("STOP ENGINE %s", engineNewName),
 	}
 
+	// Cleanup
+	defer func() {
+		stopEngineQuery := fmt.Sprintf("STOP ENGINE %s", engineName)
+		stopNewEngineQuery := fmt.Sprintf("STOP ENGINE %s", engineNewName)
+		dropEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName)
+		dropNewEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName)
+		for _, query := range []string{stopEngineQuery, stopNewEngineQuery, dropEngineQuery, dropNewEngineQuery} {
+			db.Query(query)
+		}
+		dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
+		_, err = db.Query(dropDbQuery)
+		if err != nil {
+			t.Errorf("The cleanup query %s returned an error: %v", dropDbQuery, err)
+		}
+	}()
+
 	for _, query := range ddlStatements {
 		_, err := db.Query(query)
 		if err != nil {
@@ -234,12 +250,6 @@ func TestDriverSystemEngine(t *testing.T) {
 	//if !containsEngine {
 	//	t.Errorf("Could not find engine with name %s", engineName)
 	//}
-
-	dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
-	_, err = db.Query(dropDbQuery)
-	if err != nil {
-		t.Errorf("The query %s returned an error: %v", dropDbQuery, err)
-	}
 }
 
 func containsDatabase(rows *sql.Rows, databaseToFind string) (bool, error) {
