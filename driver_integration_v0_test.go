@@ -208,12 +208,13 @@ func TestDriverSystemEngine(t *testing.T) {
 		stopNewEngineQuery := fmt.Sprintf("STOP ENGINE %s", engineNewName)
 		dropEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName)
 		dropNewEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName)
+		for _, query := range []string{stopEngineQuery, stopNewEngineQuery, dropEngineQuery, dropNewEngineQuery} {
+			db.Query(query)
+		}
 		dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
-		for _, query := range []string{stopEngineQuery, stopNewEngineQuery, dropEngineQuery, dropNewEngineQuery, dropDbQuery} {
-			_, err = db.Query(query)
-			if err != nil {
-				t.Errorf("The cleanup query %s returned an error: %v", query, err)
-			}
+		_, err = db.Query(dropDbQuery)
+		if err != nil {
+			t.Errorf("The cleanup query %s returned an error: %v", dropDbQuery, err)
 		}
 	}()
 
