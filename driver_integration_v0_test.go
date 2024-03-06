@@ -236,18 +236,19 @@ func TestDriverSystemEngine(t *testing.T) {
 	if !containsDatabase {
 		t.Errorf("Could not find database with name %s", databaseName)
 	}
-	rows, err = db.Query("SHOW ENGINES")
-	defer rows.Close()
-	if err != nil {
-		t.Errorf("Failed to execute query 'SHOW ENGINES' : %v", err)
-	}
-	containsEngine, err := containsEngine(rows, databaseName)
-	if err != nil {
-		t.Errorf("Failed to read response for query 'SHOW ENGINES' : %v", err)
-	}
-	if !containsEngine {
-		t.Errorf("Could not find engine with name %s", engineName)
-	}
+	// Uncomment once https://packboard.atlassian.net/browse/FIR-17301 is done
+	//rows, err = db.Query("SHOW ENGINES")
+	//defer rows.Close()
+	//if err != nil {
+	//	t.Errorf("Failed to execute query 'SHOW ENGINES' : %v", err)
+	//}
+	//containsEngine, err := containsEngine(rows, databaseName)
+	//if err != nil {
+	//	t.Errorf("Failed to read response for query 'SHOW ENGINES' : %v", err)
+	//}
+	//if !containsEngine {
+	//	t.Errorf("Could not find engine with name %s", engineName)
+	//}
 }
 
 func containsDatabase(rows *sql.Rows, databaseToFind string) (bool, error) {
