@@ -394,7 +394,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	d := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
 	ts := time.Date(2021, 1, 1, 2, 10, 20, 3000, time.UTC)
 	tstz := time.Date(2021, 1, 1, 2, 10, 20, 3000, loc)
-	ba := []byte("abc123")
+	ba := []byte("hello_world_123ツ\n\\u0048")
 
 	_, err = conn.QueryContext(
 		context.Background(),
