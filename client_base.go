@@ -44,6 +44,8 @@ type response struct {
 	err        error
 }
 
+// connectionControl is a struct that holds methods for updating connection properties
+// it's passed to Query method to allow it to update connection parameters and engine URL
 type connectionControl struct {
 	updateParameters func(string, string)
 	resetParameters  func()

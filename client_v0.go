@@ -179,7 +179,7 @@ func (c *ClientImplV0) getEngineUrlByDatabase(ctx context.Context, databaseName 
 	return engineUrlByDatabaseResponse.EngineUrl, nil
 }
 
-// GetEngineUrlAndDB returns engine URL and engine name based on engineName and accountId
+// GetConnectionParameters returns engine URL and engine name based on engineName and accountId
 func (c *ClientImplV0) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
 	// getting engineUrl either by using engineName if available,
 	// if not using default engine for the database

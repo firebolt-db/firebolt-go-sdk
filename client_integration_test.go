@@ -6,6 +6,7 @@ package fireboltgosdk
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 // TestGetEnginePropsByName test getting system engine url, as well as engine url, status and database by name
@@ -51,23 +52,23 @@ func TestQuery(t *testing.T) {
 
 // TestQuery with set statements
 func TestQuerySetStatements(t *testing.T) {
-	query := "SELECT * FROM information_schema.tables"
-	if _, err := clientMock.Query(
+	query := "SELECT '2024-01-01 00:00:00'::timestamptz"
+	resp, err := clientMock.Query(
 		context.TODO(),
 		engineUrlMock,
 		query,
-		map[string]string{"use_standard_sql": "1", "database": databaseMock},
+		map[string]string{"time_zone": "America/New_York", "database": databaseMock},
 		connectionControl{},
-	); err != nil {
+	)
+	if err != nil {
 		t.Errorf("Query returned an error: %v", err)
 	}
-	if _, err := clientMock.Query(
-		context.TODO(),
-		engineUrlMock,
-		query,
-		map[string]string{"use_standard_sql": "0", "database": databaseMock},
-		connectionControl{},
-	); err == nil {
-		t.Errorf("Query didn't return an error, but should")
+
+	date, err := parseValue("timestamptz", resp.Data[0][0])
+	if err != nil {
+		t.Errorf("Error parsing date: %v", err)
+	}
+	if date.(time.Time).Hour() != 5 {
+		t.Errorf("Invalid date returned: %s", date)
 	}
 }

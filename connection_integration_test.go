@@ -133,6 +133,7 @@ func TestConnectionV2UseDatabaseEngine(t *testing.T) {
 
 	const createTableSQL = "CREATE TABLE IF NOT EXISTS test_use (id INT)"
 	const insertSQL = "INSERT INTO test_use VALUES (1)"
+	const insertSQL2 = "INSERT INTO test_use VALUES (2)"
 
 	conn, err := sql.Open("firebolt", dsnSystemEngineV2Mock)
 	if err != nil {
@@ -173,6 +174,18 @@ func TestConnectionV2UseDatabaseEngine(t *testing.T) {
 	_, err = conn.Exec(insertSQL)
 	if err != nil {
 		t.Errorf("insert failed with %v", err)
+		t.FailNow()
+	}
+
+	_, err = conn.Exec("USE ENGINE system")
+	if err != nil {
+		t.Errorf("use engine failed with %v", err)
+		t.FailNow()
+	}
+
+	_, err = conn.Exec(insertSQL2)
+	if err == nil {
+		t.Errorf("insert worked on a system engine, while it shouldn't")
 		t.FailNow()
 	}
 }
