@@ -6,6 +6,7 @@ package fireboltgosdk
 import (
 	"context"
 	"testing"
+	"time"
 )
 
 // TestGetAccountId test getting account ID with existing and not existing accounts
