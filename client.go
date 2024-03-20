@@ -107,8 +107,13 @@ func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string)
 	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
 		return "", ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
 	}
+	// Ignore any query parameters provided in the URL
+	engineUrl, _, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
+	if err != nil {
+		return "", ConstructNestedError("error during splitting system engine URL", err)
+	}
 
-	return systemEngineURLResponse.EngineUrl, nil
+	return engineUrl, nil
 }
 
 func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (string, int, error) {
