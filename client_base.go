@@ -113,16 +113,24 @@ func handleUpdateParameters(updateParameters func(string, string), updateParamet
 	}
 }
 
+func splitEngineEndpoint(endpoint string) (string, url.Values, error) {
+	parsedUrl, err := url.Parse(endpoint)
+	if err != nil {
+		return "", nil, err
+	}
+	parameters, err := url.ParseQuery(parsedUrl.RawQuery)
+	if err != nil {
+		return "", nil, err
+	}
+	return parsedUrl.Host + parsedUrl.Path, parameters, nil
+}
+
 func (c *BaseClient) handleUpdateEndpoint(updateEndpointRaw string, control connectionControl) error {
 	// split URL containted into updateEndpointRaw into endpoint and parameters
 	// Update parameters and set client engine endpoint
 
 	corruptUrlError := errors.New("Failed to execute USE ENGINE command. Corrupt update endpoint. Contact support")
-	updateEndpoint, err := url.Parse(updateEndpointRaw)
-	if err != nil {
-		return corruptUrlError
-	}
-	newParameters, err := url.ParseQuery(updateEndpoint.RawQuery)
+	updateEndpoint, newParameters, err := splitEngineEndpoint(updateEndpointRaw)
 	if err != nil {
 		return corruptUrlError
 	}
@@ -130,7 +138,7 @@ func (c *BaseClient) handleUpdateEndpoint(updateEndpointRaw string, control conn
 		return errors.New("Failed to execute USE ENGINE command. Account parameter mismatch. Contact support")
 	}
 	// set engine URL as a full URL excluding query parameters
-	control.setEngineURL(updateEndpoint.Host + updateEndpoint.Path)
+	control.setEngineURL(updateEndpoint)
 	// update client parameters with new parameters
 	for k, v := range newParameters {
 		control.updateParameters(k, v[0])
