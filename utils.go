@@ -2,7 +2,6 @@ package fireboltgosdk
 
 import (
 	"database/sql/driver"
-	"encoding/hex"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -158,7 +157,11 @@ func formatValue(value driver.Value) (string, error) {
 		return fmt.Sprintf("'%s'", timeValue.Format(layout)), nil
 	case []byte:
 		byteValue := value.([]byte)
-		return fmt.Sprintf("'\\x%s'", hex.EncodeToString(byteValue)), nil
+		parts := make([]string, len(byteValue))
+		for i, b := range byteValue {
+			parts[i] = fmt.Sprintf("\\x%02x", b)
+		}
+		return fmt.Sprintf("E'%s'", strings.Join(parts, "")), nil
 	case nil:
 		return "NULL", nil
 	default:
