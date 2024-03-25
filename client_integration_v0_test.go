@@ -119,7 +119,7 @@ func TestQuerySetStatements(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error parsing date: %v", err)
 	}
-	if date.(time.Time).Hour() != 5 {
+	if date.(time.Time).UTC().Hour() != 5 {
 		t.Errorf("Invalid date returned: %s", date)
 	}
 }
