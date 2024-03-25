@@ -179,12 +179,13 @@ func (c *ClientImplV0) getEngineUrlByDatabase(ctx context.Context, databaseName 
 	return engineUrlByDatabaseResponse.EngineUrl, nil
 }
 
-// GetEngineUrlAndDB returns engine URL and engine name based on engineName and accountId
-func (c *ClientImplV0) GetEngineUrlAndDB(ctx context.Context, engineName, databaseName string) (string, string, error) {
+// GetConnectionParameters returns engine URL and engine name based on engineName and accountId
+func (c *ClientImplV0) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
 	// getting engineUrl either by using engineName if available,
 	// if not using default engine for the database
 	var engineUrl string
 	var err error
+	params := map[string]string{"database": databaseName}
 	if engineName != "" {
 		if strings.Contains(engineName, ".") {
 			engineUrl, err = makeCanonicalUrl(engineName), nil
@@ -196,9 +197,9 @@ func (c *ClientImplV0) GetEngineUrlAndDB(ctx context.Context, engineName, databa
 		engineUrl, err = c.getEngineUrlByDatabase(ctx, databaseName, c.AccountID)
 	}
 	if err != nil {
-		return "", "", ConstructNestedError("error during getting engine url", err)
+		return "", params, ConstructNestedError("error during getting engine url", err)
 	}
-	return engineUrl, databaseName, nil
+	return engineUrl, params, nil
 
 }
 

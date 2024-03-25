@@ -160,9 +160,7 @@ func TestUserAgent(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, func(key, value string) {
-		// Do nothing
-	})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, connectionControl{})
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
@@ -201,7 +199,7 @@ func getAuthResponse(expiry int) []byte {
 func setupTestServerAndClient(t *testing.T, testAccountName string) (*httptest.Server, *ClientImpl) {
 	// Create a mock server that returns a 404 status code
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == fmt.Sprintf(EngineUrlByAccountName, testAccountName) || req.URL.Path == fmt.Sprintf(AccountIdByAccountName, testAccountName) {
+		if req.URL.Path == fmt.Sprintf(EngineUrlByAccountName, testAccountName) || req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
 			rw.WriteHeader(http.StatusNotFound)
 		} else {
 			_, _ = rw.Write(getAuthResponse(10000))
@@ -233,17 +231,154 @@ func TestGetSystemEngineURLReturnsErrorOn404(t *testing.T) {
 	}
 }
 
-func TestGetAccountIdReturnsErrorOn404(t *testing.T) {
+func TestGetAccountInfoReturnsErrorOn404(t *testing.T) {
 	testAccountName := "testAccount"
 	server, client := setupTestServerAndClient(t, testAccountName)
 	defer server.Close()
 
 	// Call the getAccountID method and check if it returns an error
-	_, err := client.getAccountID(context.Background(), testAccountName)
+	_, _, err := client.getAccountInfo(context.Background(), testAccountName)
 	if err == nil {
 		t.Errorf("Expected an error, got nil")
 	}
 	if !strings.HasPrefix(err.Error(), fmt.Sprintf("account '%s' does not exist", testAccountName)) {
 		t.Errorf("Expected error to start with \"account '%s' does not exist\", got \"%s\"", testAccountName, err.Error())
+	}
+}
+
+func TestGetAccountInfo(t *testing.T) {
+	testAccountName := "testAccount"
+
+	// Create a mock server that returns a 200 status code
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
+			_, _ = rw.Write([]byte(`{"id": "account_id", "infraVersion": 2}`))
+		} else {
+			_, _ = rw.Write(getAuthResponse(10000))
+		}
+	}))
+
+	prepareEnvVariablesForTest(t, server)
+	client := &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
+
+	// Call the getAccountID method and check if it returns the correct account ID and version
+	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err)
+	}
+	if accountID != "account_id" {
+		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
+	}
+	if accountVersion != 2 {
+		t.Errorf("Expected account version to be 2, got %d", accountVersion)
+	}
+}
+
+func TestGetAccountInfoDefaultVersion(t *testing.T) {
+	testAccountName := "testAccount"
+
+	// Create a mock server that returns a 200 status code
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
+			_, _ = rw.Write([]byte(`{"id": "account_id"}`))
+		} else {
+			_, _ = rw.Write(getAuthResponse(10000))
+		}
+	}))
+
+	prepareEnvVariablesForTest(t, server)
+	client := &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
+
+	// Call the getAccountID method and check if it returns the correct account ID and version
+	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err)
+	}
+	if accountID != "account_id" {
+		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
+	}
+	if accountVersion != 1 {
+		t.Errorf("Expected account version to be 1, got %d", accountVersion)
+	}
+}
+
+func TestUpdateEndpoint(t *testing.T) {
+	var newEndpoint = "new-endpoint/path?query=param"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == ServiceAccountLoginURLSuffix {
+			_, _ = w.Write(getAuthResponse(10000))
+		} else if r.URL.Path == UsernamePasswordURLSuffix {
+			_, _ = w.Write(getAuthResponseV0(10000))
+		} else {
+			w.Header().Set(updateEndpointHeader, newEndpoint)
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+	prepareEnvVariablesForTest(t, server)
+	client := clientFactory(server.URL)
+
+	params := map[string]string{
+		"database": "db",
+	}
+
+	engineEndpoint := "old-endpoint"
+
+	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, connectionControl{
+		updateParameters: func(key, value string) {
+			params[key] = value
+		},
+		setEngineURL: func(value string) {
+			engineEndpoint = value
+		},
+	})
+	if err != nil {
+		t.Errorf("Error during query execution with update parameters header in response %s", err)
+	}
+	if params["query"] != "param" {
+		t.Errorf("Query parameter was not set correctly. Expected 'param' but was %s", params["query"])
+	}
+	expectedEndpoint := "new-endpoint/path"
+	if engineEndpoint != expectedEndpoint {
+		t.Errorf("Engine endpoint was not set correctly. Expected %s but was %s", expectedEndpoint, engineEndpoint)
+	}
+}
+
+func TestResetSession(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == ServiceAccountLoginURLSuffix {
+			_, _ = w.Write(getAuthResponse(10000))
+		} else {
+			w.Header().Set(resetSessionHeader, "true")
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+	prepareEnvVariablesForTest(t, server)
+	client := clientFactory(server.URL)
+
+	resetCalled := false
+	params := map[string]string{
+		"database": "db",
+	}
+
+	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, connectionControl{
+		resetParameters: func() {
+			resetCalled = true
+		},
+	})
+	if err != nil {
+		t.Errorf("Error during query execution with reset session header in response %s", err)
+	}
+	if !resetCalled {
+		t.Errorf("Reset session was not called")
 	}
 }

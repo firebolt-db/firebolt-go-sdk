@@ -52,3 +52,47 @@ func TestProcessSetStatement(t *testing.T) {
 	runProcessSetStatementFail(t, "SET account_id=1")
 	runProcessSetStatementFail(t, "SET output_format='json'")
 }
+
+func TestSetParameter(t *testing.T) {
+
+	connector := FireboltConnector{}
+	emptyClient := ClientImpl{} // Client version is irrelevant for this test
+	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, &connector}
+
+	fireboltConnection.setParameter("key", "value")
+	if fireboltConnection.parameters["key"] != "value" {
+		t.Errorf("setParameter didn't set parameter correctly")
+	}
+	if connector.cachedParameters["key"] != "value" {
+		t.Errorf("setParameter didn't set parameter in connector correctly")
+	}
+}
+
+func TestResetParameters(t *testing.T) {
+	connector := FireboltConnector{}
+	connector.cachedParameters = map[string]string{
+		"database":      "db",
+		"engine":        "engine",
+		"account_id":    "account_id",
+		"output_format": "output_format",
+		"key":           "value",
+	}
+	emptyClient := ClientImpl{} // Client version is irrelevant for this test
+	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, &connector}
+
+	fireboltConnection.parameters = map[string]string{
+		"database":      "db",
+		"engine":        "engine",
+		"account_id":    "account_id",
+		"output_format": "output_format",
+		"key":           "value",
+	}
+
+	fireboltConnection.resetParameters()
+	if len(fireboltConnection.parameters) != 4 {
+		t.Errorf("resetParameters didn't remove parameters correctly")
+	}
+	if len(connector.cachedParameters) != 4 {
+		t.Errorf("resetParameters didn't remove parameters in connector correctly")
+	}
+}

@@ -18,7 +18,7 @@ func TestDriverOptions(t *testing.T) {
 	)
 
 	assert(conn.engineUrl, engineUrl, t, "engineUrl is invalid")
-	assert(conn.databaseName, databaseName, t, "databaseName is invalid")
+	assert(conn.cachedParameters["database"], databaseName, t, "databaseName is invalid")
 
 	cl, ok := conn.client.(*ClientImpl)
 	assert(ok, true, t, "client is not *ClientImpl")

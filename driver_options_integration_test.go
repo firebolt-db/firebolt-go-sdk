@@ -16,7 +16,7 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 		t.Errorf("failed to get access token: %v", err)
 	}
 
-	engineUrl, err := clientMockWithAccount.getSystemEngineURL(context.TODO(), accountNameMock)
+	engineUrl, err := clientMockWithAccount.getSystemEngineURL(context.TODO(), accountNameV1Mock)
 	if err != nil {
 		t.Errorf("failed to get system engine url: %v", err)
 	}
@@ -27,7 +27,7 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 		WithClientParams(accountID, token, userAgent),
 	)
 
-	resp, err := conn.client.Query(context.Background(), conn.engineUrl, "SELECT 1", nil, func(string, string) {})
+	resp, err := conn.client.Query(context.Background(), conn.engineUrl, "SELECT 1", nil, connectionControl{})
 	if err != nil {
 		t.Errorf("failed unexpectedly with: %v", err)
 	}
