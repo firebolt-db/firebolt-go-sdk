@@ -460,12 +460,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 }
 
 func TestLongQuery(t *testing.T) {
-	var maxValue = 0
-	if v0Testing {
-		maxValue = 250000000000
-	} else {
-		maxValue = 430000000000
-	}
+	var maxValue = 430000000000
 
 	finished_in := make(chan time.Duration, 1)
 	go func() {
