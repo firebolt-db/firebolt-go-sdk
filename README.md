@@ -65,18 +65,15 @@ func main() {
 ### DSN (Data source name)
 All information for the connection should be specified using the DSN string. The firebolt dsn string has the following format:  
 ```
-firebolt://username:password@database[/engine_name][?account_name=account_name]
+firebolt://[/database]?account_name=account_name&client_id=client_id&client_secret=client_secret[&engine=engine]
 ```
 
-- **username** - the email address you use to log in to Firebolt.
-- **password** - your password to log in to Firebolt.
-- **database** - the Firebolt database to connect to.
-- **engine_url** - the url of the engine to run SQL on. Alternatively engine_name could be specified here, in this case, the engine url will be retrieved automatically. If omitted, the default engine for the database is used. 
-- **account_name** - the Firebolt account to log in to.
-
-You need to escape some characters with double backslashes, e.g. if you have a `@` sign in the password, you should write `\\@`.
+- **client_id** - credentials client id.
+- **client_secret** - credentials client secret.
+- **account_name** - the name of Firebolt account to log in to.
+- **database** - (optional) the name of the database to connect to.
+- **engine** - (optional) the name of the engine to run SQL on.
 
 ### Limitations
 Although, all interfaces are available, not all of them are implemented or could be implemented:
 - `driver.Result` is a dummy implementation and doesn't return the real result values.
-- Both `Exec` and `Query` accept arguments for prepared statements, but aren't implemented, and will panic
