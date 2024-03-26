@@ -394,7 +394,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	d := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
 	ts := time.Date(2021, 1, 1, 2, 10, 20, 3000, time.UTC)
 	tstz := time.Date(2021, 1, 1, 2, 10, 20, 3000, loc)
-	ba := []byte("hello_world_123ツ\n\\u0048")
+	ba := []byte("hello_world_123ツ\n\u0048")
 
 	_, err = conn.QueryContext(
 		context.Background(),
@@ -460,12 +460,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 }
 
 func TestLongQuery(t *testing.T) {
-	var maxValue = 0
-	if v0Testing {
-		maxValue = 250000000000
-	} else {
-		maxValue = 430000000000
-	}
+	var maxValue = 430000000000
 
 	finished_in := make(chan time.Duration, 1)
 	go func() {
@@ -482,7 +477,7 @@ func TestLongQuery(t *testing.T) {
 	}()
 	select {
 	case elapsed := <-finished_in:
-		if elapsed > 350*time.Minute {
+		if elapsed < 350*time.Second {
 			t.Errorf("Expected execution time to be more than 350 sec but was %v sec", elapsed)
 		}
 	case <-time.After(10 * time.Minute):

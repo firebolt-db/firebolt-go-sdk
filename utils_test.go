@@ -116,7 +116,7 @@ func TestFormatValue(t *testing.T) {
 	runTestFormatValue(t, false, "false")
 	runTestFormatValue(t, -10, "-10")
 	runTestFormatValue(t, nil, "NULL")
-	runTestFormatValue(t, []byte("abcd"), "'\\x61626364'")
+	runTestFormatValue(t, []byte("abcd"), "E'\\x61\\x62\\x63\\x64'")
 	// Time
 	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 123000, time.UTC), "'2022-01-10 01:03:02.000123'")
 	runTestFormatValue(t, time.Date(2022, 01, 10, 1, 3, 2, 123000, time.FixedZone("", 0)), "'2022-01-10 01:03:02.000123'")
