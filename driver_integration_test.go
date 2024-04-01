@@ -86,7 +86,7 @@ func init() {
 }
 
 func getEngineURL() string {
-	systemEngineURL, err := clientMockWithAccount.getSystemEngineURL(context.TODO(), accountNameV1Mock)
+	systemEngineURL, _, err := clientMockWithAccount.getSystemEngineURLParameters(context.TODO(), accountNameV1Mock, "")
 	if err != nil {
 		panic(fmt.Sprintf("Error returned by getSystemEngineURL: %s", err))
 	}

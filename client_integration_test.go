@@ -11,7 +11,7 @@ import (
 
 // TestGetEnginePropsByName test getting system engine url, as well as engine url, status and database by name
 func TestGetEnginePropsByName(t *testing.T) {
-	systemEngineURL, err := clientMockWithAccount.getSystemEngineURL(context.TODO(), accountNameV1Mock)
+	systemEngineURL, _, err := clientMockWithAccount.getSystemEngineURLParameters(context.TODO(), accountNameV1Mock, "")
 	if err != nil {
 		t.Errorf("Error returned by getSystemEngineURL: %s", err)
 	}
