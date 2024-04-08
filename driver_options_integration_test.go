@@ -32,7 +32,7 @@ func TestFireboltConnectorWithOptionsAccountV1(t *testing.T) {
 		t.Errorf("failed to get access token: %v", err)
 	}
 
-	engineUrl, _, err := clientMockWithAccount.getSystemEngineURLParameters(context.TODO(), accountNameV1Mock, "")
+	engineUrl, _, err := clientMockWithAccount.getSystemEngineURLAndParameters(context.TODO(), accountNameV1Mock, "")
 	if err != nil {
 		t.Errorf("failed to get system engine url: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestFireboltConnectorWithOptionsAccountV2(t *testing.T) {
 		t.Errorf("failed to get access token: %v", err)
 	}
 
-	engineUrl, engineParameters, err := clientMockWithAccount.getSystemEngineURLParameters(context.TODO(), accountNameV2Mock, "")
+	engineUrl, engineParameters, err := clientMockWithAccount.getSystemEngineURLAndParameters(context.TODO(), accountNameV2Mock, "")
 	if err != nil {
 		t.Errorf("failed to get system engine url: %v", err)
 	}
