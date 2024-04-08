@@ -222,7 +222,7 @@ func TestGetSystemEngineURLReturnsErrorOn404(t *testing.T) {
 	defer server.Close()
 
 	// Call the getSystemEngineURL method and check if it returns an error
-	_, _, err := client.getSystemEngineURLParameters(context.Background(), testAccountName, "")
+	_, _, err := client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
 	if err == nil {
 		t.Errorf("Expected an error, got nil")
 	}

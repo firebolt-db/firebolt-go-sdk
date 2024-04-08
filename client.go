@@ -83,7 +83,7 @@ func parseEngineInfoResponse(resp [][]interface{}) (string, string, string, erro
 	return engineUrl, status, dbName, nil
 }
 
-func (c *ClientImpl) getSystemEngineURLParameters(ctx context.Context, accountName, databaseName string) (string, map[string]string, error) {
+func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accountName string, databaseName string) (string, map[string]string, error) {
 	infolog.Printf("Get system engine URL for account '%s'", accountName)
 
 	type SystemEngineURLResponse struct {
@@ -104,7 +104,6 @@ func (c *ClientImpl) getSystemEngineURLParameters(ctx context.Context, accountNa
 	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
 		return "", nil, ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
 	}
-	// Ignore any query parameters provided in the URL
 	engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 	if err != nil {
 		return "", nil, ConstructNestedError("error during splitting system engine URL", err)
@@ -238,7 +237,7 @@ func (c *ClientImpl) getConnectionParametersV1(
 func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
 	// Assume we are connected to a system engine in the beginning
 
-	systemEngineURL, systemEngineParameters, err := c.getSystemEngineURLParameters(context.Background(), c.AccountName, databaseName)
+	systemEngineURL, systemEngineParameters, err := c.getSystemEngineURLAndParameters(context.Background(), c.AccountName, databaseName)
 	if err != nil {
 		return "", nil, ConstructNestedError("error during getting system engine url", err)
 	}
