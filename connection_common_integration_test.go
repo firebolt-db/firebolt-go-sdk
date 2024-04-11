@@ -29,8 +29,8 @@ func TestConnectionSetStatement(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err = conn.ExecContext(context.TODO(), "SET use_standard_sql=1")
-	assert(err, nil, t, "set use_standard_sql returned an error, but shouldn't")
+	_, err = conn.ExecContext(context.TODO(), "SET time_zone=America/New_York")
+	assert(err, nil, t, "set time_zone returned an error, but shouldn't")
 
 	_, err = conn.QueryContext(context.TODO(), "SELECT * FROM information_schema.tables")
 	assert(err, nil, t, "query returned an error, but shouldn't")
