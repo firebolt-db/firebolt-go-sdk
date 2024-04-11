@@ -86,7 +86,7 @@ func init() {
 }
 
 func getEngineURL() string {
-	systemEngineURL, err := clientMockWithAccount.getSystemEngineURL(context.TODO(), accountNameV1Mock)
+	systemEngineURL, _, err := clientMockWithAccount.getSystemEngineURLAndParameters(context.TODO(), accountNameV1Mock, "")
 	if err != nil {
 		panic(fmt.Sprintf("Error returned by getSystemEngineURL: %s", err))
 	}
@@ -344,7 +344,7 @@ func createServiceAccountNoUser(t *testing.T, serviceAccountName string) (string
 		t.Errorf("failed unexpectedly with %v", err)
 	}
 	// create service account
-	createServiceAccountQuery := fmt.Sprintf("CREATE SERVICE ACCOUNT \"%s\" WITH DESCRIPTION = \"%s\"", serviceAccountName, serviceAccountDescription)
+	createServiceAccountQuery := fmt.Sprintf("CREATE SERVICE ACCOUNT \"%s\" WITH DESCRIPTION = '%s'", serviceAccountName, serviceAccountDescription)
 	_, err = db.Query(createServiceAccountQuery)
 	if err != nil {
 		t.Errorf("The query %s returned an error: %v", createServiceAccountQuery, err)

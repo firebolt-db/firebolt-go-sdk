@@ -9,7 +9,7 @@ import (
 
 type ClientImpl struct {
 	ConnectedToSystemEngine bool
-	SystemEngineURL         string
+	AccountName             string
 	AccountVersion          int
 	BaseClient
 }
@@ -31,6 +31,7 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 			ApiEndpoint:  apiEndpoint,
 			UserAgent:    ConstructUserAgentString(),
 		},
+		AccountName: settings.accountName,
 	}
 	client.parameterGetter = client.getQueryParams
 	client.accessTokenGetter = client.getAccessToken
@@ -39,10 +40,6 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 	client.AccountID, client.AccountVersion, err = client.getAccountInfo(context.Background(), settings.accountName)
 	if err != nil {
 		return nil, ConstructNestedError("error during getting account id", err)
-	}
-	client.SystemEngineURL, err = client.getSystemEngineURL(context.Background(), settings.accountName)
-	if err != nil {
-		return nil, ConstructNestedError("error during getting system engine url", err)
 	}
 	return client, nil
 }
@@ -86,7 +83,7 @@ func parseEngineInfoResponse(resp [][]interface{}) (string, string, string, erro
 	return engineUrl, status, dbName, nil
 }
 
-func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string) (string, error) {
+func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accountName string, databaseName string) (string, map[string]string, error) {
 	infolog.Printf("Get system engine URL for account '%s'", accountName)
 
 	type SystemEngineURLResponse struct {
@@ -97,23 +94,30 @@ func (c *ClientImpl) getSystemEngineURL(ctx context.Context, accountName string)
 
 	resp := c.request(ctx, "GET", url, make(map[string]string), "")
 	if resp.statusCode == 404 {
-		return "", fmt.Errorf(accountError, accountName)
+		return "", nil, fmt.Errorf(accountError, accountName)
 	}
 	if resp.err != nil {
-		return "", ConstructNestedError("error during system engine url http request", resp.err)
+		return "", nil, ConstructNestedError("error during system engine url http request", resp.err)
 	}
 
 	var systemEngineURLResponse SystemEngineURLResponse
 	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
-		return "", ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
+		return "", nil, ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
 	}
-	// Ignore any query parameters provided in the URL
-	engineUrl, _, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
+	engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 	if err != nil {
-		return "", ConstructNestedError("error during splitting system engine URL", err)
+		return "", nil, ConstructNestedError("error during splitting system engine URL", err)
 	}
 
-	return engineUrl, nil
+	parameters := make(map[string]string)
+	if len(databaseName) != 0 {
+		parameters["database"] = databaseName
+	}
+	for key, value := range queryParams {
+		parameters[key] = value[0]
+	}
+
+	return engineUrl, parameters, nil
 }
 
 func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (string, int, error) {
@@ -152,8 +156,8 @@ func (c *ClientImpl) getQueryParams(setStatements map[string]string) (map[string
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
-	// Account id is only used when querying system engine
-	if c.ConnectedToSystemEngine {
+	// Account id is only used when querying system engine for infra v1
+	if c.ConnectedToSystemEngine && c.AccountVersion == 1 {
 		if len(c.AccountID) == 0 {
 			return nil, fmt.Errorf("Trying to run a query against system engine without account id defined")
 		}
@@ -168,9 +172,15 @@ func (c *ClientImpl) getAccessToken() (string, error) {
 	return getAccessTokenServiceAccount(c.ClientID, c.ClientSecret, c.ApiEndpoint, c.UserAgent)
 }
 
-func (c *ClientImpl) getConnectionParametersV2(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
-	engineURL := c.SystemEngineURL
-	parameters := make(map[string]string)
+func (c *ClientImpl) getConnectionParametersV2(
+	ctx context.Context,
+	engineName,
+	databaseName,
+	systemEngineURL string,
+	systemEngineParameters map[string]string,
+) (string, map[string]string, error) {
+	engineURL := systemEngineURL
+	parameters := systemEngineParameters
 	control := connectionControl{
 		updateParameters: func(key, value string) {
 			parameters[key] = value
@@ -193,13 +203,18 @@ func (c *ClientImpl) getConnectionParametersV2(ctx context.Context, engineName, 
 	return engineURL, parameters, nil
 }
 
-func (c *ClientImpl) getConnectionParametersV1(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
+func (c *ClientImpl) getConnectionParametersV1(
+	ctx context.Context,
+	engineName,
+	databaseName,
+	systemEngineURL string,
+) (string, map[string]string, error) {
 	// If engine name is empty, assume system engine
 	if len(engineName) == 0 {
-		return c.SystemEngineURL, map[string]string{"database": databaseName}, nil
+		return systemEngineURL, map[string]string{"database": databaseName}, nil
 	}
 
-	engineUrl, status, dbName, err := c.getEngineUrlStatusDBByName(ctx, engineName, c.SystemEngineURL)
+	engineUrl, status, dbName, err := c.getEngineUrlStatusDBByName(ctx, engineName, systemEngineURL)
 	params := map[string]string{"database": dbName}
 	if err != nil {
 		return "", params, ConstructNestedError("error during getting engine info", err)
@@ -221,9 +236,15 @@ func (c *ClientImpl) getConnectionParametersV1(ctx context.Context, engineName, 
 // GetConnectionParameters returns engine URL and parameters based on engineName and databaseName
 func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
 	// Assume we are connected to a system engine in the beginning
+
+	systemEngineURL, systemEngineParameters, err := c.getSystemEngineURLAndParameters(context.Background(), c.AccountName, databaseName)
+	if err != nil {
+		return "", nil, ConstructNestedError("error during getting system engine url", err)
+	}
+
 	c.ConnectedToSystemEngine = true
 	if c.AccountVersion == 2 {
-		return c.getConnectionParametersV2(ctx, engineName, databaseName)
+		return c.getConnectionParametersV2(ctx, engineName, databaseName, systemEngineURL, systemEngineParameters)
 	}
-	return c.getConnectionParametersV1(ctx, engineName, databaseName)
+	return c.getConnectionParametersV1(ctx, engineName, databaseName, systemEngineURL)
 }

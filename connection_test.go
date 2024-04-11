@@ -49,7 +49,6 @@ func runProcessSetStatementFail(t *testing.T, value string) {
 func TestProcessSetStatement(t *testing.T) {
 	runProcessSetStatementFail(t, "SET database=my_db")
 	runProcessSetStatementFail(t, "SET engine=my_engine")
-	runProcessSetStatementFail(t, "SET account_id=1")
 	runProcessSetStatementFail(t, "SET output_format='json'")
 }
 
@@ -73,7 +72,6 @@ func TestResetParameters(t *testing.T) {
 	connector.cachedParameters = map[string]string{
 		"database":      "db",
 		"engine":        "engine",
-		"account_id":    "account_id",
 		"output_format": "output_format",
 		"key":           "value",
 	}
@@ -83,16 +81,15 @@ func TestResetParameters(t *testing.T) {
 	fireboltConnection.parameters = map[string]string{
 		"database":      "db",
 		"engine":        "engine",
-		"account_id":    "account_id",
 		"output_format": "output_format",
 		"key":           "value",
 	}
 
 	fireboltConnection.resetParameters()
-	if len(fireboltConnection.parameters) != 4 {
+	if len(fireboltConnection.parameters) != 3 {
 		t.Errorf("resetParameters didn't remove parameters correctly")
 	}
-	if len(connector.cachedParameters) != 4 {
+	if len(connector.cachedParameters) != 3 {
 		t.Errorf("resetParameters didn't remove parameters in connector correctly")
 	}
 }

@@ -22,7 +22,7 @@ func getUseParametersList() []string {
 }
 
 func getDisallowedParametersList() []string {
-	return []string{"account_id", "output_format"}
+	return []string{"output_format"}
 }
 
 func ConstructNestedError(message string, err error) error {

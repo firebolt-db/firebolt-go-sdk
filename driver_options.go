@@ -22,11 +22,16 @@ func WithDatabaseName(databaseName string) driverOption {
 // WithClientParams defines client parameters for the driver
 func WithClientParams(accountID string, token string, userAgent string) driverOption {
 	return func(d *FireboltDriver) {
+		if d.cachedParams == nil {
+			d.cachedParams = map[string]string{}
+		}
+		// Put account_id in cachedParams for it to work both with engines v1 and v2
+		d.cachedParams["account_id"] = accountID
+
 		cl := &ClientImpl{
 			ConnectedToSystemEngine: true,
 		}
 
-		cl.AccountID = accountID
 		cl.UserAgent = userAgent
 
 		cl.parameterGetter = cl.getQueryParams

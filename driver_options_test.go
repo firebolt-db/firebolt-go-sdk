@@ -23,7 +23,8 @@ func TestDriverOptions(t *testing.T) {
 	cl, ok := conn.client.(*ClientImpl)
 	assert(ok, true, t, "client is not *ClientImpl")
 
-	assert(cl.AccountID, accountID, t, "accountID is invalid")
+	connectionAccountID := conn.cachedParameters["account_id"]
+	assert(connectionAccountID, accountID, t, "accountID is invalid")
 	assert(cl.UserAgent, userAgent, t, "userAgent is invalid")
 
 	tok, err := cl.accessTokenGetter()
