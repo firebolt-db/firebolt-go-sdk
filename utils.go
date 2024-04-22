@@ -120,6 +120,9 @@ func SplitStatements(sql string) ([]string, error) {
 		if err != nil {
 			return nil, ConstructNestedError("error during splitting query", err)
 		}
+		if strings.Trim(query, " \t\n") == "" {
+			continue
+		}
 		queries = append(queries, query)
 	}
 
