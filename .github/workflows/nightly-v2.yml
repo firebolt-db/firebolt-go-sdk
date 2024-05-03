@@ -11,21 +11,21 @@ jobs:
     strategy:
       fail-fast: false # finish all jobs even if one fails
       max-parallel: 2
-      matrix: 
+      matrix:
         os: ['macos-latest', 'windows-latest', 'ubuntu-latest']
         go-version: ['1.16', '1.17', '1.18', '1.19']
     steps:
       - name: Check out code
         uses: actions/checkout@v2
-      
+
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
           go-version: ${{ matrix.go-version }}
-   
+
       - name: Install go tools
         run: go get golang.org/x/tools/cmd/cover
- 
+
       - name: Set up Python 3.7
         uses: actions/setup-python@v2
         with:
@@ -38,7 +38,7 @@ jobs:
           firebolt-client-id: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
           firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
           api-endpoint: "api.staging.firebolt.io"
-          account: ${{ vars.FIREBOLT_ACCOUNT }}
+          account: ${{ vars.FIREBOLT_ACCOUNT_V1 }}
           instance-type: "B2"
 
       - name: Run integration tests
@@ -46,7 +46,8 @@ jobs:
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
           FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
-          ACCOUNT_NAME: ${{ vars.FIREBOLT_ACCOUNT }}
+          ACCOUNT_NAME_V1: ${{ vars.FIREBOLT_ACCOUNT_V1 }}
+          ACCOUNT_NAME_V2: ${{ vars.FIREBOLT_ACCOUNT_V2 }}
           CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
           CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
         run: |
@@ -59,7 +60,7 @@ jobs:
           percentage=$(go tool cover -func=cover.out | tail -n 1 | awk '{print $3}' | awk -F'%' '{ print $1 }')
           percentage_whole=$(echo "${percentage%.*}")
           echo "covered=$percentage_whole" >>  $GITHUB_OUTPUT
-  
+
       - name: Slack Notify of failure
         if: failure()
         id: slack
