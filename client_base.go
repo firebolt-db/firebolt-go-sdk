@@ -134,7 +134,7 @@ func (c *BaseClient) handleUpdateEndpoint(updateEndpointRaw string, control conn
 	if err != nil {
 		return corruptUrlError
 	}
-	if newParameters.Has("account_id") && newParameters.Get("account_id") != c.AccountID {
+	if accId, ok := newParameters["account_id"]; ok && accId[0] != c.AccountID {
 		return errors.New("Failed to execute USE ENGINE command. Account parameter mismatch. Contact support")
 	}
 	// set engine URL as a full URL excluding query parameters
