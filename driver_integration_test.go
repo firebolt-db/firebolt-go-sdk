@@ -244,7 +244,7 @@ func TestDriverSystemEngine(t *testing.T) {
 		fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName),
 		fmt.Sprintf("CREATE ENGINE \"%s\" WITH SPEC = 'C1' SCALE = 1", engineName),
 		fmt.Sprintf("ATTACH ENGINE \"%s\" TO \"%s\"", engineName, databaseName),
-		fmt.Sprintf("ALTER DATABASE \"%s\\\" SET DESCRIPTION = 'GO SDK Integration test'", databaseName),
+		fmt.Sprintf("ALTER DATABASE \"%s\" SET DESCRIPTION = 'GO SDK Integration test'", databaseName),
 		fmt.Sprintf("ALTER ENGINE \"%s\" RENAME TO %s", engineName, engineNewName),
 		fmt.Sprintf("START ENGINE \"%s\"", engineNewName),
 		fmt.Sprintf("STOP ENGINE \"%s\"", engineNewName),
