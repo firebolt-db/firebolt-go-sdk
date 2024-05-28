@@ -191,12 +191,14 @@ func (c *ClientImpl) getConnectionParametersV2(
 		resetParameters: func() {},
 	}
 	if databaseName != "" {
-		if _, err := c.Query(ctx, engineURL, "USE DATABASE "+databaseName, parameters, control); err != nil {
+		sql := fmt.Sprintf("USE DATABASE \"%s\"", databaseName)
+		if _, err := c.Query(ctx, engineURL, sql, parameters, control); err != nil {
 			return "", nil, err
 		}
 	}
 	if engineName != "" {
-		if _, err := c.Query(ctx, engineURL, "USE ENGINE "+engineName, parameters, control); err != nil {
+		sql := fmt.Sprintf("USE ENGINE \"%s\"", engineName)
+		if _, err := c.Query(ctx, engineURL, sql, parameters, control); err != nil {
 			return "", nil, err
 		}
 	}
