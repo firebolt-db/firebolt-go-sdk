@@ -319,7 +319,6 @@ func TestGetAccountInfoCached(t *testing.T) {
 
 	urlCalled := 0
 
-	// Create a mock server that returns a 200 status code
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
 		if req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
 			_, _ = rw.Write([]byte(`{"id": "account_id", "infraVersion": 2}`))
@@ -333,7 +332,6 @@ func TestGetAccountInfoCached(t *testing.T) {
 
 	var client = clientFactory(server.URL).(*ClientImpl)
 
-	// Call the getAccountID method and check if it returns the correct account ID and version
 	// Account info should be fetched from the cache so the server should not be called
 	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
 	if err != nil {
