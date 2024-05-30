@@ -174,6 +174,8 @@ func clientFactory(apiEndpoint string) Client {
 	}
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
+	client.URLCache, _ = cache.NewCache("memory", `{}`)
+	client.AccountCache, _ = cache.NewCache("memory", `{}`)
 	return client
 }
 
@@ -247,15 +249,9 @@ func TestGetSystemEngineURLCaching(t *testing.T) {
 		}
 	}))
 	defer server.Close()
-
 	prepareEnvVariablesForTest(t, server)
-	var client = &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
-	}
-	client.accessTokenGetter = client.getAccessToken
-	client.parameterGetter = client.getQueryParams
 
-	client.URLCache, _ = cache.NewCache("memory", `{}`)
+	var client = clientFactory(server.URL).(*ClientImpl)
 
 	var err error
 	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
@@ -334,12 +330,8 @@ func TestGetAccountInfoCached(t *testing.T) {
 	}))
 
 	prepareEnvVariablesForTest(t, server)
-	client := &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
-	}
-	client.accessTokenGetter = client.getAccessToken
-	client.parameterGetter = client.getQueryParams
-	client.AccountCache, _ = cache.NewCache("memory", `{}`)
+
+	var client = clientFactory(server.URL).(*ClientImpl)
 
 	// Call the getAccountID method and check if it returns the correct account ID and version
 	// Account info should be fetched from the cache so the server should not be called
