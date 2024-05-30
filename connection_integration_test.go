@@ -6,6 +6,7 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"testing"
 )
 
@@ -15,11 +16,11 @@ func setupEngineAndDatabase(t *testing.T) {
 		t.Errorf("opening a connection failed unexpectedly: %v", err)
 		t.FailNow()
 	}
-	if _, err = conn.Exec("CREATE DATABASE IF NOT EXISTS " + databaseMock); err != nil {
+	if _, err = conn.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS \"%s\"", databaseMock)); err != nil {
 		t.Errorf("creating a database failed unexpectedly: %v", err)
 		t.FailNow()
 	}
-	if _, err = conn.Exec("CREATE ENGINE IF NOT EXISTS " + engineNameMock); err != nil {
+	if _, err = conn.Exec(fmt.Sprintf("CREATE ENGINE IF NOT EXISTS \"%s\"", engineNameMock)); err != nil {
 		t.Errorf("creating an engine failed unexpectedly: %v", err)
 		t.FailNow()
 	}
@@ -31,15 +32,15 @@ func cleanupEngineAndDatabase(t *testing.T) {
 		t.Errorf("opening a connection failed unexpectedly: %v", err)
 		t.FailNow()
 	}
-	if _, err = conn.Exec("STOP ENGINE " + engineNameMock); err != nil {
+	if _, err = conn.Exec(fmt.Sprintf("STOP ENGINE \"%s\"", engineNameMock)); err != nil {
 		t.Errorf("stopping an engine failed unexpectedly: %v", err)
 		t.FailNow()
 	}
-	if _, err = conn.Exec("DROP ENGINE IF EXISTS " + engineNameMock); err != nil {
+	if _, err = conn.Exec(fmt.Sprintf("DROP ENGINE IF EXISTS \"%s\"", engineNameMock)); err != nil {
 		t.Errorf("dropping an engine failed unexpectedly: %v", err)
 		t.FailNow()
 	}
-	if _, err = conn.Exec("DROP DATABASE IF EXISTS " + databaseMock); err != nil {
+	if _, err = conn.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS \"%s\"", databaseMock)); err != nil {
 		t.Errorf("dropping a database failed unexpectedly: %v", err)
 		t.FailNow()
 	}
@@ -147,7 +148,7 @@ func TestConnectionV2UseDatabaseEngine(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err = conn.Exec("USE DATABASE " + databaseMock)
+	_, err = conn.Exec(fmt.Sprintf("USE DATABASE \"%s\"", databaseMock))
 	if err != nil {
 		t.Errorf("use database failed with %v", err)
 		t.FailNow()
@@ -165,7 +166,7 @@ func TestConnectionV2UseDatabaseEngine(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err = conn.Exec("USE ENGINE " + engineNameMock)
+	_, err = conn.Exec(fmt.Sprintf("USE ENGINE \"%s\"", engineNameMock))
 	if err != nil {
 		t.Errorf("use engine failed with %v", err)
 		t.FailNow()
@@ -186,6 +187,47 @@ func TestConnectionV2UseDatabaseEngine(t *testing.T) {
 	_, err = conn.Exec(insertSQL2)
 	if err == nil {
 		t.Errorf("insert worked on a system engine, while it shouldn't")
+		t.FailNow()
+	}
+}
+
+func TestConnectionUppercaseNames(t *testing.T) {
+	systemConnection, err := sql.Open("firebolt", dsnSystemEngineV2Mock)
+	if err != nil {
+		t.Errorf("opening a system connection failed unexpectedly %v", err)
+		t.FailNow()
+	}
+
+	engineName := engineNameMock + "_UPPERCASE"
+	databaseName := databaseMock + "_UPPERCASE"
+
+	_, err = systemConnection.Exec(fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName))
+	if err != nil {
+		t.Errorf("creating a database failed unexpectedly %v", err)
+		t.FailNow()
+	}
+	defer systemConnection.Exec(fmt.Sprintf("DROP DATABASE \"%s\"", databaseName))
+	_, err = systemConnection.Exec(fmt.Sprintf("CREATE ENGINE \"%s\"", engineName))
+	if err != nil {
+		t.Errorf("creating an engine failed unexpectedly %v", err)
+		t.FailNow()
+	}
+	defer systemConnection.Exec(fmt.Sprintf("DROP ENGINE \"%s\"", engineName))
+
+	dsnUppercase := fmt.Sprintf(
+		"firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s",
+		databaseName, accountNameV2Mock, engineName, clientIdMock, clientSecretMock,
+	)
+
+	conn, err := sql.Open("firebolt", dsnUppercase)
+	if err != nil {
+		t.Errorf("opening a connection failed unexpectedly")
+		t.FailNow()
+	}
+
+	_, err = conn.Exec("SELECT 1")
+	if err != nil {
+		t.Errorf("query failed with %v", err)
 		t.FailNow()
 	}
 }

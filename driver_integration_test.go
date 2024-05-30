@@ -241,25 +241,25 @@ func TestDriverSystemEngine(t *testing.T) {
 		t.Errorf("failed unexpectedly with %v", err)
 	}
 	ddlStatements := []string{
-		fmt.Sprintf("CREATE DATABASE %s", databaseName),
-		fmt.Sprintf("CREATE ENGINE %s WITH SPEC = 'C1' SCALE = 1", engineName),
-		fmt.Sprintf("ATTACH ENGINE %s TO %s", engineName, databaseName),
-		fmt.Sprintf("ALTER DATABASE %s SET DESCRIPTION = 'GO SDK Integration test'", databaseName),
-		fmt.Sprintf("ALTER ENGINE %s RENAME TO %s", engineName, engineNewName),
-		fmt.Sprintf("START ENGINE %s", engineNewName),
-		fmt.Sprintf("STOP ENGINE %s", engineNewName),
+		fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName),
+		fmt.Sprintf("CREATE ENGINE \"%s\" WITH SPEC = 'C1' SCALE = 1", engineName),
+		fmt.Sprintf("ATTACH ENGINE \"%s\" TO \"%s\"", engineName, databaseName),
+		fmt.Sprintf("ALTER DATABASE \"%s\" SET DESCRIPTION = 'GO SDK Integration test'", databaseName),
+		fmt.Sprintf("ALTER ENGINE \"%s\" RENAME TO %s", engineName, engineNewName),
+		fmt.Sprintf("START ENGINE \"%s\"", engineNewName),
+		fmt.Sprintf("STOP ENGINE \"%s\"", engineNewName),
 	}
 
 	// Cleanup
 	defer func() {
-		stopEngineQuery := fmt.Sprintf("STOP ENGINE %s", engineName)
-		stopNewEngineQuery := fmt.Sprintf("STOP ENGINE %s", engineNewName)
-		dropEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineName)
-		dropNewEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS %s", engineNewName)
+		stopEngineQuery := fmt.Sprintf("STOP ENGINE \"%s\"", engineName)
+		stopNewEngineQuery := fmt.Sprintf("STOP ENGINE \"%s\"", engineNewName)
+		dropEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS \"%s\"", engineName)
+		dropNewEngineQuery := fmt.Sprintf("DROP ENGINE IF EXISTS \"%s\"", engineNewName)
 		for _, query := range []string{stopEngineQuery, stopNewEngineQuery, dropEngineQuery, dropNewEngineQuery} {
 			db.Query(query)
 		}
-		dropDbQuery := fmt.Sprintf("DROP DATABASE %s", databaseName)
+		dropDbQuery := fmt.Sprintf("DROP DATABASE \"%s\"", databaseName)
 		_, err = db.Query(dropDbQuery)
 		if err != nil {
 			t.Errorf("The cleanup query %s returned an error: %v", dropDbQuery, err)
