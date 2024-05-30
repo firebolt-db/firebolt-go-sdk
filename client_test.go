@@ -10,6 +10,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/astaxie/beego/cache"
 )
 
 func init() {
@@ -231,6 +233,44 @@ func TestGetSystemEngineURLReturnsErrorOn404(t *testing.T) {
 	}
 }
 
+func TestGetSystemEngineURLCaching(t *testing.T) {
+	testAccountName := "testAccount"
+
+	urlCalled := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == fmt.Sprintf(EngineUrlByAccountName, testAccountName) {
+			_, _ = rw.Write([]byte(`{"engineUrl": "https://my_url.com"}`))
+			urlCalled++
+		} else {
+			_, _ = rw.Write(getAuthResponse(10000))
+		}
+	}))
+	defer server.Close()
+
+	prepareEnvVariablesForTest(t, server)
+	var client = &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
+
+	client.URLCache, _ = cache.NewCache("memory", `{}`)
+
+	var err error
+	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err)
+	}
+	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err)
+	}
+	if urlCalled != 1 {
+		t.Errorf("Expected to call the server only once, got %d", urlCalled)
+	}
+}
+
 func TestGetAccountInfoReturnsErrorOn404(t *testing.T) {
 	testAccountName := "testAccount"
 	server, client := setupTestServerAndClient(t, testAccountName)
@@ -275,6 +315,54 @@ func TestGetAccountInfo(t *testing.T) {
 	}
 	if accountVersion != 2 {
 		t.Errorf("Expected account version to be 2, got %d", accountVersion)
+	}
+}
+
+func TestGetAccountInfoCached(t *testing.T) {
+	testAccountName := "testAccount"
+
+	urlCalled := 0
+
+	// Create a mock server that returns a 200 status code
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
+			_, _ = rw.Write([]byte(`{"id": "account_id", "infraVersion": 2}`))
+			urlCalled++
+		} else {
+			_, _ = rw.Write(getAuthResponse(10000))
+		}
+	}))
+
+	prepareEnvVariablesForTest(t, server)
+	client := &ClientImpl{
+		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
+	}
+	client.accessTokenGetter = client.getAccessToken
+	client.parameterGetter = client.getQueryParams
+	client.AccountCache, _ = cache.NewCache("memory", `{}`)
+
+	// Call the getAccountID method and check if it returns the correct account ID and version
+	// Account info should be fetched from the cache so the server should not be called
+	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err)
+	}
+	if accountID != "account_id" {
+		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
+	}
+	if accountVersion != 2 {
+		t.Errorf("Expected account version to be 2, got %d", accountVersion)
+	}
+	url := fmt.Sprintf(server.URL+AccountInfoByAccountName, testAccountName)
+	if client.AccountCache.Get(url) == nil {
+		t.Errorf("Expected account info to be cached")
+	}
+	_, _, err = client.getAccountInfo(context.Background(), testAccountName)
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err)
+	}
+	if urlCalled != 1 {
+		t.Errorf("Expected to call the server only once, got %d", urlCalled)
 	}
 }
 

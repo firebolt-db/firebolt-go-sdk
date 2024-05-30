@@ -6,12 +6,16 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/astaxie/beego/cache"
 )
 
 type ClientImpl struct {
 	ConnectedToSystemEngine bool
 	AccountName             string
 	AccountVersion          int
+	AccountCache            cache.Cache
+	URLCache                cache.Cache
 	BaseClient
 }
 
@@ -38,6 +42,12 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 	client.accessTokenGetter = client.getAccessToken
 
 	var err error
+	if client.AccountCache, err = cache.NewCache("memory", `{}`); err != nil {
+		infolog.Println(fmt.Errorf("could not create account cache: %v", err))
+	}
+	if client.URLCache, err = cache.NewCache("memory", `{}`); err != nil {
+		infolog.Println(fmt.Errorf("could not create url cache: %v", err))
+	}
 	client.AccountID, client.AccountVersion, err = client.getAccountInfo(context.Background(), settings.accountName)
 	if err != nil {
 		return nil, ConstructNestedError("error during getting account id", err)
@@ -84,6 +94,17 @@ func parseEngineInfoResponse(resp [][]interface{}) (string, string, string, erro
 	return engineUrl, status, dbName, nil
 }
 
+func constructParameters(databaseName string, queryParams map[string][]string) map[string]string {
+	parameters := make(map[string]string)
+	if len(databaseName) != 0 {
+		parameters["database"] = databaseName
+	}
+	for key, value := range queryParams {
+		parameters[key] = value[0]
+	}
+	return parameters
+}
+
 func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accountName string, databaseName string) (string, map[string]string, error) {
 	infolog.Printf("Get system engine URL for account '%s'", accountName)
 
@@ -92,6 +113,21 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 	}
 
 	url := fmt.Sprintf(c.ApiEndpoint+EngineUrlByAccountName, accountName)
+	// Check if the URL is in the cache
+	if c.URLCache != nil {
+		val := c.URLCache.Get(url)
+		if val != nil {
+			if systemEngineURLResponse, ok := val.(SystemEngineURLResponse); ok {
+				infolog.Printf("Resolved account %s to system engine URL %s from cache", accountName, systemEngineURLResponse.EngineUrl)
+				engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
+				if err != nil {
+					return "", nil, ConstructNestedError("error during splitting system engine URL", err)
+				}
+				parameters := constructParameters(databaseName, queryParams)
+				return engineUrl, parameters, nil
+			}
+		}
+	}
 
 	resp := c.request(ctx, "GET", url, make(map[string]string), "")
 	if resp.statusCode == 404 {
@@ -105,24 +141,20 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
 		return "", nil, ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
 	}
+	if c.URLCache != nil {
+		c.URLCache.Put(url, systemEngineURLResponse, 0)
+	}
 	engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 	if err != nil {
 		return "", nil, ConstructNestedError("error during splitting system engine URL", err)
 	}
 
-	parameters := make(map[string]string)
-	if len(databaseName) != 0 {
-		parameters["database"] = databaseName
-	}
-	for key, value := range queryParams {
-		parameters[key] = value[0]
-	}
+	parameters := constructParameters(databaseName, queryParams)
 
 	return engineUrl, parameters, nil
 }
 
 func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (string, int, error) {
-	infolog.Printf("Getting account ID for '%s'", accountName)
 
 	type AccountIdURLResponse struct {
 		Id           string `json:"id"`
@@ -131,6 +163,17 @@ func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (st
 	}
 
 	url := fmt.Sprintf(c.ApiEndpoint+AccountInfoByAccountName, accountName)
+
+	if c.AccountCache != nil {
+		val := c.AccountCache.Get(url)
+		if val != nil {
+			if accountInfo, ok := val.(AccountIdURLResponse); ok {
+				infolog.Printf("Resolved account %s to id %s from cache", accountName, accountInfo.Id)
+				return accountInfo.Id, accountInfo.InfraVersion, nil
+			}
+		}
+	}
+	infolog.Printf("Getting account ID for '%s'", accountName)
 
 	resp := c.request(ctx, "GET", url, make(map[string]string), "")
 	if resp.statusCode == 404 {
@@ -145,6 +188,9 @@ func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (st
 	accountIdURLResponse.InfraVersion = 1
 	if err := json.Unmarshal(resp.data, &accountIdURLResponse); err != nil {
 		return "", 0, ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(resp.data)))
+	}
+	if c.AccountCache != nil {
+		c.AccountCache.Put(url, accountIdURLResponse, 0)
 	}
 
 	infolog.Printf("Resolved account %s to id %s", accountName, accountIdURLResponse.Id)
