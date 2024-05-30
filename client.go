@@ -142,7 +142,7 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 		return "", nil, ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
 	}
 	if c.URLCache != nil {
-		c.URLCache.Put(url, systemEngineURLResponse, 0)
+		c.URLCache.Put(url, systemEngineURLResponse, 0) //nolint:errcheck
 	}
 	engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 	if err != nil {
@@ -190,7 +190,7 @@ func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (st
 		return "", 0, ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(resp.data)))
 	}
 	if c.AccountCache != nil {
-		c.AccountCache.Put(url, accountIdURLResponse, 0)
+		c.AccountCache.Put(url, accountIdURLResponse, 0) //nolint:errcheck
 	}
 
 	infolog.Printf("Resolved account %s to id %s", accountName, accountIdURLResponse.Id)
