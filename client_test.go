@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -176,7 +177,10 @@ func clientFactory(apiEndpoint string) Client {
 	}
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
-	initialiseCaches()
+	err := initialiseCaches()
+	if err != nil {
+		log.Printf("Error while initializing caches: %s", err)
+	}
 	return client
 }
 
