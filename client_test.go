@@ -18,6 +18,12 @@ func init() {
 
 var originalEndpoint string
 
+func raiseIfError(t *testing.T, err error) {
+	if err != nil {
+		t.Errorf("Encountered error %s", err)
+	}
+}
+
 // TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
 func TestCacheAccessToken(t *testing.T) {
 	var fetchTokenCount = 0
@@ -39,9 +45,7 @@ func TestCacheAccessToken(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	for i := 0; i < 3; i++ {
 		resp := client.request(context.TODO(), "GET", server.URL, nil, "")
-		if resp.err != nil {
-			t.Errorf("Did not expect an error %s", resp.err)
-		}
+		raiseIfError(t, resp.err)
 	}
 
 	token, _ := getAccessTokenServiceAccount("client_id", "", server.URL, "")
@@ -252,13 +256,9 @@ func TestGetSystemEngineURLCaching(t *testing.T) {
 
 	var err error
 	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	if urlCalled != 1 {
 		t.Errorf("Expected to call the server only once, got %d", urlCalled)
 	}
@@ -266,9 +266,7 @@ func TestGetSystemEngineURLCaching(t *testing.T) {
 
 	client = clientFactory(server.URL).(*ClientImpl)
 	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	// Still only one call, as the cache is shared between clients
 	if urlCalled != 1 {
 		t.Errorf("Expected to call the server only once, got %d", urlCalled)
@@ -311,9 +309,7 @@ func TestGetAccountInfo(t *testing.T) {
 
 	// Call the getAccountID method and check if it returns the correct account ID and version
 	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	if accountID != "account_id" {
 		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
 	}
@@ -342,9 +338,7 @@ func TestGetAccountInfoCached(t *testing.T) {
 
 	// Account info should be fetched from the cache so the server should not be called
 	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	if accountID != "account_id" {
 		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
 	}
@@ -356,17 +350,13 @@ func TestGetAccountInfoCached(t *testing.T) {
 		t.Errorf("Expected account info to be cached")
 	}
 	_, _, err = client.getAccountInfo(context.Background(), testAccountName)
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	if urlCalled != 1 {
 		t.Errorf("Expected to call the server only once, got %d", urlCalled)
 	}
 	client = clientFactory(server.URL).(*ClientImpl)
 	_, _, err = client.getAccountInfo(context.Background(), testAccountName)
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	// Still only one call, as the cache is shared between clients
 	if urlCalled != 1 {
 		t.Errorf("Expected to call the server only once, got %d", urlCalled)
@@ -394,9 +384,7 @@ func TestGetAccountInfoDefaultVersion(t *testing.T) {
 
 	// Call the getAccountID method and check if it returns the correct account ID and version
 	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	if accountID != "account_id" {
 		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
 	}
@@ -435,9 +423,7 @@ func TestUpdateEndpoint(t *testing.T) {
 			engineEndpoint = value
 		},
 	})
-	if err != nil {
-		t.Errorf("Error during query execution with update parameters header in response %s", err)
-	}
+	raiseIfError(t, err)
 	if params["query"] != "param" {
 		t.Errorf("Query parameter was not set correctly. Expected 'param' but was %s", params["query"])
 	}
@@ -470,9 +456,7 @@ func TestResetSession(t *testing.T) {
 			resetCalled = true
 		},
 	})
-	if err != nil {
-		t.Errorf("Error during query execution with reset session header in response %s", err)
-	}
+	raiseIfError(t, err)
 	if !resetCalled {
 		t.Errorf("Reset session was not called")
 	}
