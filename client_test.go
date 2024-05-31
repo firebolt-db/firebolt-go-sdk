@@ -10,8 +10,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/astaxie/beego/cache"
 )
 
 func init() {
@@ -174,8 +172,7 @@ func clientFactory(apiEndpoint string) Client {
 	}
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
-	client.URLCache, _ = cache.NewCache("memory", `{}`)
-	client.AccountCache, _ = cache.NewCache("memory", `{}`)
+	initialiseCaches()
 	return client
 }
 
@@ -265,6 +262,17 @@ func TestGetSystemEngineURLCaching(t *testing.T) {
 	if urlCalled != 1 {
 		t.Errorf("Expected to call the server only once, got %d", urlCalled)
 	}
+	// Create a new client
+
+	client = clientFactory(server.URL).(*ClientImpl)
+	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err)
+	}
+	// Still only one call, as the cache is shared between clients
+	if urlCalled != 1 {
+		t.Errorf("Expected to call the server only once, got %d", urlCalled)
+	}
 }
 
 func TestGetAccountInfoReturnsErrorOn404(t *testing.T) {
@@ -344,13 +352,22 @@ func TestGetAccountInfoCached(t *testing.T) {
 		t.Errorf("Expected account version to be 2, got %d", accountVersion)
 	}
 	url := fmt.Sprintf(server.URL+AccountInfoByAccountName, testAccountName)
-	if client.AccountCache.Get(url) == nil {
+	if AccountCache.Get(url) == nil {
 		t.Errorf("Expected account info to be cached")
 	}
 	_, _, err = client.getAccountInfo(context.Background(), testAccountName)
 	if err != nil {
 		t.Errorf("Expected no error, got %s", err)
 	}
+	if urlCalled != 1 {
+		t.Errorf("Expected to call the server only once, got %d", urlCalled)
+	}
+	client = clientFactory(server.URL).(*ClientImpl)
+	_, _, err = client.getAccountInfo(context.Background(), testAccountName)
+	if err != nil {
+		t.Errorf("Expected no error, got %s", err)
+	}
+	// Still only one call, as the cache is shared between clients
 	if urlCalled != 1 {
 		t.Errorf("Expected to call the server only once, got %d", urlCalled)
 	}

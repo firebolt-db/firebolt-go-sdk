@@ -10,12 +10,14 @@ import (
 	"github.com/astaxie/beego/cache"
 )
 
+// Static caches on pacakge level
+var AccountCache cache.Cache
+var URLCache cache.Cache
+
 type ClientImpl struct {
 	ConnectedToSystemEngine bool
 	AccountName             string
 	AccountVersion          int
-	AccountCache            cache.Cache
-	URLCache                cache.Cache
 	BaseClient
 }
 
@@ -27,6 +29,21 @@ WHERE engine_name='%s'
 const accountError = `account '%s' does not exist in this organization or is not authorized.
 Please verify the account name and make sure your service account has the
 correct RBAC permissions and is linked to a user`
+
+func initialiseCaches() error {
+	var err error
+	if AccountCache == nil {
+		if AccountCache, err = cache.NewCache("memory", `{}`); err != nil {
+			return fmt.Errorf("could not create account cache: %v", err)
+		}
+	}
+	if URLCache == nil {
+		if URLCache, err = cache.NewCache("memory", `{}`); err != nil {
+			return fmt.Errorf("could not create url cache: %v", err)
+		}
+	}
+	return nil
+}
 
 func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, error) {
 	client := &ClientImpl{
@@ -41,20 +58,17 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 	client.parameterGetter = client.getQueryParams
 	client.accessTokenGetter = client.getAccessToken
 
+	if err := initialiseCaches(); err != nil {
+		infolog.Printf("Error during cache initialisation: %v", err)
+	}
+
 	var err error
-	if client.AccountCache, err = cache.NewCache("memory", `{}`); err != nil {
-		infolog.Println(fmt.Errorf("could not create account cache: %v", err))
-	}
-	if client.URLCache, err = cache.NewCache("memory", `{}`); err != nil {
-		infolog.Println(fmt.Errorf("could not create url cache: %v", err))
-	}
 	client.AccountID, client.AccountVersion, err = client.getAccountInfo(context.Background(), settings.accountName)
 	if err != nil {
 		return nil, ConstructNestedError("error during getting account id", err)
 	}
 	return client, nil
 }
-
 func (c *ClientImpl) getEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
 	infolog.Printf("Get info for engine '%s'", engineName)
 	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
@@ -114,8 +128,8 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 
 	url := fmt.Sprintf(c.ApiEndpoint+EngineUrlByAccountName, accountName)
 	// Check if the URL is in the cache
-	if c.URLCache != nil {
-		val := c.URLCache.Get(url)
+	if URLCache != nil {
+		val := URLCache.Get(url)
 		if val != nil {
 			if systemEngineURLResponse, ok := val.(SystemEngineURLResponse); ok {
 				infolog.Printf("Resolved account %s to system engine URL %s from cache", accountName, systemEngineURLResponse.EngineUrl)
@@ -141,8 +155,8 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
 		return "", nil, ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
 	}
-	if c.URLCache != nil {
-		c.URLCache.Put(url, systemEngineURLResponse, 0) //nolint:errcheck
+	if URLCache != nil {
+		URLCache.Put(url, systemEngineURLResponse, 0) //nolint:errcheck
 	}
 	engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 	if err != nil {
@@ -164,8 +178,8 @@ func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (st
 
 	url := fmt.Sprintf(c.ApiEndpoint+AccountInfoByAccountName, accountName)
 
-	if c.AccountCache != nil {
-		val := c.AccountCache.Get(url)
+	if AccountCache != nil {
+		val := AccountCache.Get(url)
 		if val != nil {
 			if accountInfo, ok := val.(AccountIdURLResponse); ok {
 				infolog.Printf("Resolved account %s to id %s from cache", accountName, accountInfo.Id)
@@ -189,8 +203,8 @@ func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (st
 	if err := json.Unmarshal(resp.data, &accountIdURLResponse); err != nil {
 		return "", 0, ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(resp.data)))
 	}
-	if c.AccountCache != nil {
-		c.AccountCache.Put(url, accountIdURLResponse, 0) //nolint:errcheck
+	if AccountCache != nil {
+		AccountCache.Put(url, accountIdURLResponse, 0) //nolint:errcheck
 	}
 
 	infolog.Printf("Resolved account %s to id %s", accountName, accountIdURLResponse.Id)
