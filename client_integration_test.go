@@ -20,7 +20,7 @@ func TestGetEnginePropsByName(t *testing.T) {
 		t.Errorf("Empty system engine url returned by getSystemEngineURL for account: %s", accountNameV1Mock)
 	}
 
-	engineURL, status, dbName, err := clientMockWithAccount.getEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
+	engineURL, status, _, err := clientMockWithAccount.getEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
 	if err != nil {
 		t.Errorf("Error returned by getEngineUrlStatusDBByName: %s", err)
 	}
@@ -30,7 +30,6 @@ func TestGetEnginePropsByName(t *testing.T) {
 	if !strings.EqualFold(status, "Running") {
 		t.Errorf("Invalid status returned by getEngineUrlStatusDBByName. Got: %s, should be Running", status)
 	}
-
 }
 
 // TestQuery tests simple query
