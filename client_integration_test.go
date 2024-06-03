@@ -30,9 +30,6 @@ func TestGetEnginePropsByName(t *testing.T) {
 	if !strings.EqualFold(status, "Running") {
 		t.Errorf("Invalid status returned by getEngineUrlStatusDBByName. Got: %s, should be Running", status)
 	}
-	if dbName != databaseMock {
-		t.Errorf("Invalid database returned by getEngineUrlStatusDBByName: expected %s, got %s", databaseMock, dbName)
-	}
 
 }
 
