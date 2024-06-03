@@ -242,7 +242,7 @@ func TestDriverSystemEngine(t *testing.T) {
 	}
 	ddlStatements := []string{
 		fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName),
-		fmt.Sprintf("CREATE ENGINE \"%s\" WITH TYPE = 'S' NODES = 1 AUTO_START = false", engineName),
+		fmt.Sprintf("CREATE ENGINE \"%s\" WITH TYPE = S NODES = 1 AUTO_START = false", engineName),
 		fmt.Sprintf("ALTER DATABASE \"%s\" SET DESCRIPTION = 'GO SDK Integration test'", databaseName),
 		fmt.Sprintf("ALTER ENGINE \"%s\" RENAME TO %s", engineName, engineNewName),
 		fmt.Sprintf("START ENGINE \"%s\"", engineNewName),
