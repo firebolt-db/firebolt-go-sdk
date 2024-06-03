@@ -5,6 +5,7 @@ package fireboltgosdk
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -26,7 +27,7 @@ func TestGetEnginePropsByName(t *testing.T) {
 	if engineURL == "" {
 		t.Errorf("Empty engine url returned by getEngineUrlStatusDBByName")
 	}
-	if status != "Running" {
+	if !strings.EqualFold(status, "Running") {
 		t.Errorf("Invalid status returned by getEngineUrlStatusDBByName. Got: %s, should be Running", status)
 	}
 	if dbName != databaseMock {
