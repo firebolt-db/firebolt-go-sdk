@@ -435,7 +435,8 @@ func TestConnectionPreparedStatement(t *testing.T) {
 
 	assert(dest[0], int32(1), t, "int32 results are not equal")
 	assert(dest[1], int64(2), t, "int64 results are not equal")
-	assert(dest[2], float32(0.333333), t, "float32 results are not equal")
+	// float is now alias for double so both 32 an 64 bit float values are converted to float64
+	assert(dest[2], 0.333333, t, "float32 results are not equal")
 	assert(dest[3], 0.333333333333, t, "float64 results are not equal")
 	assert(dest[4], "text", t, "string results are not equal")
 	assert(dest[5], d, t, "date results are not equal")
