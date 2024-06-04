@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -17,6 +18,12 @@ func init() {
 }
 
 var originalEndpoint string
+
+func raiseIfError(t *testing.T, err error) {
+	if err != nil {
+		t.Errorf("Encountered error %s", err)
+	}
+}
 
 // TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
 func TestCacheAccessToken(t *testing.T) {
@@ -39,9 +46,7 @@ func TestCacheAccessToken(t *testing.T) {
 	client.accessTokenGetter = client.getAccessToken
 	for i := 0; i < 3; i++ {
 		resp := client.request(context.TODO(), "GET", server.URL, nil, "")
-		if resp.err != nil {
-			t.Errorf("Did not expect an error %s", resp.err)
-		}
+		raiseIfError(t, resp.err)
 	}
 
 	token, _ := getAccessTokenServiceAccount("client_id", "", server.URL, "")
@@ -172,6 +177,10 @@ func clientFactory(apiEndpoint string) Client {
 	}
 	client.accessTokenGetter = client.getAccessToken
 	client.parameterGetter = client.getQueryParams
+	err := initialiseCaches()
+	if err != nil {
+		log.Printf("Error while initializing caches: %s", err)
+	}
 	return client
 }
 
@@ -231,6 +240,43 @@ func TestGetSystemEngineURLReturnsErrorOn404(t *testing.T) {
 	}
 }
 
+func TestGetSystemEngineURLCaching(t *testing.T) {
+	testAccountName := "testAccount"
+
+	urlCalled := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == fmt.Sprintf(EngineUrlByAccountName, testAccountName) {
+			_, _ = rw.Write([]byte(`{"engineUrl": "https://my_url.com"}`))
+			urlCalled++
+		} else {
+			_, _ = rw.Write(getAuthResponse(10000))
+		}
+	}))
+	defer server.Close()
+	prepareEnvVariablesForTest(t, server)
+
+	var client = clientFactory(server.URL).(*ClientImpl)
+
+	var err error
+	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
+	raiseIfError(t, err)
+	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
+	raiseIfError(t, err)
+	if urlCalled != 1 {
+		t.Errorf("Expected to call the server only once, got %d", urlCalled)
+	}
+	// Create a new client
+
+	client = clientFactory(server.URL).(*ClientImpl)
+	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
+	raiseIfError(t, err)
+	// Still only one call, as the cache is shared between clients
+	if urlCalled != 1 {
+		t.Errorf("Expected to call the server only once, got %d", urlCalled)
+	}
+}
+
 func TestGetAccountInfoReturnsErrorOn404(t *testing.T) {
 	testAccountName := "testAccount"
 	server, client := setupTestServerAndClient(t, testAccountName)
@@ -267,14 +313,57 @@ func TestGetAccountInfo(t *testing.T) {
 
 	// Call the getAccountID method and check if it returns the correct account ID and version
 	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	if accountID != "account_id" {
 		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
 	}
 	if accountVersion != 2 {
 		t.Errorf("Expected account version to be 2, got %d", accountVersion)
+	}
+}
+
+func TestGetAccountInfoCached(t *testing.T) {
+	testAccountName := "testAccount"
+
+	urlCalled := 0
+
+	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
+		if req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
+			_, _ = rw.Write([]byte(`{"id": "account_id", "infraVersion": 2}`))
+			urlCalled++
+		} else {
+			_, _ = rw.Write(getAuthResponse(10000))
+		}
+	}))
+
+	prepareEnvVariablesForTest(t, server)
+
+	var client = clientFactory(server.URL).(*ClientImpl)
+
+	// Account info should be fetched from the cache so the server should not be called
+	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
+	raiseIfError(t, err)
+	if accountID != "account_id" {
+		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
+	}
+	if accountVersion != 2 {
+		t.Errorf("Expected account version to be 2, got %d", accountVersion)
+	}
+	url := fmt.Sprintf(server.URL+AccountInfoByAccountName, testAccountName)
+	if AccountCache.Get(url) == nil {
+		t.Errorf("Expected account info to be cached")
+	}
+	_, _, err = client.getAccountInfo(context.Background(), testAccountName)
+	raiseIfError(t, err)
+	if urlCalled != 1 {
+		t.Errorf("Expected to call the server only once, got %d", urlCalled)
+	}
+	client = clientFactory(server.URL).(*ClientImpl)
+	_, _, err = client.getAccountInfo(context.Background(), testAccountName)
+	raiseIfError(t, err)
+	// Still only one call, as the cache is shared between clients
+	if urlCalled != 1 {
+		t.Errorf("Expected to call the server only once, got %d", urlCalled)
 	}
 }
 
@@ -299,9 +388,7 @@ func TestGetAccountInfoDefaultVersion(t *testing.T) {
 
 	// Call the getAccountID method and check if it returns the correct account ID and version
 	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
-	if err != nil {
-		t.Errorf("Expected no error, got %s", err)
-	}
+	raiseIfError(t, err)
 	if accountID != "account_id" {
 		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
 	}
@@ -340,9 +427,7 @@ func TestUpdateEndpoint(t *testing.T) {
 			engineEndpoint = value
 		},
 	})
-	if err != nil {
-		t.Errorf("Error during query execution with update parameters header in response %s", err)
-	}
+	raiseIfError(t, err)
 	if params["query"] != "param" {
 		t.Errorf("Query parameter was not set correctly. Expected 'param' but was %s", params["query"])
 	}
@@ -375,9 +460,7 @@ func TestResetSession(t *testing.T) {
 			resetCalled = true
 		},
 	})
-	if err != nil {
-		t.Errorf("Error during query execution with reset session header in response %s", err)
-	}
+	raiseIfError(t, err)
 	if !resetCalled {
 		t.Errorf("Reset session was not called")
 	}
