@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 )
 
 type ClientImpl struct {
@@ -221,7 +222,8 @@ func (c *ClientImpl) getConnectionParametersV1(
 	if err != nil {
 		return "", params, ConstructNestedError("error during getting engine info", err)
 	}
-	if status != engineStatusRunning {
+	// Case-insensitive comparison
+	if !strings.EqualFold(status, engineStatusRunning) {
 		return "", params, fmt.Errorf("engine %s is not running", engineName)
 	}
 	if len(dbName) == 0 {

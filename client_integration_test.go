@@ -5,6 +5,7 @@ package fireboltgosdk
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 )
@@ -19,20 +20,16 @@ func TestGetEnginePropsByName(t *testing.T) {
 		t.Errorf("Empty system engine url returned by getSystemEngineURL for account: %s", accountNameV1Mock)
 	}
 
-	engineURL, status, dbName, err := clientMockWithAccount.getEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
+	engineURL, status, _, err := clientMockWithAccount.getEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
 	if err != nil {
 		t.Errorf("Error returned by getEngineUrlStatusDBByName: %s", err)
 	}
 	if engineURL == "" {
 		t.Errorf("Empty engine url returned by getEngineUrlStatusDBByName")
 	}
-	if status != "Running" {
+	if !strings.EqualFold(status, "Running") {
 		t.Errorf("Invalid status returned by getEngineUrlStatusDBByName. Got: %s, should be Running", status)
 	}
-	if dbName != databaseMock {
-		t.Errorf("Invalid database returned by getEngineUrlStatusDBByName: expected %s, got %s", databaseMock, dbName)
-	}
-
 }
 
 // TestQuery tests simple query

@@ -28,7 +28,6 @@ jobs:
           firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN}}
           api-endpoint: "api.staging.firebolt.io"
           account: ${{ vars.FIREBOLT_ACCOUNT_V1 }}
-          instance-type: "B2"
 
       - name: Run integration tests
         env:
