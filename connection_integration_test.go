@@ -10,42 +10,6 @@ import (
 	"testing"
 )
 
-func setupEngineAndDatabase(t *testing.T) {
-	conn, err := sql.Open("firebolt", dsnSystemEngineMock)
-	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly: %v", err)
-		t.FailNow()
-	}
-	if _, err = conn.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS \"%s\"", databaseMock)); err != nil {
-		t.Errorf("creating a database failed unexpectedly: %v", err)
-		t.FailNow()
-	}
-	if _, err = conn.Exec(fmt.Sprintf("CREATE ENGINE IF NOT EXISTS \"%s\"", engineNameMock)); err != nil {
-		t.Errorf("creating an engine failed unexpectedly: %v", err)
-		t.FailNow()
-	}
-}
-
-func cleanupEngineAndDatabase(t *testing.T) {
-	conn, err := sql.Open("firebolt", dsnSystemEngineMock)
-	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly: %v", err)
-		t.FailNow()
-	}
-	if _, err = conn.Exec(fmt.Sprintf("STOP ENGINE \"%s\"", engineNameMock)); err != nil {
-		t.Errorf("stopping an engine failed unexpectedly: %v", err)
-		t.FailNow()
-	}
-	if _, err = conn.Exec(fmt.Sprintf("DROP ENGINE IF EXISTS \"%s\"", engineNameMock)); err != nil {
-		t.Errorf("dropping an engine failed unexpectedly: %v", err)
-		t.FailNow()
-	}
-	if _, err = conn.Exec(fmt.Sprintf("DROP DATABASE IF EXISTS \"%s\"", databaseMock)); err != nil {
-		t.Errorf("dropping a database failed unexpectedly: %v", err)
-		t.FailNow()
-	}
-}
-
 func TestConnectionUseDatabase(t *testing.T) {
 	tableName := "test_use_database"
 	createTableSQL := "CREATE TABLE IF NOT EXISTS " + tableName + " (id INT)"
@@ -108,8 +72,6 @@ func TestConnectionUseDatabase(t *testing.T) {
 }
 
 func TestConnectionUseDatabaseEngine(t *testing.T) {
-	setupEngineAndDatabase(t)
-	defer cleanupEngineAndDatabase(t)
 
 	const createTableSQL = "CREATE TABLE IF NOT EXISTS test_use (id INT)"
 	const insertSQL = "INSERT INTO test_use VALUES (1)"
