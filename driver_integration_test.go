@@ -23,7 +23,6 @@ var (
 	dsnNoDatabaseMock               string
 	dsnSystemEngineWithDatabaseMock string
 	dsnSystemEngineMock             string
-	dsnV2Mock                       string
 	clientIdMock                    string
 	clientSecretMock                string
 	databaseMock                    string
@@ -49,7 +48,6 @@ func init() {
 	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountName, engineNameMock, clientIdMock, clientSecretMock)
 	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountName, clientIdMock, clientSecretMock)
 
-	dsnV2Mock = fmt.Sprintf("firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountName, engineNameMock, clientIdMock, clientSecretMock)
 	dsnSystemEngineMock = fmt.Sprintf("firebolt://?account_name=%s&client_id=%s&client_secret=%s", accountName, clientIdMock, clientSecretMock)
 
 	var err error
@@ -75,26 +73,13 @@ func init() {
 	if err != nil {
 		panic(fmt.Sprintf("Authentication error: %v", err))
 	}
+	engineUrlMock, _, err = clientMock.GetConnectionParameters(context.TODO(), engineNameMock, databaseMock)
+	if err != nil {
+		panic(fmt.Errorf("Error getting connection parameters: %v", err))
+	}
 	clientMockWithAccount = clientWithAccount.(*ClientImpl)
 	clientMockWithAccount.ConnectedToSystemEngine = true
-	engineUrlMock = getEngineURL()
 	serviceAccountNoUserName = databaseMock + "_sa_no_user"
-}
-
-func getEngineURL() string {
-	systemEngineURL, _, err := clientMockWithAccount.getSystemEngineURLAndParameters(context.TODO(), accountName, "")
-	if err != nil {
-		panic(fmt.Sprintf("Error returned by getSystemEngineURL: %s", err))
-	}
-	if len(systemEngineURL) == 0 {
-		panic(fmt.Sprintf("Empty system engine url returned by getSystemEngineURL for account: %s", accountName))
-	}
-
-	engineURL, _, _, err := clientMockWithAccount.getEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
-	if err != nil {
-		panic(fmt.Sprintf("Error returned by getEngineUrlStatusDBByName: %s", err))
-	}
-	return engineURL
 }
 
 // TestDriverQueryResult tests query happy path, as user would do it

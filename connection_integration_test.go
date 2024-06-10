@@ -11,7 +11,7 @@ import (
 )
 
 func setupEngineAndDatabase(t *testing.T) {
-	conn, err := sql.Open("firebolt", dsnSystemEngineV2Mock)
+	conn, err := sql.Open("firebolt", dsnSystemEngineMock)
 	if err != nil {
 		t.Errorf("opening a connection failed unexpectedly: %v", err)
 		t.FailNow()
@@ -27,7 +27,7 @@ func setupEngineAndDatabase(t *testing.T) {
 }
 
 func cleanupEngineAndDatabase(t *testing.T) {
-	conn, err := sql.Open("firebolt", dsnSystemEngineV2Mock)
+	conn, err := sql.Open("firebolt", dsnSystemEngineMock)
 	if err != nil {
 		t.Errorf("opening a connection failed unexpectedly: %v", err)
 		t.FailNow()
@@ -107,24 +107,7 @@ func TestConnectionUseDatabase(t *testing.T) {
 	}
 }
 
-func TestConnectionV2(t *testing.T) {
-	setupEngineAndDatabase(t)
-	defer cleanupEngineAndDatabase(t)
-
-	conn, err := sql.Open("firebolt", dsnV2Mock)
-	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
-		t.FailNow()
-	}
-
-	_, err = conn.Exec("SELECT 1")
-	if err != nil {
-		t.Errorf("query failed with %v", err)
-		t.FailNow()
-	}
-}
-
-func TestConnectionV2UseDatabaseEngine(t *testing.T) {
+func TestConnectionUseDatabaseEngine(t *testing.T) {
 	setupEngineAndDatabase(t)
 	defer cleanupEngineAndDatabase(t)
 
@@ -132,7 +115,7 @@ func TestConnectionV2UseDatabaseEngine(t *testing.T) {
 	const insertSQL = "INSERT INTO test_use VALUES (1)"
 	const insertSQL2 = "INSERT INTO test_use VALUES (2)"
 
-	conn, err := sql.Open("firebolt", dsnSystemEngineV2Mock)
+	conn, err := sql.Open("firebolt", dsnSystemEngineMock)
 	if err != nil {
 		t.Errorf("opening a connection failed unexpectedly")
 		t.FailNow()
@@ -188,7 +171,7 @@ func TestConnectionV2UseDatabaseEngine(t *testing.T) {
 }
 
 func TestConnectionUppercaseNames(t *testing.T) {
-	systemConnection, err := sql.Open("firebolt", dsnSystemEngineV2Mock)
+	systemConnection, err := sql.Open("firebolt", dsnSystemEngineMock)
 	if err != nil {
 		t.Errorf("opening a system connection failed unexpectedly %v", err)
 		t.FailNow()
@@ -212,7 +195,7 @@ func TestConnectionUppercaseNames(t *testing.T) {
 
 	dsnUppercase := fmt.Sprintf(
 		"firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s",
-		databaseName, accountNameV2Mock, engineName, clientIdMock, clientSecretMock,
+		databaseName, accountName, engineName, clientIdMock, clientSecretMock,
 	)
 
 	conn, err := sql.Open("firebolt", dsnUppercase)
