@@ -20,11 +20,6 @@ type ClientImpl struct {
 	BaseClient
 }
 
-const engineStatusRunning = "Running"
-const engineInfoSQL = `
-SELECT url, status, attached_to FROM information_schema.engines
-WHERE engine_name='%s'
-`
 const accountError = `account '%s' does not exist in this organization or is not authorized.
 Please verify the account name and make sure your service account has the
 correct RBAC permissions and is linked to a user`
@@ -67,44 +62,6 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 		return nil, ConstructNestedError("error during getting account id", err)
 	}
 	return client, nil
-}
-func (c *ClientImpl) getEngineUrlStatusDBByName(ctx context.Context, engineName string, systemEngineUrl string) (string, string, string, error) {
-	infolog.Printf("Get info for engine '%s'", engineName)
-	engineSQL := fmt.Sprintf(engineInfoSQL, engineName)
-	queryRes, err := c.Query(ctx, systemEngineUrl, engineSQL, make(map[string]string), connectionControl{})
-	if err != nil {
-		return "", "", "", ConstructNestedError("error executing engine info sql query", err)
-	}
-
-	if len(queryRes.Data) == 0 {
-		return "", "", "", fmt.Errorf("engine with name %s doesn't exist", engineName)
-	}
-
-	engineUrl, status, dbName, err := parseEngineInfoResponse(queryRes.Data)
-	if err != nil {
-		return "", "", "", ConstructNestedError("error parsing server response for engine info SQL query", err)
-	}
-	return engineUrl, status, dbName, nil
-}
-
-func parseEngineInfoResponse(resp [][]interface{}) (string, string, string, error) {
-	if len(resp) != 1 || len(resp[0]) != 3 {
-		return "", "", "", fmt.Errorf("invalid response shape: %v", resp)
-	}
-	engineUrl, ok := resp[0][0].(string)
-	if !ok {
-		return "", "", "", fmt.Errorf("expected string for engine URL, got %v", resp[0][0])
-	}
-	status, ok := resp[0][1].(string)
-	if !ok {
-		return "", "", "", fmt.Errorf("expected string for engine status, got %v", resp[0][1])
-	}
-	dbName, ok := resp[0][2].(string)
-	// NULL is also acceptable for database name
-	if !ok && resp[0][2] != nil {
-		return "", "", "", fmt.Errorf("expected string for engine status, got %v", resp[0][1])
-	}
-	return engineUrl, status, dbName, nil
 }
 
 func constructParameters(databaseName string, queryParams map[string][]string) map[string]string {
