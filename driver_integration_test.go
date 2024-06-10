@@ -373,6 +373,9 @@ func TestServiceAccountAuthentication(t *testing.T) {
 	serviceAccountID, serviceAccountSecret := createServiceAccountNoUser(t, serviceAccountNoUserName)
 	defer deleteServiceAccount(t, serviceAccountNoUserName) // Delete service account after the test
 
+	// Clear the cache to ensure that the new service account is used
+	AccountCache.ClearAll()
+
 	_, err := Authenticate(&fireboltSettings{
 		clientID:     serviceAccountID,
 		clientSecret: serviceAccountSecret,
