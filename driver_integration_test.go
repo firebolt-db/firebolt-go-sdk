@@ -24,14 +24,12 @@ var (
 	dsnSystemEngineWithDatabaseMock string
 	dsnSystemEngineMock             string
 	dsnV2Mock                       string
-	dsnSystemEngineV2Mock           string
 	clientIdMock                    string
 	clientSecretMock                string
 	databaseMock                    string
 	engineNameMock                  string
 	engineUrlMock                   string
-	accountNameV1Mock               string
-	accountNameV2Mock               string
+	accountName                     string
 	serviceAccountNoUserName        string
 	clientMock                      *ClientImpl
 	clientMockWithAccount           *ClientImpl
@@ -45,22 +43,20 @@ func init() {
 	clientSecretMock = os.Getenv("CLIENT_SECRET")
 	databaseMock = os.Getenv("DATABASE_NAME")
 	engineNameMock = os.Getenv("ENGINE_NAME")
-	accountNameV1Mock = os.Getenv("ACCOUNT_NAME_V1")
-	accountNameV2Mock = os.Getenv("ACCOUNT_NAME_V2")
+	accountName = os.Getenv("ACCOUNT_NAME")
 
-	dsnMock = fmt.Sprintf("firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountNameV1Mock, engineNameMock, clientIdMock, clientSecretMock)
-	dsnSystemEngineMock = fmt.Sprintf("firebolt://?account_name=%s&client_id=%s&client_secret=%s", accountNameV1Mock, clientIdMock, clientSecretMock)
-	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountNameV1Mock, engineNameMock, clientIdMock, clientSecretMock)
-	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountNameV1Mock, clientIdMock, clientSecretMock)
+	dsnMock = fmt.Sprintf("firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountName, engineNameMock, clientIdMock, clientSecretMock)
+	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountName, engineNameMock, clientIdMock, clientSecretMock)
+	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountName, clientIdMock, clientSecretMock)
 
-	dsnV2Mock = fmt.Sprintf("firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountNameV2Mock, engineNameMock, clientIdMock, clientSecretMock)
-	dsnSystemEngineV2Mock = fmt.Sprintf("firebolt://?account_name=%s&client_id=%s&client_secret=%s", accountNameV2Mock, clientIdMock, clientSecretMock)
+	dsnV2Mock = fmt.Sprintf("firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountName, engineNameMock, clientIdMock, clientSecretMock)
+	dsnSystemEngineMock = fmt.Sprintf("firebolt://?account_name=%s&client_id=%s&client_secret=%s", accountName, clientIdMock, clientSecretMock)
 
 	var err error
 	client, err := Authenticate(&fireboltSettings{
 		clientID:     clientIdMock,
 		clientSecret: clientSecretMock,
-		accountName:  accountNameV1Mock,
+		accountName:  accountName,
 		engineName:   engineNameMock,
 		database:     databaseMock,
 		newVersion:   true,
@@ -72,7 +68,7 @@ func init() {
 	clientWithAccount, err := Authenticate(&fireboltSettings{
 		clientID:     clientIdMock,
 		clientSecret: clientSecretMock,
-		accountName:  accountNameV1Mock,
+		accountName:  accountName,
 		database:     databaseMock,
 		newVersion:   true,
 	}, GetHostNameURL())
@@ -86,12 +82,12 @@ func init() {
 }
 
 func getEngineURL() string {
-	systemEngineURL, _, err := clientMockWithAccount.getSystemEngineURLAndParameters(context.TODO(), accountNameV1Mock, "")
+	systemEngineURL, _, err := clientMockWithAccount.getSystemEngineURLAndParameters(context.TODO(), accountName, "")
 	if err != nil {
 		panic(fmt.Sprintf("Error returned by getSystemEngineURL: %s", err))
 	}
 	if len(systemEngineURL) == 0 {
-		panic(fmt.Sprintf("Empty system engine url returned by getSystemEngineURL for account: %s", accountNameV1Mock))
+		panic(fmt.Sprintf("Empty system engine url returned by getSystemEngineURL for account: %s", accountName))
 	}
 
 	engineURL, _, _, err := clientMockWithAccount.getEngineUrlStatusDBByName(context.TODO(), engineNameMock, systemEngineURL)
@@ -395,7 +391,7 @@ func TestServiceAccountAuthentication(t *testing.T) {
 	_, err := Authenticate(&fireboltSettings{
 		clientID:     serviceAccountID,
 		clientSecret: serviceAccountSecret,
-		accountName:  accountNameV1Mock,
+		accountName:  accountName,
 		engineName:   engineNameMock,
 		database:     databaseMock,
 		newVersion:   true,
@@ -403,7 +399,7 @@ func TestServiceAccountAuthentication(t *testing.T) {
 	if err == nil {
 		t.Errorf("Authentication didn't return an error, although it should")
 	}
-	if !strings.HasPrefix(err.Error(), fmt.Sprintf("error during getting account id: account '%s' does not exist", accountNameV1Mock)) {
+	if !strings.HasPrefix(err.Error(), fmt.Sprintf("error during getting account id: account '%s' does not exist", accountName)) {
 		t.Errorf("Authentication didn't return an error with correct message, got: %s", err.Error())
 	}
 }

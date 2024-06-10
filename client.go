@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/astaxie/beego/cache"
 )
@@ -217,15 +216,6 @@ func (c *ClientImpl) getQueryParams(setStatements map[string]string) (map[string
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
-	// Account id is only used when querying system engine for infra v1
-	if c.ConnectedToSystemEngine && c.AccountVersion == 1 {
-		if len(c.AccountID) == 0 {
-			return nil, fmt.Errorf("Trying to run a query against system engine without account id defined")
-		}
-		if _, ok := params["account_id"]; !ok {
-			params["account_id"] = c.AccountID
-		}
-	}
 	return params, nil
 }
 
@@ -233,7 +223,7 @@ func (c *ClientImpl) getAccessToken() (string, error) {
 	return getAccessTokenServiceAccount(c.ClientID, c.ClientSecret, c.ApiEndpoint, c.UserAgent)
 }
 
-func (c *ClientImpl) getConnectionParametersV2(
+func (c *ClientImpl) getConnectionParameters(
 	ctx context.Context,
 	engineName,
 	databaseName,
@@ -266,37 +256,6 @@ func (c *ClientImpl) getConnectionParametersV2(
 	return engineURL, parameters, nil
 }
 
-func (c *ClientImpl) getConnectionParametersV1(
-	ctx context.Context,
-	engineName,
-	databaseName,
-	systemEngineURL string,
-) (string, map[string]string, error) {
-	// If engine name is empty, assume system engine
-	if len(engineName) == 0 {
-		return systemEngineURL, map[string]string{"database": databaseName}, nil
-	}
-
-	engineUrl, status, dbName, err := c.getEngineUrlStatusDBByName(ctx, engineName, systemEngineURL)
-	params := map[string]string{"database": dbName}
-	if err != nil {
-		return "", params, ConstructNestedError("error during getting engine info", err)
-	}
-	// Case-insensitive comparison
-	if !strings.EqualFold(status, engineStatusRunning) {
-		return "", params, fmt.Errorf("engine %s is not running", engineName)
-	}
-	if len(dbName) == 0 {
-		return "", params, fmt.Errorf("engine %s not attached to any DB or you don't have permission to access its database", engineName)
-	}
-	if len(databaseName) != 0 && databaseName != dbName {
-		return "", params, fmt.Errorf("engine %s is not attached to database %s", engineName, databaseName)
-	}
-	c.ConnectedToSystemEngine = false
-
-	return engineUrl, params, nil
-}
-
 // GetConnectionParameters returns engine URL and parameters based on engineName and databaseName
 func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
 	// Assume we are connected to a system engine in the beginning
@@ -307,8 +266,5 @@ func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, da
 	}
 
 	c.ConnectedToSystemEngine = true
-	if c.AccountVersion == 2 {
-		return c.getConnectionParametersV2(ctx, engineName, databaseName, systemEngineURL, systemEngineParameters)
-	}
-	return c.getConnectionParametersV1(ctx, engineName, databaseName, systemEngineURL)
+	return c.getConnectionParameters(ctx, engineName, databaseName, systemEngineURL, systemEngineParameters)
 }
