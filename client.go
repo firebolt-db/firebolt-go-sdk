@@ -180,15 +180,16 @@ func (c *ClientImpl) getAccessToken() (string, error) {
 	return getAccessTokenServiceAccount(c.ClientID, c.ClientSecret, c.ApiEndpoint, c.UserAgent)
 }
 
-func (c *ClientImpl) getConnectionParameters(
-	ctx context.Context,
-	engineName,
-	databaseName,
-	systemEngineURL string,
-	systemEngineParameters map[string]string,
-) (string, map[string]string, error) {
-	engineURL := systemEngineURL
-	parameters := systemEngineParameters
+// GetConnectionParameters returns engine URL and parameters based on engineName and databaseName
+func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
+	// Assume we are connected to a system engine in the beginning
+
+	engineURL, parameters, err := c.getSystemEngineURLAndParameters(context.Background(), c.AccountName, databaseName)
+	if err != nil {
+		return "", nil, ConstructNestedError("error during getting system engine url", err)
+	}
+	c.ConnectedToSystemEngine = true
+
 	control := connectionControl{
 		updateParameters: func(key, value string) {
 			parameters[key] = value
@@ -211,17 +212,4 @@ func (c *ClientImpl) getConnectionParameters(
 		}
 	}
 	return engineURL, parameters, nil
-}
-
-// GetConnectionParameters returns engine URL and parameters based on engineName and databaseName
-func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
-	// Assume we are connected to a system engine in the beginning
-
-	systemEngineURL, systemEngineParameters, err := c.getSystemEngineURLAndParameters(context.Background(), c.AccountName, databaseName)
-	if err != nil {
-		return "", nil, ConstructNestedError("error during getting system engine url", err)
-	}
-
-	c.ConnectedToSystemEngine = true
-	return c.getConnectionParameters(ctx, engineName, databaseName, systemEngineURL, systemEngineParameters)
 }
