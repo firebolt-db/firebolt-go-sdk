@@ -180,8 +180,9 @@ func runSplitStatement(t *testing.T, value string, expected []string) {
 func TestSplitStatements(t *testing.T) {
 	runSplitStatement(t, "SELECT 1; SELECT 2;", []string{"SELECT 1", " SELECT 2"})
 	runSplitStatement(t, "SELECT 1;", []string{"SELECT 1"})
+	runSplitStatement(t, "SELECT 1; ", []string{"SELECT 1"})
 	runSplitStatement(t, "SELECT 1", []string{"SELECT 1"})
-	runSplitStatement(t, "SELECT 1; ; ; ; ", []string{"SELECT 1", " ", " ", " ", " "})
+	runSplitStatement(t, "SELECT 1; ; ; ; ", []string{"SELECT 1"})
 
 	runSplitStatement(t, "SET time_zone=America/New_York; SELECT 2 /*some ; comment*/", []string{"SET time_zone=America/New_York", " SELECT 2 /*some ; comment*/"})
 	runSplitStatement(t, "SET time_zone='America/New_York'; SELECT 2 /*some ; comment*/", []string{"SET time_zone='America/New_York'", " SELECT 2 /*some ; comment*/"})
