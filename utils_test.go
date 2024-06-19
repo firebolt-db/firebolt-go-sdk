@@ -196,3 +196,78 @@ func TestValueToNamedValue(t *testing.T) {
 	assert(namedValues[0].Value, 2, t, "namedValues value is wrong")
 	assert(namedValues[1].Value, "string", t, "namedValues value is wrong")
 }
+func TestNewStructuredError(t *testing.T) {
+	errorDetails := ErrorDetails{
+		Severity:    "error",
+		Name:        "TestError",
+		Code:        "123",
+		Description: "This is a test error",
+		Source:      "TestSource",
+		Resolution:  "Please fix the error",
+		Location: Location{
+			FailingLine: 10,
+			StartOffset: 20,
+			EndOffset:   30,
+		},
+		HelpLink: "https://example.com",
+	}
+
+	expectedMessage := "error: TestError (123) - This is a test error, TestSource, resolution: Please fix the error at {FailingLine:10 StartOffset:20 EndOffset:30}, see https://example.com"
+
+	err := NewStructuredError([]ErrorDetails{errorDetails})
+
+	if err.Message != expectedMessage {
+		t.Errorf("NewStructuredError returned incorrect error message, got: %s, want: %s", err.Message, expectedMessage)
+	}
+}
+
+func TestStructuredErrorWithMissingFields(t *testing.T) {
+	errorDetails := ErrorDetails{
+		Severity:    "error",
+		Name:        "TestError",
+		Code:        "123",
+		Description: "This is a test error",
+	}
+
+	expectedMessage := "error: TestError (123) - This is a test error"
+
+	err := NewStructuredError([]ErrorDetails{errorDetails})
+
+	if err.Message != expectedMessage {
+		t.Errorf("NewStructuredError returned incorrect error message, got: %s, want: %s", err.Message, expectedMessage)
+	}
+}
+
+func TestStructuredErrorWithMultipleErrors(t *testing.T) {
+	errorDetails := ErrorDetails{
+		Severity:    "error",
+		Name:        "TestError",
+		Code:        "123",
+		Description: "This is a test error",
+		Source:      "TestSource",
+		Resolution:  "Please fix the error",
+		Location: Location{
+			FailingLine: 10,
+			StartOffset: 20,
+			EndOffset:   30,
+		},
+		HelpLink: "https://example.com",
+	}
+
+	errorDetails2 := ErrorDetails{
+		Severity:    "error",
+		Name:        "TestError",
+		Code:        "123",
+		Description: "This is a test error",
+		Source:      "TestSource",
+		Resolution:  "Please fix the error",
+	}
+
+	expectedMessage := "error: TestError (123) - This is a test error, TestSource, resolution: Please fix the error at {FailingLine:10 StartOffset:20 EndOffset:30}, see https://example.com\nerror: TestError (123) - This is a test error, TestSource, resolution: Please fix the error"
+
+	err := NewStructuredError([]ErrorDetails{errorDetails, errorDetails2})
+
+	if err.Message != expectedMessage {
+		t.Errorf("NewStructuredError returned incorrect error message, got: %s, want: %s", err.Message, expectedMessage)
+	}
+}

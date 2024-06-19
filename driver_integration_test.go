@@ -301,3 +301,22 @@ func TestServiceAccountAuthentication(t *testing.T) {
 		t.Errorf("Authentication didn't return an error with correct message, got: %s", err.Error())
 	}
 }
+
+func TestIncorrectQueryThrowingStructuredError(t *testing.T) {
+	db, err := sql.Open("firebolt", dsnSystemEngineMock)
+	if err != nil {
+		t.Errorf("failed unexpectedly with %v", err)
+	}
+	_, err = db.Query("SET advanced_mode=1")
+	raiseIfError(t, err)
+	_, err = db.Query("SET enable_json_error_output_format=true")
+	raiseIfError(t, err)
+	_, err = db.Query("SELECT 'blue'::int")
+	if err == nil {
+		t.Errorf("Query didn't return an error, although it should")
+	}
+
+	if !strings.HasPrefix(err.Error(), "error during query execution: error during query request: Cannot parse string 'blue' as integer") {
+		t.Errorf("Query didn't return an error with correct message, got: %s", err.Error())
+	}
+}

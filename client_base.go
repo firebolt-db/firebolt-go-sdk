@@ -275,6 +275,13 @@ func request(
 		infolog.Println(err)
 		return response{nil, 0, nil, ConstructNestedError("error during reading a request response", err)}
 	}
+	// Error might be in the response body, despite the status code 200
+	var queryResponse QueryResponse
+	if err = json.Unmarshal(body, &queryResponse); err == nil {
+		if queryResponse.Errors != nil {
+			return response{nil, resp.StatusCode, nil, NewStructuredError(queryResponse.Errors)}
+		}
+	}
 
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		if err = checkErrorResponse(body); err != nil {
