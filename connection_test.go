@@ -87,9 +87,12 @@ func TestMultipleSetParameters(t *testing.T) {
 	emptyClient := MockClient{}
 
 	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, &connector}
+	var err error
 
-	processSetStatement(context.TODO(), &fireboltConnection, "SET key1=value1")
-	processSetStatement(context.TODO(), &fireboltConnection, "SET key2=value")
+	_, err = processSetStatement(context.TODO(), &fireboltConnection, "SET key1=value1")
+	raiseIfError(t, err)
+	_, err = processSetStatement(context.TODO(), &fireboltConnection, "SET key2=value")
+	raiseIfError(t, err)
 	// Check if parameters were set correctly
 	if len(emptyClient.ParametersCalled) != 2 {
 		t.Errorf("processSetStatement didn't set parameters correctly")
