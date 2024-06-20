@@ -97,11 +97,14 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 		return false, err
 	}
 
-	parameters := map[string]string{setKey: setValue}
-	if db, ok := c.parameters["database"]; ok {
-		parameters["database"] = db
+	// combine parameters from connection and set statement
+	combinedParameters := make(map[string]string)
+	for k, v := range c.parameters {
+		combinedParameters[k] = v
 	}
-	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", parameters, connectionControl{
+	combinedParameters[setKey] = setValue
+
+	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", combinedParameters, connectionControl{
 		updateParameters: c.setParameter,
 		setEngineURL:     c.setEngineURL,
 		resetParameters:  c.resetParameters,
