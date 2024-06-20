@@ -276,10 +276,12 @@ func request(
 		return response{nil, 0, nil, ConstructNestedError("error during reading a request response", err)}
 	}
 	// Error might be in the response body, despite the status code 200
-	var queryResponse QueryResponse
-	if err = json.Unmarshal(body, &queryResponse); err == nil {
-		if queryResponse.Errors != nil {
-			return response{nil, resp.StatusCode, nil, NewStructuredError(queryResponse.Errors)}
+	errorResponse := struct {
+		Errors []ErrorDetails `json:"errors"`
+	}{}
+	if err = json.Unmarshal(body, &errorResponse); err == nil {
+		if errorResponse.Errors != nil {
+			return response{nil, resp.StatusCode, nil, NewStructuredError(errorResponse.Errors)}
 		}
 	}
 
