@@ -154,6 +154,8 @@ func TestConnectionUppercaseNames(t *testing.T) {
 		t.FailNow()
 	}
 	defer systemConnection.Exec(fmt.Sprintf("DROP ENGINE \"%s\"", engineName))
+	// defers run in reverse order so we stop the engine before dropping it
+	defer systemConnection.Exec(fmt.Sprintf("STOP ENGINE \"%s\"", engineName))
 
 	dsnUppercase := fmt.Sprintf(
 		"firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s",
