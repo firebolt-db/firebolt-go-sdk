@@ -22,6 +22,18 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.Errorf("opening a connection failed unexpectedly: %v", err)
 		t.FailNow()
 	}
+	// We need separate connections for the original database and the system engine
+	// which are not affected by the USE command to clean up the resources properly
+	original_conn, err := sql.Open("firebolt", dsnMock)
+	if err != nil {
+		t.Errorf("opening a second connection failed unexpectedly: %v", err)
+		t.FailNow()
+	}
+	system_conn, err := sql.Open("firebolt", dsnSystemEngineWithDatabaseMock)
+	if err != nil {
+		t.Errorf("opening a system connection failed unexpectedly: %v", err)
+		t.FailNow()
+	}
 
 	_, err = conn.ExecContext(context.Background(), useDatabaseSQL+databaseMock)
 
@@ -35,7 +47,7 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.Errorf("create table statement failed with %v", err)
 		t.FailNow()
 	}
-	defer conn.Exec(useDatabaseSQL + databaseMock + "; DROP TABLE " + tableName)
+	defer original_conn.Exec("DROP TABLE " + tableName)
 
 	rows, err := conn.QueryContext(context.Background(), selectTableSQL, tableName)
 	if err != nil {
@@ -52,7 +64,7 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.Errorf("create database statement failed with %v", err)
 		t.FailNow()
 	}
-	defer conn.Exec(useDatabaseSQL + databaseMock + "; DROP DATABASE " + newDatabaseName)
+	defer system_conn.Exec("DROP DATABASE " + newDatabaseName)
 
 	_, err = conn.ExecContext(context.Background(), useDatabaseSQL+newDatabaseName)
 	if err != nil {
