@@ -208,7 +208,7 @@ func getAuthResponse(expiry int) []byte {
 func setupTestServerAndClient(t *testing.T, testAccountName string) (*httptest.Server, *ClientImpl) {
 	// Create a mock server that returns a 404 status code
 	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == fmt.Sprintf(EngineUrlByAccountName, testAccountName) || req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
+		if req.URL.Path == fmt.Sprintf(EngineUrlByAccountName, testAccountName) {
 			rw.WriteHeader(http.StatusNotFound)
 		} else {
 			_, _ = rw.Write(getAuthResponse(10000))
@@ -274,126 +274,6 @@ func TestGetSystemEngineURLCaching(t *testing.T) {
 	// Still only one call, as the cache is shared between clients
 	if urlCalled != 1 {
 		t.Errorf("Expected to call the server only once, got %d", urlCalled)
-	}
-}
-
-func TestGetAccountInfoReturnsErrorOn404(t *testing.T) {
-	testAccountName := "testAccount"
-	server, client := setupTestServerAndClient(t, testAccountName)
-	defer server.Close()
-
-	// Call the getAccountID method and check if it returns an error
-	_, _, err := client.getAccountInfo(context.Background(), testAccountName)
-	if err == nil {
-		t.Errorf("Expected an error, got nil")
-	}
-	if !strings.HasPrefix(err.Error(), fmt.Sprintf("account '%s' does not exist", testAccountName)) {
-		t.Errorf("Expected error to start with \"account '%s' does not exist\", got \"%s\"", testAccountName, err.Error())
-	}
-}
-
-func TestGetAccountInfo(t *testing.T) {
-	testAccountName := "testAccount"
-
-	// Create a mock server that returns a 200 status code
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
-			_, _ = rw.Write([]byte(`{"id": "account_id", "infraVersion": 2}`))
-		} else {
-			_, _ = rw.Write(getAuthResponse(10000))
-		}
-	}))
-
-	prepareEnvVariablesForTest(t, server)
-	client := &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
-	}
-	client.accessTokenGetter = client.getAccessToken
-	client.parameterGetter = client.getQueryParams
-
-	// Call the getAccountID method and check if it returns the correct account ID and version
-	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
-	raiseIfError(t, err)
-	if accountID != "account_id" {
-		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
-	}
-	if accountVersion != 2 {
-		t.Errorf("Expected account version to be 2, got %d", accountVersion)
-	}
-}
-
-func TestGetAccountInfoCached(t *testing.T) {
-	testAccountName := "testAccount"
-
-	urlCalled := 0
-
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
-			_, _ = rw.Write([]byte(`{"id": "account_id", "infraVersion": 2}`))
-			urlCalled++
-		} else {
-			_, _ = rw.Write(getAuthResponse(10000))
-		}
-	}))
-
-	prepareEnvVariablesForTest(t, server)
-
-	var client = clientFactory(server.URL).(*ClientImpl)
-
-	// Account info should be fetched from the cache so the server should not be called
-	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
-	raiseIfError(t, err)
-	if accountID != "account_id" {
-		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
-	}
-	if accountVersion != 2 {
-		t.Errorf("Expected account version to be 2, got %d", accountVersion)
-	}
-	url := fmt.Sprintf(server.URL+AccountInfoByAccountName, testAccountName)
-	if AccountCache.Get(url) == nil {
-		t.Errorf("Expected account info to be cached")
-	}
-	_, _, err = client.getAccountInfo(context.Background(), testAccountName)
-	raiseIfError(t, err)
-	if urlCalled != 1 {
-		t.Errorf("Expected to call the server only once, got %d", urlCalled)
-	}
-	client = clientFactory(server.URL).(*ClientImpl)
-	_, _, err = client.getAccountInfo(context.Background(), testAccountName)
-	raiseIfError(t, err)
-	// Still only one call, as the cache is shared between clients
-	if urlCalled != 1 {
-		t.Errorf("Expected to call the server only once, got %d", urlCalled)
-	}
-}
-
-func TestGetAccountInfoDefaultVersion(t *testing.T) {
-	testAccountName := "testAccount"
-
-	// Create a mock server that returns a 200 status code
-	server := httptest.NewServer(http.HandlerFunc(func(rw http.ResponseWriter, req *http.Request) {
-		if req.URL.Path == fmt.Sprintf(AccountInfoByAccountName, testAccountName) {
-			_, _ = rw.Write([]byte(`{"id": "account_id"}`))
-		} else {
-			_, _ = rw.Write(getAuthResponse(10000))
-		}
-	}))
-
-	prepareEnvVariablesForTest(t, server)
-	client := &ClientImpl{
-		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
-	}
-	client.accessTokenGetter = client.getAccessToken
-	client.parameterGetter = client.getQueryParams
-
-	// Call the getAccountID method and check if it returns the correct account ID and version
-	accountID, accountVersion, err := client.getAccountInfo(context.Background(), testAccountName)
-	raiseIfError(t, err)
-	if accountID != "account_id" {
-		t.Errorf("Expected account ID to be 'account_id', got %s", accountID)
-	}
-	if accountVersion != 1 {
-		t.Errorf("Expected account version to be 1, got %d", accountVersion)
 	}
 }
 

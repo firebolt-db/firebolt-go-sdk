@@ -30,7 +30,6 @@ type Client interface {
 type BaseClient struct {
 	ClientID          string
 	ClientSecret      string
-	AccountID         string
 	ApiEndpoint       string
 	UserAgent         string
 	parameterGetter   func(map[string]string) (map[string]string, error)
@@ -133,9 +132,6 @@ func (c *BaseClient) handleUpdateEndpoint(updateEndpointRaw string, control conn
 	updateEndpoint, newParameters, err := splitEngineEndpoint(updateEndpointRaw)
 	if err != nil {
 		return corruptUrlError
-	}
-	if accId, ok := newParameters["account_id"]; ok && accId[0] != c.AccountID {
-		return errors.New("Failed to execute USE ENGINE command. Account parameter mismatch. Contact support")
 	}
 	// set engine URL as a full URL excluding query parameters
 	control.setEngineURL(updateEndpoint)

@@ -9,6 +9,7 @@ import (
 )
 
 type ClientImplV0 struct {
+	AccountID string
 	BaseClient
 }
 
