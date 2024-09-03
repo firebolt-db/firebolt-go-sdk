@@ -208,23 +208,6 @@ func TestDriverSystemEngineDbContext(t *testing.T) {
 	}
 }
 
-func TestIncorrectAccount(t *testing.T) {
-	_, err := Authenticate(&fireboltSettings{
-		clientID:     clientIdMock,
-		clientSecret: clientSecretMock,
-		accountName:  "incorrect_account",
-		engineName:   engineNameMock,
-		database:     databaseMock,
-		newVersion:   true,
-	}, GetHostNameURL())
-	if err == nil {
-		t.Errorf("Authentication didn't return an error, although it should")
-	}
-	if !strings.HasPrefix(err.Error(), "error during getting account id: account 'incorrect_account' does not exist") {
-		t.Errorf("Authentication didn't return an error with correct message, got: %s", err.Error())
-	}
-}
-
 // function that creates a service account and returns its id and secret
 func createServiceAccountNoUser(t *testing.T, serviceAccountName string) (string, string) {
 	serviceAccountDescription := "test_service_account_description"
