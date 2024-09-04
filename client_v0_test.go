@@ -26,6 +26,7 @@ func TestCacheAccessTokenV0(t *testing.T) {
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
 	var client = &ClientImplV0{
+		"",
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
@@ -71,6 +72,7 @@ func TestRefreshTokenOn401V0(t *testing.T) {
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
 	var client = &ClientImplV0{
+		"",
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
@@ -108,6 +110,7 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
 	var client = &ClientImplV0{
+		"",
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.accessTokenGetter = client.getAccessToken
@@ -147,6 +150,7 @@ func TestUserAgentV0(t *testing.T) {
 	defer server.Close()
 	prepareEnvVariablesForTest(t, server)
 	var client = &ClientImplV0{
+		"",
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue},
 	}
 	client.accessTokenGetter = client.getAccessToken
@@ -160,6 +164,7 @@ func TestUserAgentV0(t *testing.T) {
 
 func clientFactoryV0(apiEndpoint string) Client {
 	var client = &ClientImplV0{
+		"",
 		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: apiEndpoint},
 	}
 	client.accessTokenGetter = client.getAccessToken

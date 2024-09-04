@@ -16,7 +16,6 @@ var URLCache cache.Cache
 type ClientImpl struct {
 	ConnectedToSystemEngine bool
 	AccountName             string
-	AccountVersion          int
 	BaseClient
 }
 
@@ -56,11 +55,6 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 		infolog.Printf("Error during cache initialisation: %v", err)
 	}
 
-	var err error
-	client.AccountID, client.AccountVersion, err = client.getAccountInfo(context.Background(), settings.accountName)
-	if err != nil {
-		return nil, ConstructNestedError("error during getting account id", err)
-	}
 	return client, nil
 }
 
@@ -122,50 +116,6 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 	parameters := constructParameters(databaseName, queryParams)
 
 	return engineUrl, parameters, nil
-}
-
-func (c *ClientImpl) getAccountInfo(ctx context.Context, accountName string) (string, int, error) {
-
-	type AccountIdURLResponse struct {
-		Id           string `json:"id"`
-		Region       string `json:"region"`
-		InfraVersion int    `json:"infraVersion"`
-	}
-
-	url := fmt.Sprintf(c.ApiEndpoint+AccountInfoByAccountName, accountName)
-
-	if AccountCache != nil {
-		val := AccountCache.Get(url)
-		if val != nil {
-			if accountInfo, ok := val.(AccountIdURLResponse); ok {
-				infolog.Printf("Resolved account %s to id %s from cache", accountName, accountInfo.Id)
-				return accountInfo.Id, accountInfo.InfraVersion, nil
-			}
-		}
-	}
-	infolog.Printf("Getting account ID for '%s'", accountName)
-
-	resp := c.request(ctx, "GET", url, make(map[string]string), "")
-	if resp.statusCode == 404 {
-		return "", 0, fmt.Errorf(accountError, accountName)
-	}
-	if resp.err != nil {
-		return "", 0, ConstructNestedError("error during account id resolution http request", resp.err)
-	}
-
-	var accountIdURLResponse AccountIdURLResponse
-	// InfraVersion should default to 1 if not present
-	accountIdURLResponse.InfraVersion = 1
-	if err := json.Unmarshal(resp.data, &accountIdURLResponse); err != nil {
-		return "", 0, ConstructNestedError("error during unmarshalling account id resolution URL response", errors.New(string(resp.data)))
-	}
-	if AccountCache != nil {
-		AccountCache.Put(url, accountIdURLResponse, 0) //nolint:errcheck
-	}
-
-	infolog.Printf("Resolved account %s to id %s", accountName, accountIdURLResponse.Id)
-
-	return accountIdURLResponse.Id, accountIdURLResponse.InfraVersion, nil
 }
 
 func (c *ClientImpl) getQueryParams(setStatements map[string]string) (map[string]string, error) {
