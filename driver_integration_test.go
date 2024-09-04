@@ -266,21 +266,16 @@ func TestServiceAccountAuthentication(t *testing.T) {
 	serviceAccountID, serviceAccountSecret := createServiceAccountNoUser(t, serviceAccountNoUserName)
 	defer deleteServiceAccount(t, serviceAccountNoUserName) // Delete service account after the test
 
-	// Clear the cache to ensure that the new service account is used
-	AccountCache.ClearAll()
+	dsnNoUser := fmt.Sprintf(
+		"firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s",
+		databaseMock, accountName, engineNameMock, serviceAccountID, serviceAccountSecret)
 
-	_, err := Authenticate(&fireboltSettings{
-		clientID:     serviceAccountID,
-		clientSecret: serviceAccountSecret,
-		accountName:  accountName,
-		engineName:   engineNameMock,
-		database:     databaseMock,
-		newVersion:   true,
-	}, GetHostNameURL())
+	_, err := sql.Open("firebolt", dsnNoUser)
 	if err == nil {
 		t.Errorf("Authentication didn't return an error, although it should")
+		t.FailNow()
 	}
-	if !strings.HasPrefix(err.Error(), fmt.Sprintf("error during getting account id: account '%s' does not exist", accountName)) {
+	if !strings.Contains(err.Error(), fmt.Sprintf("Database '%s' does not exist or not authorized", databaseMock)) {
 		t.Errorf("Authentication didn't return an error with correct message, got: %s", err.Error())
 	}
 }
