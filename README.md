@@ -17,7 +17,6 @@ go get github.com/firebolt-db/firebolt-go-sdk
 ### Example
 Here is an example of establishing a connection and executing a simple select query. 
 For it to run successfully, you have to specify your credentials, and have a default engine up and running.
-git checkout -b FIR-35471-remove-account-resolve-endpoint-from-go-sdk
 ```go
 package main
 
