@@ -54,6 +54,7 @@ jobs:
           ACCOUNT_NAME: "firebolt"
           SERVICE_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STAGING }}
           SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STAGING }}
+          LONG_TEST_VALUE: ${{ vars.LONG_TEST_VALUE }}
         run: |
           go test .  -timeout=30m -v -coverprofile cover.out --tags=integration_v0
 

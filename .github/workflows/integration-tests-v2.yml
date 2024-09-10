@@ -37,5 +37,6 @@ jobs:
           ACCOUNT_NAME: ${{ vars.FIREBOLT_ACCOUNT }}
           CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
           CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
+          LONG_TEST_VALUE: ${{ vars.LONG_TEST_VALUE }}
         run: |
           go test . -timeout=30m -v --tags=integration
