@@ -7,8 +7,10 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
 	"os"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -20,10 +22,14 @@ const SCAN_STATEMENT_ERROR_MSG = "firebolt rows Scan() call failed with %v"
 const VALUES_ARE_NOT_EQUAL_ERROR_MSG = "values are not equal: %v and %v\n"
 const RESULTS_ARE_NOT_EQUAL_ERROR_MSG = "results are not equal "
 
-var longTestValue string
+var longTestValue int
 
 func init() {
-	longTestValue = os.Getenv("LONG_TEST_VALUE")
+	var err error
+	longTestValue, err = strconv.Atoi(os.Getenv("LONG_TEST_VALUE"))
+	if err != nil {
+		infolog.Println(fmt.Errorf("failed to convert LONG_TEST_VALUE to int: %v", err))
+	}
 }
 
 // TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
