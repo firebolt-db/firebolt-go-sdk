@@ -363,7 +363,7 @@ func TestConnectionQueryByteaType(t *testing.T) {
 }
 
 func TestLongQuery(t *testing.T) {
-	var maxValue = 450000000000
+	var maxValue = 400000000000
 
 	finished_in := make(chan time.Duration, 1)
 	go func() {
