@@ -394,7 +394,7 @@ func TestLongQuery(t *testing.T) {
 	select {
 	case elapsed := <-finished_in:
 		if elapsed < 350*time.Second {
-			t.Errorf("Expected execution time to be more than 350 sec but was %v sec", elapsed)
+			t.Errorf("Expected execution time to be more than 350 sec but was %.2f sec", elapsed.Seconds())
 		}
 	case <-time.After(10 * time.Minute):
 		t.Errorf("Long query didn't finish in 10 minutes")
