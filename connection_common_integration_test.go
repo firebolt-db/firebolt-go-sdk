@@ -7,7 +7,10 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"fmt"
+	"os"
 	"reflect"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -18,6 +21,19 @@ const NEXT_STATEMENT_ERROR_MSG = "Next() call returned false"
 const SCAN_STATEMENT_ERROR_MSG = "firebolt rows Scan() call failed with %v"
 const VALUES_ARE_NOT_EQUAL_ERROR_MSG = "values are not equal: %v and %v\n"
 const RESULTS_ARE_NOT_EQUAL_ERROR_MSG = "results are not equal "
+
+var longTestValue int = 410000000000 // default value
+
+func init() {
+	var err error
+	longTestValueStr, exists := os.LookupEnv("LONG_TEST_VALUE")
+	if exists {
+		longTestValue, err = strconv.Atoi(longTestValueStr)
+		if err != nil {
+			infolog.Println(fmt.Errorf("failed to convert LONG_TEST_VALUE to int: %v", err))
+		}
+	}
+}
 
 // TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
 func TestConnectionSetStatement(t *testing.T) {
@@ -363,7 +379,7 @@ func TestConnectionQueryByteaType(t *testing.T) {
 }
 
 func TestLongQuery(t *testing.T) {
-	var maxValue = 450000000000
+	var maxValue = longTestValue
 
 	finished_in := make(chan time.Duration, 1)
 	go func() {
@@ -381,7 +397,7 @@ func TestLongQuery(t *testing.T) {
 	select {
 	case elapsed := <-finished_in:
 		if elapsed < 350*time.Second {
-			t.Errorf("Expected execution time to be more than 350 sec but was %v sec", elapsed)
+			t.Errorf("Expected execution time to be more than 350 sec but was %.2f sec", elapsed.Seconds())
 		}
 	case <-time.After(10 * time.Minute):
 		t.Errorf("Long query didn't finish in 10 minutes")
