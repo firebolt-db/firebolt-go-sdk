@@ -15,7 +15,7 @@ go get github.com/firebolt-db/firebolt-go-sdk
 ```
 
 ### Example
-Here is an example of establishing a connection and executing a simple select query. 
+Here is an example of establishing a connection and executing a simple select query.
 For it to run successfully, you have to specify your credentials, and have a default engine up and running.
 ```go
 package main
@@ -42,8 +42,20 @@ func main() {
 		fmt.Println("error during opening a driver: %v", err)
 	}
 
+	// Create table
+	_, err := db.Query("CREATE TABLE test_table(id INT, value TEXT)")
+	if err != nil {
+		fmt.Println("error during select query: %v", err)
+	}
+
+	// Parametrized insert (only ? placeholders are supported)
+	_, err := db.Query("INSERT INTO test_table VALUES (?, ?)", 1, "my value")
+	if err != nil {
+		fmt.Println("error during select query: %v", err)
+	}
+
 	// executing a simple select query
-	rows, err := db.Query("SELECT 1 UNION SELECT 2")
+	rows, err := db.Query("SELECT * FROM test_table")
 	if err != nil {
 		fmt.Println("error during select query: %v", err)
 	}
@@ -62,7 +74,7 @@ func main() {
 
 
 ### DSN (Data source name)
-All information for the connection should be specified using the DSN string. The firebolt dsn string has the following format:  
+All information for the connection should be specified using the DSN string. The firebolt dsn string has the following format:
 ```
 firebolt://[/database]?account_name=account_name&client_id=client_id&client_secret=client_secret[&engine=engine]
 ```
@@ -76,3 +88,4 @@ firebolt://[/database]?account_name=account_name&client_id=client_id&client_secr
 ### Limitations
 Although, all interfaces are available, not all of them are implemented or could be implemented:
 - `driver.Result` is a dummy implementation and doesn't return the real result values.
+- Named query parameters are not supported

@@ -294,3 +294,30 @@ func TestIncorrectQueryThrowingStructuredError(t *testing.T) {
 		t.Errorf("Query didn't return an error with correct message, got: %s", err.Error())
 	}
 }
+
+func TestParametrisedQuery(t *testing.T) {
+	ctx := context.TODO()
+	db, err := sql.Open("firebolt", dsnSystemEngineMock)
+	if err != nil {
+		t.Errorf("failed unexpectedly with %v", err)
+	}
+	query := "SELECT engine_name, status from information_schema.engines WHERE engine_name = ? AND status = ?"
+	stmt, err := db.PrepareContext(ctx, query)
+	if err != nil {
+		t.Errorf("The query %s returned an error: %v", query, err)
+	}
+	rows, err := stmt.QueryContext(ctx, engineNameMock, "RUNNING")
+	if err != nil {
+		t.Errorf("The query %s returned an error: %v", query, err)
+	}
+	if !rows.Next() {
+		t.Errorf("Next returned end of output")
+	}
+	var engineName, status string
+	if err := rows.Scan(&engineName, &status); err != nil {
+		t.Errorf("Scan returned an error: %v", err)
+	}
+	if engineName != engineNameMock || status != "RUNNING" {
+		t.Errorf("Results not equal: %s %s", engineName, status)
+	}
+}
