@@ -55,7 +55,7 @@ func main() {
 	}
 
 	// executing a simple select query
-	rows, err := db.Query("SELECT * FROM test_table")
+	rows, err := db.Query("SELECT id FROM test_table")
 	if err != nil {
 		fmt.Println("error during select query: %v", err)
 	}
