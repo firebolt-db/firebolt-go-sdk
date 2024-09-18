@@ -55,6 +55,7 @@ func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, er
 		infolog.Printf("Error during cache initialisation: %v", err)
 	}
 
+	fmt.Println("Init client")
 	return client, nil
 }
 
