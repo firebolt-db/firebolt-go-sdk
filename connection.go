@@ -5,6 +5,9 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+	"reflect"
+
+	pq "github.com/lib/pq"
 )
 
 type fireboltConnection struct {
@@ -148,4 +151,30 @@ func (c *fireboltConnection) resetParameters() {
 			}
 		}
 	}
+}
+
+func (c *fireboltConnection) CheckNamedValue(nv *driver.NamedValue) error {
+	if _, ok := nv.Value.(driver.Valuer); ok {
+		// Ignore Valuer, for backward compatibility with pq.Array().
+		return driver.ErrSkip
+	}
+
+	// Ignoring []byte / []uint8.
+	if _, ok := nv.Value.([]uint8); ok {
+		return driver.ErrSkip
+	}
+
+	v := reflect.ValueOf(nv.Value)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if v.Kind() == reflect.Slice {
+		var err error
+		nv.Value, err = pq.Array(v.Interface()).Value()
+		return err
+	}
+
+	fmt.Println("CheckNamedValue")
+
+	return driver.ErrSkip
 }
