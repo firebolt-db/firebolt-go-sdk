@@ -384,7 +384,7 @@ func TestLongQuery(t *testing.T) {
 	finished_in := make(chan time.Duration, 1)
 	go func() {
 		started := time.Now()
-		db, err := sql.Open("firebolt", dsnSystemEngineMock)
+		db, err := sql.Open("firebolt", dsnMock)
 		if err != nil {
 			t.Errorf("failed unexpectedly with %v", err)
 		}
