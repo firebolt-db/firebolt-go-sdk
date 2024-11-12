@@ -228,8 +228,10 @@ type requestParameters struct {
 	contentType string
 }
 
+type ContextKey string
+
 func extractAdditionalHeaders(ctx context.Context) map[string]string {
-	additionalHeaders, ok := ctx.Value("additionalHeaders").(map[string]string)
+	additionalHeaders, ok := ctx.Value(ContextKey("additionalHeaders")).(map[string]string)
 	if ok {
 		// only take headers that start with Firebolt- prefix
 		filteredHeaders := make(map[string]string)

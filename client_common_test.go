@@ -84,7 +84,7 @@ func testAdditionalHeaders(t *testing.T, clientFactory func(string) Client) {
 	prepareEnvVariablesForTest(t, server)
 	client := clientFactory(server.URL)
 
-	ctx := context.WithValue(context.TODO(), "additionalHeaders", additionalHeaders)
+	ctx := context.WithValue(context.TODO(), ContextKey("additionalHeaders"), additionalHeaders)
 
 	_, _ = client.Query(ctx, server.URL, "SELECT 1", map[string]string{}, connectionControl{})
 
