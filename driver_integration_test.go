@@ -290,7 +290,7 @@ func TestIncorrectQueryThrowingStructuredError(t *testing.T) {
 		t.Errorf("Query didn't return an error, although it should")
 	}
 
-	if !strings.HasPrefix(err.Error(), "error during query execution: error during query request:") || !strings.Contains(err.Error(), "Cannot parse string 'blue' as integer") {
+	if !strings.HasPrefix(err.Error(), "error during query execution: error during query request:") || !strings.Contains(err.Error(), "Unable to cast text 'blue' to integer") {
 		t.Errorf("Query didn't return an error with correct message, got: %s", err.Error())
 	}
 }

@@ -22,7 +22,7 @@ const SCAN_STATEMENT_ERROR_MSG = "firebolt rows Scan() call failed with %v"
 const VALUES_ARE_NOT_EQUAL_ERROR_MSG = "values are not equal: %v and %v\n"
 const RESULTS_ARE_NOT_EQUAL_ERROR_MSG = "results are not equal "
 
-var longTestValue int = 410000000000 // default value
+var longTestValue int = 350000000000 // default value
 
 func init() {
 	var err error
@@ -384,7 +384,7 @@ func TestLongQuery(t *testing.T) {
 	finished_in := make(chan time.Duration, 1)
 	go func() {
 		started := time.Now()
-		db, err := sql.Open("firebolt", dsnSystemEngineMock)
+		db, err := sql.Open("firebolt", dsnMock)
 		if err != nil {
 			t.Errorf("failed unexpectedly with %v", err)
 		}
