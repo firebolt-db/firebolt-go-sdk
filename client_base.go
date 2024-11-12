@@ -228,6 +228,21 @@ type requestParameters struct {
 	contentType string
 }
 
+func extractAdditionalHeaders(ctx context.Context) map[string]string {
+	additionalHeaders, ok := ctx.Value("additionalHeaders").(map[string]string)
+	if ok {
+		// only take headers that start with Firebolt- prefix
+		filteredHeaders := make(map[string]string)
+		for key, value := range additionalHeaders {
+			if strings.HasPrefix(key, "Firebolt-") {
+				filteredHeaders[key] = value
+			}
+		}
+		return filteredHeaders
+	}
+	return map[string]string{}
+}
+
 // request sends a request using "POST" or "GET" method on a specified url
 // additionally it passes the parameters and a bodyStr as a payload
 // if accessToken is passed, it is used for authorization
@@ -249,6 +264,11 @@ func request(
 
 	if len(reqParams.contentType) > 0 {
 		req.Header.Set("Content-Type", reqParams.contentType)
+	}
+
+	// add additional headers from context
+	for key, value := range extractAdditionalHeaders(reqParams.ctx) {
+		req.Header.Set(key, value)
 	}
 
 	q := req.URL.Query()
