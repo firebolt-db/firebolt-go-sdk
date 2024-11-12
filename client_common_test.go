@@ -56,3 +56,36 @@ func testUpdateParameters(t *testing.T, clientFactory func(string) Client) {
 		t.Errorf("Database is not set correctly. Expected %s but was %s", newDatabaseName, params["database"])
 	}
 }
+
+func testAdditionalHeaders(t *testing.T, clientFactory func(string) Client) {
+	// Test that additional headers, passed in ctx are respected
+
+	var additionalHeaders = map[string]string{
+		"Firebolt-Test-Header": "test",
+		"Ignored-Header":       "ignored",
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == ServiceAccountLoginURLSuffix {
+			_, _ = w.Write(getAuthResponse(10000))
+		} else if r.URL.Path == UsernamePasswordURLSuffix {
+			_, _ = w.Write(getAuthResponseV0(10000))
+		} else {
+			if r.Header.Get("Firebolt-Test-Header") != "test" {
+				t.Errorf("Did not set Firebolt-Test-Header value when passed in ctx")
+			}
+			if r.Header.Get("Ignored-Header") != "" {
+				t.Errorf("Did not ignore Ignored-Header value when passed in ctx")
+			}
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	prepareEnvVariablesForTest(t, server)
+	client := clientFactory(server.URL)
+
+	ctx := context.WithValue(context.TODO(), "additionalHeaders", additionalHeaders)
+
+	_, _ = client.Query(ctx, server.URL, "SELECT 1", map[string]string{}, connectionControl{})
+
+}
