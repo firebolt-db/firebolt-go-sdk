@@ -61,8 +61,8 @@ func testAdditionalHeaders(t *testing.T, clientFactory func(string) Client) {
 	// Test that additional headers, passed in ctx are respected
 
 	var additionalHeaders = map[string]string{
-		"Firebolt-Test-Header": "test",
-		"Ignored-Header":       "ignored",
+		"X-Firebolt-Test-Header": "test",
+		"Ignored-Header":         "ignored",
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
@@ -70,7 +70,7 @@ func testAdditionalHeaders(t *testing.T, clientFactory func(string) Client) {
 		} else if r.URL.Path == UsernamePasswordURLSuffix {
 			_, _ = w.Write(getAuthResponseV0(10000))
 		} else {
-			if r.Header.Get("Firebolt-Test-Header") != "test" {
+			if r.Header.Get("X-Firebolt-Test-Header") != "test" {
 				t.Errorf("Did not set Firebolt-Test-Header value when passed in ctx")
 			}
 			if r.Header.Get("Ignored-Header") != "" {
