@@ -236,7 +236,7 @@ func extractAdditionalHeaders(ctx context.Context) map[string]string {
 		// only take headers that start with Firebolt- prefix
 		filteredHeaders := make(map[string]string)
 		for key, value := range additionalHeaders {
-			if strings.HasPrefix(key, "X-Firebolt-") {
+			if strings.HasPrefix(key, "Firebolt-") {
 				filteredHeaders[key] = value
 			}
 		}
