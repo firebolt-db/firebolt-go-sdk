@@ -42,7 +42,7 @@ func TestQuerySetStatements(t *testing.T) {
 		context.TODO(),
 		engineUrlMock,
 		query,
-		map[string]string{"time_zone": "America/New_York", "database": databaseMock},
+		map[string]string{"timezone": "America/New_York", "database": databaseMock},
 		connectionControl{},
 	)
 	if err != nil {
