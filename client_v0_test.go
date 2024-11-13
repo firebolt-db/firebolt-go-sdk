@@ -181,6 +181,10 @@ func TestUpdateParametersV0(t *testing.T) {
 	testUpdateParameters(t, clientFactoryV0)
 }
 
+func TestAdditionalHeadersV0(t *testing.T) {
+	testAdditionalHeaders(t, clientFactoryV0)
+}
+
 func getAuthResponseV0(expiry int) []byte {
 	var response = `{
    "access_token": "aMysteriousToken",

@@ -345,3 +345,7 @@ func TestResetSession(t *testing.T) {
 		t.Errorf("Reset session was not called")
 	}
 }
+
+func TestAdditionalHeaders(t *testing.T) {
+	testAdditionalHeaders(t, clientFactory)
+}

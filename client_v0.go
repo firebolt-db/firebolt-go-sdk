@@ -65,7 +65,7 @@ func (c *ClientImplV0) getDefaultAccountID(ctx context.Context) (string, error) 
 		Account AccountResponse `json:"account"`
 	}
 
-	resp := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+DefaultAccountURL), make(map[string]string), "")
+	resp := c.request(ctx, "GET", c.ApiEndpoint+DefaultAccountURL, make(map[string]string), "")
 	if resp.err != nil {
 		return "", ConstructNestedError("error during getting default account id request", resp.err)
 	}
