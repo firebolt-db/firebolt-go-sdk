@@ -29,6 +29,8 @@ const (
 
 	booleanType = "boolean"
 	byteaType   = "bytea"
+
+	geographyType = "geography"
 )
 
 type fireboltRows struct {
@@ -109,7 +111,7 @@ func checkTypeValue(columnType string, val interface{}) error {
 			}
 		}
 		return nil
-	case textType, dateType, pgDateType, timestampType, timestampNtzType, timestampTzType, byteaType:
+	case textType, dateType, pgDateType, timestampType, timestampNtzType, timestampTzType, byteaType, geographyType:
 		if _, ok := val.(string); !ok {
 			return fmt.Errorf("expected to convert a value to string, but couldn't: %v", val)
 		}
@@ -192,7 +194,7 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 		return float32(v), err
 	case doubleType:
 		return parseFloatValue(val)
-	case textType:
+	case textType, geographyType:
 		return val.(string), nil
 	case dateType, pgDateType, timestampType, timestampNtzType, timestampTzType:
 		return parseDateTimeValue(columnType, val.(string))
