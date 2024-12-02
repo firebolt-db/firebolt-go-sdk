@@ -338,7 +338,7 @@ func TestConnectionQueryBooleanType(t *testing.T) {
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT true, false, null::boolean;")
 	if err != nil {
-		t.Errorf("statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var b1, b2 bool
@@ -363,7 +363,7 @@ func TestConnectionQueryByteaType(t *testing.T) {
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT 'abc123'::bytea")
 	if err != nil {
-		t.Errorf("statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest []byte
@@ -387,7 +387,7 @@ func TestConnectionQueryGeographyType(t *testing.T) {
 
 	rows, err := conn.QueryContext(context.TODO(), "SELECT 'POINT(1 1)'::geography")
 	if err != nil {
-		t.Errorf("statement failed with %v", err)
+		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest string
