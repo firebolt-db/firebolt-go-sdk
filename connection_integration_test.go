@@ -288,3 +288,27 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	}
 	assert(dest[10], geEncoded, t, "geography results are not equal")
 }
+
+func TestConnectionQueryGeographyType(t *testing.T) {
+	conn, err := sql.Open("firebolt", dsnMock)
+	if err != nil {
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
+		t.FailNow()
+	}
+
+	rows, err := conn.QueryContext(context.TODO(), "SELECT 'POINT(1 1)'::geography")
+	if err != nil {
+		t.Errorf(STATEMENT_ERROR_MSG, err)
+	}
+
+	var dest string
+
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	if err = rows.Scan(&dest); err != nil {
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
+	}
+	expected := "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F"
+	if dest != expected {
+		t.Errorf("Geography type check failed Expected: %s Got: %s", expected, dest)
+	}
+}
