@@ -208,7 +208,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 
 	_, err = conn.QueryContext(
 		context.Background(),
-		"CREATE TABLE test_prepared_statements (i INT, l LONG, f FLOAT, d DOUBLE, t TEXT, dt DATE, ts TIMESTAMP, tstz TIMESTAMPTZ, b BOOLEAN, ba BYTEA) PRIMARY INDEX i",
+		"CREATE TABLE test_prepared_statements (i INT, l LONG, f FLOAT, d DOUBLE, t TEXT, dt DATE, ts TIMESTAMP, tstz TIMESTAMPTZ, b BOOLEAN, ba BYTEA, ge GEOGRAPHY) PRIMARY INDEX i",
 	)
 	if err != nil {
 		t.Errorf("create table statement failed with %v", err)
@@ -221,11 +221,13 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	ts := time.Date(2021, 1, 1, 2, 10, 20, 3000, time.UTC)
 	tstz := time.Date(2021, 1, 1, 2, 10, 20, 3000, loc)
 	ba := []byte("hello_world_123ツ\n\u0048")
+	ge := "POINT(1 1)"
+	geEncoded := "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F"
 
 	_, err = conn.QueryContext(
 		context.Background(),
-		"INSERT INTO test_prepared_statements VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		1, int64(2), 0.333333, 0.333333333333, "text", d, ts, tstz, true, ba,
+		"INSERT INTO test_prepared_statements VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		1, int64(2), 0.333333, 0.333333333333, "text", d, ts, tstz, true, ba, ge,
 	)
 
 	if err != nil {
@@ -248,8 +250,8 @@ func TestConnectionPreparedStatement(t *testing.T) {
 		t.FailNow()
 	}
 
-	dest := make([]driver.Value, 10)
-	pointers := make([]interface{}, 10)
+	dest := make([]driver.Value, 11)
+	pointers := make([]interface{}, 11)
 	for i := range pointers {
 		pointers[i] = &dest[i]
 	}
@@ -284,4 +286,5 @@ func TestConnectionPreparedStatement(t *testing.T) {
 			break
 		}
 	}
+	assert(dest[10], geEncoded, t, "geography results are not equal")
 }
