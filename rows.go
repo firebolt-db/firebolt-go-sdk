@@ -126,6 +126,69 @@ func checkTypeValue(columnType string, val interface{}) error {
 	return fmt.Errorf("unknown column type: %s", columnType)
 }
 
+func extractStructColumn(columnType string) (string, string, error) {
+	field := strings.SplitN(strings.TrimSpace(columnType), " ", 2)
+	if len(field) != 2 {
+		return "", "", fmt.Errorf("invalid struct field: %s", columnType)
+	}
+	return strings.TrimSpace(field[0]), strings.TrimSpace(field[1]), nil
+}
+
+func extractStructColumns(columnTypes string) (map[string]string, error) {
+	balance := 0
+	current := strings.Builder{}
+	columns := make(map[string]string)
+	for _, char := range columnTypes {
+		if char == '(' {
+			balance++
+		} else if char == ')' {
+			balance--
+		}
+		if balance == 0 && char == ',' {
+			fieldName, fieldType, err := extractStructColumn(current.String())
+			if err != nil {
+				return nil, err
+			}
+			columns[fieldName] = fieldType
+			current.Reset()
+		} else {
+			current.WriteRune(char)
+		}
+	}
+	if balance != 0 {
+		return nil, fmt.Errorf("invalid struct type: %s", columnTypes)
+	}
+	fieldName, fieldType, err := extractStructColumn(current.String())
+	if err != nil {
+		return nil, err
+	}
+	columns[fieldName] = fieldType
+	return columns, nil
+}
+
+func parseStruct(structInnerFields string, val interface{}) (map[string]driver.Value, error) {
+	fields, err := extractStructColumns(structInnerFields)
+	if err != nil {
+		return nil, ConstructNestedError("error during parsing struct type", err)
+	}
+	structValue, ok := val.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("unexpected value for struct type: %v", val)
+	}
+	res := make(map[string]driver.Value)
+	if len(fields) != len(structValue) {
+		return nil, fmt.Errorf("expected %d fields, but got %d", len(fields), len(structValue))
+	}
+	for fieldName, fieldType := range fields {
+		if fieldValue, ok := structValue[fieldName]; ok {
+			res[fieldName], _ = parseValue(fieldType, fieldValue)
+		} else {
+			return nil, fmt.Errorf("field %s is missing in struct value %v", fieldName, structValue)
+		}
+	}
+	return res, nil
+}
+
 func parseTimestampTz(value string) (driver.Value, error) {
 	formats := [...]string{"2006-01-02 15:04:05.000000-07", "2006-01-02 15:04:05.000000-07:00", "2006-01-02 15:04:05.000000-07:00:00",
 		"2006-01-02 15:04:05-07", "2006-01-02 15:04:05-07:00", "2006-01-02 15:04:05-07:00:00"}
@@ -219,6 +282,7 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		nullableSuffix = " null"
 		arrayPrefix    = "array("
 		decimalPrefix  = "Decimal("
+		structPrefix   = "struct("
 		suffix         = ")"
 	)
 
@@ -237,6 +301,8 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		return res, nil
 	} else if strings.HasPrefix(columnType, decimalPrefix) && strings.HasSuffix(columnType, suffix) {
 		return parseSingleValue("double", val)
+	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, suffix) {
+		return parseStruct(columnType[len(structPrefix):len(columnType)-len(suffix)], val)
 	} else if strings.HasSuffix(columnType, nullableSuffix) {
 		return parseValue(columnType[0:len(columnType)-len(nullableSuffix)], val)
 	}
