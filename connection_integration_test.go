@@ -312,3 +312,62 @@ func TestConnectionQueryGeographyType(t *testing.T) {
 		t.Errorf("Geography type check failed Expected: %s Got: %s", expected, dest)
 	}
 }
+
+func TestConnectionQueryStructType(t *testing.T) {
+	setupSQL := []string{
+		"SET advanced_mode=1",
+		"SET enable_struct=1",
+		"SET enable_create_table_v2=true",
+		"SET enable_row_selection=true",
+		"SET prevent_create_on_information_schema=true",
+		"SET enable_create_table_with_struct_type=true",
+		"DROP TABLE IF EXISTS test_struct",
+		"DROP TABLE IF EXISTS test_struct_helper",
+		"CREATE TABLE IF NOT EXISTS test_struct(id int not null, s struct(a array(int) not null, b datetime null) not null)",
+		"CREATE TABLE IF NOT EXISTS test_struct_helper(a array(int) not null, b datetime null)",
+		"INSERT INTO test_struct_helper(a, b) VALUES ([1, 2], '2019-07-31 01:01:01')",
+		"INSERT INTO test_struct(id, s) SELECT 1, test_struct_helper FROM test_struct_helper",
+	}
+	tearDownSQL := []string{
+		"DROP TABLE IF EXISTS test_struct",
+		"DROP TABLE IF EXISTS test_struct_helper",
+	}
+
+	connection, err := sql.Open("firebolt", dsnMock)
+	if err != nil {
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
+		t.FailNow()
+	}
+	for _, sql := range setupSQL {
+		_, err = connection.ExecContext(context.Background(), sql)
+		if err != nil {
+			t.Errorf("setup failed with %v", err)
+			t.FailNow()
+		}
+	}
+	for _, sql := range tearDownSQL {
+		defer connection.ExecContext(context.Background(), sql)
+	}
+
+	rows, err := connection.QueryContext(context.Background(), "SELECT test_struct FROM test_struct")
+	if err != nil {
+		t.Errorf(STATEMENT_ERROR_MSG, err)
+		t.FailNow()
+	}
+
+	var dest map[string]driver.Value
+
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	if err = rows.Scan(&dest); err != nil {
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
+	}
+
+	assert(dest, map[string]driver.Value{
+		"id": int32(1),
+		"s": map[string]driver.Value{
+			"a": []driver.Value{int32(1), int32(2)},
+			"b": time.Date(2019, 7, 31, 1, 1, 1, 0, time.UTC),
+		},
+	}, t, "struct type check failed")
+
+}
