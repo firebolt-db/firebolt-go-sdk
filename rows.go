@@ -181,7 +181,10 @@ func parseStruct(structInnerFields string, val interface{}) (map[string]driver.V
 	}
 	for fieldName, fieldType := range fields {
 		if fieldValue, ok := structValue[fieldName]; ok {
-			res[fieldName], _ = parseValue(fieldType, fieldValue)
+			res[fieldName], err = parseValue(fieldType, fieldValue)
+			if err != nil {
+				return nil, ConstructNestedError("error during parsing struct field", err)
+			}
 		} else {
 			return nil, fmt.Errorf("field %s is missing in struct value %v", fieldName, structValue)
 		}

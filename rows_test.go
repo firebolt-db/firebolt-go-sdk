@@ -272,3 +272,23 @@ func TestRowsNextSet(t *testing.T) {
 
 	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
 }
+
+func TestRowsNextStructError(t *testing.T) {
+	rowsJson := `{
+        "query":{"query_id":"16FF2A0300ECA753"},
+        "meta":[{"name":"struct_col","type":"struct(a int, s struct(b datetime))"}],
+        "data":[[{"a": 1, "s": {"b": "invalid"}}]],
+        "rows":1,
+        "statistics":{}
+    }`
+	var response QueryResponse
+	if err := json.Unmarshal([]byte(rowsJson), &response); err != nil {
+		panic(err)
+	}
+
+	rows := &fireboltRows{[]QueryResponse{response}, 0, 0}
+	var dest = make([]driver.Value, 1)
+	if err := rows.Next(dest); err == nil {
+		t.Errorf("Next should return an error")
+	}
+}
