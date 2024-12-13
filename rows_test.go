@@ -13,9 +13,35 @@ import (
 )
 
 func assert(test_val interface{}, expected_val interface{}, t *testing.T, err string) {
-	if test_val != expected_val {
+	if m, ok := expected_val.(map[string]driver.Value); ok {
+		assertMaps(test_val.(map[string]driver.Value), m, t, err)
+	} else if arr, ok := expected_val.([]driver.Value); ok {
+		assertArrays(test_val.([]driver.Value), arr, t, err)
+	} else if test_val != expected_val {
 		t.Log(string(debug.Stack()))
 		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+	}
+}
+
+func assertArrays(test_val []driver.Value, expected_val []driver.Value, t *testing.T, err string) {
+	// manually
+	if len(test_val) != len(expected_val) {
+		t.Log(string(debug.Stack()))
+		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+	}
+	for i, value := range expected_val {
+		assert(test_val[i], value, t, err)
+	}
+}
+
+func assertMaps(test_val map[string]driver.Value, expected_val map[string]driver.Value, t *testing.T, err string) {
+	// manually
+	if len(test_val) != len(expected_val) {
+		t.Log(string(debug.Stack()))
+		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+	}
+	for key, value := range expected_val {
+		assert(test_val[key], value, t, err)
 	}
 }
 
@@ -55,14 +81,15 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
         	{"name":"decimal_col","type":"Decimal(38, 30) null"},
         	{"name":"decimal_array_col","type":"array(Decimal(38, 30) null)"},
         	{"name":"bytea_col","type":"bytea null"},
-        	{"name":"geography_col","type":"geography null"}
+        	{"name":"geography_col","type":"geography null"},
+            {"name":"struct_col","type":"struct(a int, s struct(a array(int), b text))"}
         ],
         "data":[
-        	[null,1,0.312321,123213.321321,"text", "2080-12-31","1989-04-15 01:02:03","0002-01-01","1989-04-15 01:02:03.123456","1989-04-15 02:02:03.123456+00",1,[1,2,3],[[]],true, 123.12345678, [123.12345678], "\\x616263313233", "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F"],
-        	[2,"37237366456",0.312321,123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1989-04-15 01:02:03.1234+05:30",1,[1,2,3],[[]],true, -123.12345678, [-123.12345678, 0.0], "\\x6162630A0AE3858D20E3858E5C", null],
-        	[3,null,"inf",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123458","1989-04-15 01:02:03+01",1,[5,2,3,2],[["TEST","TEST1"],["TEST3"]],false, 0.0, [0.0], null, null],
-        	[2,1,"-inf",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1111-01-05 17:04:42.123456+05:53:28",1,[1,2,3],[[]],false, 123456781234567812345678.123456781234567812345678, [123456781234567812345678.12345678123456781234567812345678], null, null],
-    	    [2,1,"-nan",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1989-04-15 02:02:03.123456-01",1,[1,2,3],[[]],null, null, [null], null, null, null]
+        	[null,1,0.312321,123213.321321,"text", "2080-12-31","1989-04-15 01:02:03","0002-01-01","1989-04-15 01:02:03.123456","1989-04-15 02:02:03.123456+00",1,[1,2,3],[[]],true, 123.12345678, [123.12345678], "\\x616263313233", "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F", {"a":1,"s":{"a":[1,2,3],"b":"text"}}],
+        	[2,"37237366456",0.312321,123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1989-04-15 01:02:03.1234+05:30",1,[1,2,3],[[]],true, -123.12345678, [-123.12345678, 0.0], "\\x6162630A0AE3858D20E3858E5C", null, {"a": 2, "s": null}],
+        	[3,null,"inf",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123458","1989-04-15 01:02:03+01",1,[5,2,3,2],[["TEST","TEST1"],["TEST3"]],false, 0.0, [0.0], null, null, null],
+        	[2,1,"-inf",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1111-01-05 17:04:42.123456+05:53:28",1,[1,2,3],[[]],false, 123456781234567812345678.123456781234567812345678, [123456781234567812345678.12345678123456781234567812345678], null, null, null],
+    	    [2,1,"-nan",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1989-04-15 02:02:03.123456-01",1,[1,2,3],[[]],null, null, [null], null, null, null, null]
         ],
         "rows":5,
         "statistics":{
@@ -113,7 +140,7 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 func TestRowsColumns(t *testing.T) {
 	rows := mockRows(false)
 
-	columnNames := []string{"int_col", "bigint_col", "float_col", "double_col", "text_col", "date_col", "timestamp_col", "pgdate_col", "timestampntz_col", "timestamptz_col", "legacy_bool_col", "array_col", "nested_array_col", "new_bool_col", "decimal_col", "decimal_array_col", "bytea_col", "geography_col"}
+	columnNames := []string{"int_col", "bigint_col", "float_col", "double_col", "text_col", "date_col", "timestamp_col", "pgdate_col", "timestampntz_col", "timestamptz_col", "legacy_bool_col", "array_col", "nested_array_col", "new_bool_col", "decimal_col", "decimal_array_col", "bytea_col", "geography_col", "struct_col"}
 	if !reflect.DeepEqual(rows.Columns(), columnNames) {
 		t.Errorf("column lists are not equal")
 	}
@@ -135,7 +162,7 @@ func TestRowsClose(t *testing.T) {
 // TestRowsNext check Next method
 func TestRowsNext(t *testing.T) {
 	rows := mockRows(false)
-	var dest = make([]driver.Value, 18)
+	var dest = make([]driver.Value, 19)
 
 	// First row
 	err := rows.Next(dest)
@@ -154,11 +181,10 @@ func TestRowsNext(t *testing.T) {
 	assertDates(dest[9].(time.Time), time.Date(1989, 04, 15, 2, 2, 3, 123456000, loc), t, "")
 	assert(dest[13], true, t, "results not equal for boolean")
 	assert(dest[14], 123.12345678, t, "results not equal for decimal")
-	arr := dest[15].([]driver.Value)
-	assert(len(arr), 1, t, "invalid length of decimal array")
-	assert(arr[0], 123.12345678, t, "results not equal for decimal array")
+	assert(dest[15].([]driver.Value), []driver.Value{123.12345678}, t, "results not equal for decimal array")
 	assertByte(dest[16].([]byte), []byte("abc123"), t, "")
 	assert(dest[17], "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F", t, "results not equal for geography")
+	assert(dest[18].(map[string]driver.Value), map[string]driver.Value{"a": int32(1), "s": map[string]driver.Value{"a": []driver.Value{int32(1), int32(2), int32(3)}, "b": "text"}}, t, "results not equal for struct")
 
 	// Second row
 	err = rows.Next(dest)
@@ -170,11 +196,9 @@ func TestRowsNext(t *testing.T) {
 	assertDates(dest[9].(time.Time), time.Date(1989, 04, 15, 1, 2, 3, 123400000, timezone), t, "")
 	assert(dest[13], true, t, "results not equal for boolean")
 	assert(dest[14], -123.12345678, t, "results not equal for decimal")
-	arr = dest[15].([]driver.Value)
-	assert(len(arr), 2, t, "invalid length of decimal array")
-	assert(arr[0], -123.12345678, t, "first item not equal for decimal array")
-	assert(arr[1], 0.0, t, "second item  not equal for decimal array")
+	assert(dest[15].([]driver.Value), []driver.Value{-123.12345678, 0.0}, t, "invalid length of decimal array")
 	assertByte(dest[16].([]byte), []byte("abc\n\nㅍ ㅎ\\"), t, "")
+	assert(dest[18].(map[string]driver.Value), map[string]driver.Value{"a": int32(2), "s": nil}, t, "results not equal for struct")
 
 	// Third row
 	err = rows.Next(dest)
@@ -186,9 +210,8 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[4], "text", t, "results not equal for string")
 	assert(dest[13], false, t, "results not equal for boolean")
 	assert(dest[14], 0.0, t, "results not equal for decimal")
-	arr = dest[15].([]driver.Value)
-	assert(len(arr), 1, t, "invalid length of decimal array")
-	assert(arr[0], 0.0, t, "results not equal for decimal array")
+	assert(dest[15].([]driver.Value), []driver.Value{0.0}, t, "results not equal for decimal array")
+	assert(dest[18], nil, t, "results not equal for struct")
 
 	// Fourth row
 	err = rows.Next(dest)
@@ -198,9 +221,7 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[13], false, t, "results not equal for boolean")
 	var long_double = 123456781234567812345678.12345678123456781234567812345678
 	assert(dest[14], long_double, t, "results not equal for decimal")
-	arr = dest[15].([]driver.Value)
-	assert(len(arr), 1, t, "invalid length of decimal array")
-	assert(arr[0], long_double, t, "results not equal for decimal array")
+	assert(dest[15].([]driver.Value), []driver.Value{long_double}, t, "results not equal for decimal array")
 
 	// Fifth row
 	err = rows.Next(dest)
@@ -214,9 +235,7 @@ func TestRowsNext(t *testing.T) {
 	assertDates(dest[9].(time.Time), time.Date(1989, 4, 15, 3, 2, 3, 123456000, loc), t, "")
 	assert(dest[13], nil, t, "results not equal for boolean")
 	assert(dest[14], nil, t, "results not equal for decimal")
-	arr = dest[15].([]driver.Value)
-	assert(len(arr), 1, t, "invalid length of decimal array")
-	assert(arr[0], nil, t, "results not equal for decimal array")
+	assert(dest[15].([]driver.Value), []driver.Value{nil}, t, "results not equal for decimal array")
 
 	// Sixth row (does not exist)
 	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
@@ -252,4 +271,24 @@ func TestRowsNextSet(t *testing.T) {
 	assert(dest[0], nil, t, "results are not equal")
 
 	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
+}
+
+func TestRowsNextStructError(t *testing.T) {
+	rowsJson := `{
+        "query":{"query_id":"16FF2A0300ECA753"},
+        "meta":[{"name":"struct_col","type":"struct(a int, s struct(b datetime))"}],
+        "data":[[{"a": 1, "s": {"b": "invalid"}}]],
+        "rows":1,
+        "statistics":{}
+    }`
+	var response QueryResponse
+	if err := json.Unmarshal([]byte(rowsJson), &response); err != nil {
+		panic(err)
+	}
+
+	rows := &fireboltRows{[]QueryResponse{response}, 0, 0}
+	var dest = make([]driver.Value, 1)
+	if err := rows.Next(dest); err == nil {
+		t.Errorf("Next should return an error")
+	}
 }
