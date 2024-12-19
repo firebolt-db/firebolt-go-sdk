@@ -292,3 +292,30 @@ func TestRowsNextStructError(t *testing.T) {
 		t.Errorf("Next should return an error")
 	}
 }
+
+func TestRowsNextStructWithNestedSpaces(t *testing.T) {
+	rowsJson := `{
+        "query":{"query_id":"16FF2A0300ECA753"},
+        "meta":[{"name":"struct_col","type":"struct(` + "`a b`" + ` int, s struct(` + "`c d`" + ` datetime))"}],
+        "data":[[{"a b": 1, "s": {"c d": "1989-04-15 01:02:03"}}]],
+        "rows":1,
+        "statistics":{}
+    }`
+	var response QueryResponse
+	if err := json.Unmarshal([]byte(rowsJson), &response); err != nil {
+		panic(err)
+	}
+
+	rows := &fireboltRows{[]QueryResponse{response}, 0, 0}
+	var dest = make([]driver.Value, 1)
+	if err := rows.Next(dest); err != nil {
+		t.Errorf("Next returned an error: %s", err)
+	}
+
+	if dest[0].(map[string]driver.Value)["a b"] != int32(1) {
+		t.Errorf("results are not equal")
+	}
+	if dest[0].(map[string]driver.Value)["s"].(map[string]driver.Value)["c d"] != time.Date(1989, 04, 15, 1, 2, 3, 0, time.UTC) {
+		t.Errorf("results are not equal")
+	}
+}
