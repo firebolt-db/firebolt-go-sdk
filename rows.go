@@ -127,8 +127,13 @@ func checkTypeValue(columnType string, val interface{}) error {
 }
 
 func extractStructColumn(columnType string) (string, string, error) {
+	columnType = strings.TrimSpace(columnType)
+	if idx := strings.IndexRune(columnType[1:], '`'); strings.HasPrefix(columnType, "`") && idx != -1 {
+		// We use idx+2 since we found this index in the substring starting from the second character
+		return strings.Trim(columnType[1:idx+2], " `"), strings.TrimSpace(columnType[idx+2:]), nil
+	}
 	field := strings.SplitN(strings.TrimSpace(columnType), " ", 2)
-	if len(field) != 2 {
+	if len(field) < 2 {
 		return "", "", fmt.Errorf("invalid struct field: %s", columnType)
 	}
 	return strings.TrimSpace(field[0]), strings.TrimSpace(field[1]), nil
