@@ -276,7 +276,7 @@ func TestRowsNextSet(t *testing.T) {
 func TestRowsNextStructError(t *testing.T) {
 	rowsJson := `{
         "query":{"query_id":"16FF2A0300ECA753"},
-        "meta":[{"name":"struct_col","type":"struct(a int, s struct(b datetime))"}],
+        "meta":[{"name":"struct_col","type":"struct(a int, s struct(b timestamp))"}],
         "data":[[{"a": 1, "s": {"b": "invalid"}}]],
         "rows":1,
         "statistics":{}
@@ -296,7 +296,7 @@ func TestRowsNextStructError(t *testing.T) {
 func TestRowsNextStructWithNestedSpaces(t *testing.T) {
 	rowsJson := `{
         "query":{"query_id":"16FF2A0300ECA753"},
-        "meta":[{"name":"struct_col","type":"struct(` + "`a b`" + ` int, s struct(` + "`c d`" + ` datetime))"}],
+        "meta":[{"name":"struct_col","type":"struct(` + "`a b`" + ` int, s struct(` + "`c d`" + ` timestamp))"}],
         "data":[[{"a b": 1, "s": {"c d": "1989-04-15 01:02:03"}}]],
         "rows":1,
         "statistics":{}
