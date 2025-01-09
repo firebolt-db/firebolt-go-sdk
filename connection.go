@@ -42,6 +42,12 @@ func (c *fireboltConnection) ExecContext(ctx context.Context, query string, args
 	return &FireboltResult{}, err
 }
 
+// ExecContext sends the query to the engine and returns empty fireboltResult
+func (c *fireboltConnection) ExecContextAsync(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
+	_, err := c.queryContextInternal(ctx, query, args, false)
+	return &FireboltResult{}, err
+}
+
 // QueryContext sends the query to the engine and returns fireboltRows
 func (c *fireboltConnection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
 	return c.queryContextInternal(ctx, query, args, true)
