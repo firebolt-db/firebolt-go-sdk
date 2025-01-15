@@ -4,12 +4,16 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"reflect"
 	"runtime/debug"
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 func assert(test_val interface{}, expected_val interface{}, t *testing.T, err string) {
@@ -134,6 +138,19 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 	}
 
 	return &fireboltRows{responses, 0, 0}
+}
+
+func mockRowsSingleValue(value interface{}, columnType string) driver.RowsNextResultSet {
+	response := QueryResponse{
+		Query:      map[string]string{"query_id": "16FF2A0300ECA753"},
+		Meta:       []Column{{Name: "single_col", Type: columnType}},
+		Data:       [][]interface{}{{value}},
+		Rows:       1,
+		Errors:     []ErrorDetails{},
+		Statistics: map[string]interface{}{},
+	}
+
+	return &fireboltRows{[]QueryResponse{response}, 0, 0}
 }
 
 // TestRowsColumns checks, that correct column names are returned
@@ -317,5 +334,28 @@ func TestRowsNextStructWithNestedSpaces(t *testing.T) {
 	}
 	if dest[0].(map[string]driver.Value)["s"].(map[string]driver.Value)["c d"] != time.Date(1989, 04, 15, 1, 2, 3, 0, time.UTC) {
 		t.Errorf("results are not equal")
+	}
+}
+
+func TestRowsParseQuoted(t *testing.T) {
+	intRaw := "-9223372036854775808"
+	decimalRaw := "1234567890123456789012345678901234567890"
+	intVal, _ := strconv.ParseInt(intRaw, 10, 64)
+	decimalVal, _ := decimal.NewFromString(decimalRaw)
+	quotedTypes := [][]interface{}{
+		{longType, intVal, intRaw},
+		{"Decimal(10, 35)", decimalVal, decimalRaw},
+	}
+
+	for _, typeValue := range quotedTypes {
+		colType := typeValue[0].(string)
+		value := typeValue[1]
+		largeNumber := typeValue[2].(string)
+		rows := mockRowsSingleValue(largeNumber, colType)
+		var dest = make([]driver.Value, 1)
+		if err := rows.Next(dest); err != nil {
+			t.Errorf("Next returned an error: %s", err)
+		}
+		assert(dest[0], value, t, fmt.Sprintf("results are not equal for %s", colType))
 	}
 }
