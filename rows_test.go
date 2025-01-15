@@ -21,6 +21,9 @@ func assert(test_val interface{}, expected_val interface{}, t *testing.T, err st
 		assertMaps(test_val.(map[string]driver.Value), m, t, err)
 	} else if arr, ok := expected_val.([]driver.Value); ok {
 		assertArrays(test_val.([]driver.Value), arr, t, err)
+	} else if d, ok := expected_val.(decimal.Decimal); ok {
+		assertDecimal(test_val.(decimal.Decimal), d, t, err)
+
 	} else if test_val != expected_val {
 		t.Log(string(debug.Stack()))
 		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
@@ -58,6 +61,13 @@ func assertDates(test_val time.Time, expected_val time.Time, t *testing.T, err s
 
 func assertByte(test_val []byte, expected_val []byte, t *testing.T, err string) {
 	if !bytes.Equal(test_val, expected_val) {
+		t.Log(string(debug.Stack()))
+		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+	}
+}
+
+func assertDecimal(test_val decimal.Decimal, expected_val decimal.Decimal, t *testing.T, err string) {
+	if !test_val.Equal(expected_val) {
 		t.Log(string(debug.Stack()))
 		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
 	}
@@ -197,8 +207,8 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[8], time.Date(1989, 04, 15, 1, 2, 3, 123456000, loc), t, "results not equal for timestampntz")
 	assertDates(dest[9].(time.Time), time.Date(1989, 04, 15, 2, 2, 3, 123456000, loc), t, "")
 	assert(dest[13], true, t, "results not equal for boolean")
-	assert(dest[14], 123.12345678, t, "results not equal for decimal")
-	assert(dest[15].([]driver.Value), []driver.Value{123.12345678}, t, "results not equal for decimal array")
+	assert(dest[14], decimal.NewFromFloat(123.12345678), t, "results not equal for decimal")
+	assert(dest[15].([]driver.Value), []driver.Value{decimal.NewFromFloat(123.12345678)}, t, "results not equal for decimal array")
 	assertByte(dest[16].([]byte), []byte("abc123"), t, "")
 	assert(dest[17], "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F", t, "results not equal for geography")
 	assert(dest[18].(map[string]driver.Value), map[string]driver.Value{"a": int32(1), "s": map[string]driver.Value{"a": []driver.Value{int32(1), int32(2), int32(3)}, "b": "text"}}, t, "results not equal for struct")
@@ -212,8 +222,8 @@ func TestRowsNext(t *testing.T) {
 	timezone, _ := time.LoadLocation("Asia/Calcutta")
 	assertDates(dest[9].(time.Time), time.Date(1989, 04, 15, 1, 2, 3, 123400000, timezone), t, "")
 	assert(dest[13], true, t, "results not equal for boolean")
-	assert(dest[14], -123.12345678, t, "results not equal for decimal")
-	assert(dest[15].([]driver.Value), []driver.Value{-123.12345678, 0.0}, t, "invalid length of decimal array")
+	assert(dest[14], decimal.NewFromFloat(-123.12345678), t, "results not equal for decimal")
+	assert(dest[15].([]driver.Value), []driver.Value{decimal.NewFromFloat(-123.12345678), decimal.NewFromFloat(0.0)}, t, "results not equal for decimal array")
 	assertByte(dest[16].([]byte), []byte("abc\n\nㅍ ㅎ\\"), t, "")
 	assert(dest[18].(map[string]driver.Value), map[string]driver.Value{"a": int32(2), "s": nil}, t, "results not equal for struct")
 
@@ -226,8 +236,8 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[3], float64(123213.321321), t, "results not equal for float64")
 	assert(dest[4], "text", t, "results not equal for string")
 	assert(dest[13], false, t, "results not equal for boolean")
-	assert(dest[14], 0.0, t, "results not equal for decimal")
-	assert(dest[15].([]driver.Value), []driver.Value{0.0}, t, "results not equal for decimal array")
+	assert(dest[14], decimal.NewFromFloat(0.0), t, "results not equal for decimal")
+	assert(dest[15].([]driver.Value), []driver.Value{decimal.NewFromFloat(0.0)}, t, "results not equal for decimal array")
 	assert(dest[18], nil, t, "results not equal for struct")
 
 	// Fourth row
@@ -236,7 +246,7 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[2], float32(math.Inf(-1)), t, "results not equal for float32")
 	assertDates(dest[9].(time.Time), time.Date(1111, 01, 5, 11, 11, 14, 123456000, loc), t, "")
 	assert(dest[13], false, t, "results not equal for boolean")
-	var long_double = 123456781234567812345678.12345678123456781234567812345678
+	var long_double = decimal.NewFromFloat(123456781234567812345678.12345678123456781234567812345678)
 	assert(dest[14], long_double, t, "results not equal for decimal")
 	assert(dest[15].([]driver.Value), []driver.Value{long_double}, t, "results not equal for decimal array")
 
@@ -337,25 +347,32 @@ func TestRowsNextStructWithNestedSpaces(t *testing.T) {
 	}
 }
 
-func TestRowsParseQuoted(t *testing.T) {
+func TestRowsQuotedLong(t *testing.T) {
 	intRaw := "-9223372036854775808"
-	decimalRaw := "1234567890123456789012345678901234567890"
-	intVal, _ := strconv.ParseInt(intRaw, 10, 64)
-	decimalVal, _ := decimal.NewFromString(decimalRaw)
-	quotedTypes := [][]interface{}{
-		{longType, intVal, intRaw},
-		{"Decimal(10, 35)", decimalVal, decimalRaw},
+	intValue, _ := strconv.ParseInt(intRaw, 10, 64)
+	rows := mockRowsSingleValue(intRaw, "long")
+	var dest = make([]driver.Value, 1)
+	if err := rows.Next(dest); err != nil {
+		t.Errorf("Next returned an error: %s", err)
 	}
+	assert(dest[0], intValue, t, "results are not equal for long")
+}
 
-	for _, typeValue := range quotedTypes {
-		colType := typeValue[0].(string)
-		value := typeValue[1]
-		largeNumber := typeValue[2].(string)
-		rows := mockRowsSingleValue(largeNumber, colType)
+func TestRowsDecimalType(t *testing.T) {
+	floatValue := 123456789.123456789
+	stringValue := "1234567890123456789012345678901234567890"
+	stringDecimalValue, _ := decimal.NewFromString(stringValue)
+	cases := [][]interface{}{
+		{nil, nil},
+		{floatValue, decimal.NewFromFloat(floatValue)},
+		{stringValue, stringDecimalValue},
+	}
+	for _, c := range cases {
+		rows := mockRowsSingleValue(c[0], "Decimal(10, 35)")
 		var dest = make([]driver.Value, 1)
 		if err := rows.Next(dest); err != nil {
 			t.Errorf("Next returned an error: %s", err)
 		}
-		assert(dest[0], value, t, fmt.Sprintf("results are not equal for %s", colType))
+		assert(dest[0], c[1], t, fmt.Sprintf("results are not equal for %v", c[0]))
 	}
 }
