@@ -16,60 +16,60 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-func assert(test_val interface{}, expected_val interface{}, t *testing.T, err string) {
-	if m, ok := expected_val.(map[string]driver.Value); ok {
-		assertMaps(test_val.(map[string]driver.Value), m, t, err)
-	} else if arr, ok := expected_val.([]driver.Value); ok {
-		assertArrays(test_val.([]driver.Value), arr, t, err)
-	} else if d, ok := expected_val.(decimal.Decimal); ok {
-		assertDecimal(test_val.(decimal.Decimal), d, t, err)
+func assert(testVal interface{}, expectedVal interface{}, t *testing.T, err string) {
+	if m, ok := expectedVal.(map[string]driver.Value); ok {
+		assertMaps(testVal.(map[string]driver.Value), m, t, err)
+	} else if arr, ok := expectedVal.([]driver.Value); ok {
+		assertArrays(testVal.([]driver.Value), arr, t, err)
+	} else if d, ok := expectedVal.(decimal.Decimal); ok {
+		assertDecimal(testVal.(decimal.Decimal), d, t, err)
 
-	} else if test_val != expected_val {
+	} else if testVal != expectedVal {
 		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+		t.Errorf(err+"Expected: %s Got: %s", expectedVal, testVal)
 	}
 }
 
-func assertArrays(test_val []driver.Value, expected_val []driver.Value, t *testing.T, err string) {
+func assertArrays(testVal []driver.Value, expectedVal []driver.Value, t *testing.T, err string) {
 	// manually
-	if len(test_val) != len(expected_val) {
+	if len(testVal) != len(expectedVal) {
 		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+		t.Errorf(err+"Expected: %s Got: %s", expectedVal, testVal)
 	}
-	for i, value := range expected_val {
-		assert(test_val[i], value, t, err)
+	for i, value := range expectedVal {
+		assert(testVal[i], value, t, err)
 	}
 }
 
-func assertMaps(test_val map[string]driver.Value, expected_val map[string]driver.Value, t *testing.T, err string) {
+func assertMaps(testVal map[string]driver.Value, expectedVal map[string]driver.Value, t *testing.T, err string) {
 	// manually
-	if len(test_val) != len(expected_val) {
+	if len(testVal) != len(expectedVal) {
 		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+		t.Errorf(err+"Expected: %s Got: %s", expectedVal, testVal)
 	}
-	for key, value := range expected_val {
-		assert(test_val[key], value, t, err)
-	}
-}
-
-func assertDates(test_val time.Time, expected_val time.Time, t *testing.T, err string) {
-	if !test_val.Equal(expected_val) {
-		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val.In(expected_val.Location()))
+	for key, value := range expectedVal {
+		assert(testVal[key], value, t, err)
 	}
 }
 
-func assertByte(test_val []byte, expected_val []byte, t *testing.T, err string) {
-	if !bytes.Equal(test_val, expected_val) {
+func assertDates(testVal time.Time, expectedVal time.Time, t *testing.T, err string) {
+	if !testVal.Equal(expectedVal) {
 		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+		t.Errorf(err+"Expected: %s Got: %s", expectedVal, testVal.In(expectedVal.Location()))
 	}
 }
 
-func assertDecimal(test_val decimal.Decimal, expected_val decimal.Decimal, t *testing.T, err string) {
-	if !test_val.Equal(expected_val) {
+func assertByte(testVal []byte, expectedVal []byte, t *testing.T, err string) {
+	if !bytes.Equal(testVal, expectedVal) {
 		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+		t.Errorf(err+"Expected: %s Got: %s", expectedVal, testVal)
+	}
+}
+
+func assertDecimal(testVal decimal.Decimal, expectedVal decimal.Decimal, t *testing.T, err string) {
+	if !testVal.Equal(expectedVal) {
+		t.Log(string(debug.Stack()))
+		t.Errorf(err+"Expected: %s Got: %s", expectedVal, testVal)
 	}
 }
 
