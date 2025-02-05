@@ -4,58 +4,75 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
+	"fmt"
 	"io"
 	"math"
 	"reflect"
 	"runtime/debug"
+	"strconv"
 	"testing"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
-func assert(test_val interface{}, expected_val interface{}, t *testing.T, err string) {
-	if m, ok := expected_val.(map[string]driver.Value); ok {
-		assertMaps(test_val.(map[string]driver.Value), m, t, err)
-	} else if arr, ok := expected_val.([]driver.Value); ok {
-		assertArrays(test_val.([]driver.Value), arr, t, err)
-	} else if test_val != expected_val {
+const assertErrorMessage = "Expected: %v Got: %v"
+const nextErrorMessage = "Next returned an error: %s"
+
+func assert(testVal interface{}, expectedVal interface{}, t *testing.T, err string) {
+	if m, ok := expectedVal.(map[string]driver.Value); ok {
+		assertMaps(testVal.(map[string]driver.Value), m, t, err)
+	} else if arr, ok := expectedVal.([]driver.Value); ok {
+		assertArrays(testVal.([]driver.Value), arr, t, err)
+	} else if d, ok := expectedVal.(decimal.Decimal); ok {
+		assertDecimal(testVal.(decimal.Decimal), d, t, err)
+
+	} else if testVal != expectedVal {
 		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}
 }
 
-func assertArrays(test_val []driver.Value, expected_val []driver.Value, t *testing.T, err string) {
+func assertArrays(testVal []driver.Value, expectedVal []driver.Value, t *testing.T, err string) {
 	// manually
-	if len(test_val) != len(expected_val) {
+	if len(testVal) != len(expectedVal) {
 		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}
-	for i, value := range expected_val {
-		assert(test_val[i], value, t, err)
+	for i, value := range expectedVal {
+		assert(testVal[i], value, t, err)
 	}
 }
 
-func assertMaps(test_val map[string]driver.Value, expected_val map[string]driver.Value, t *testing.T, err string) {
+func assertMaps(testVal map[string]driver.Value, expectedVal map[string]driver.Value, t *testing.T, err string) {
 	// manually
-	if len(test_val) != len(expected_val) {
+	if len(testVal) != len(expectedVal) {
 		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}
-	for key, value := range expected_val {
-		assert(test_val[key], value, t, err)
-	}
-}
-
-func assertDates(test_val time.Time, expected_val time.Time, t *testing.T, err string) {
-	if !test_val.Equal(expected_val) {
-		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val.In(expected_val.Location()))
+	for key, value := range expectedVal {
+		assert(testVal[key], value, t, err)
 	}
 }
 
-func assertByte(test_val []byte, expected_val []byte, t *testing.T, err string) {
-	if !bytes.Equal(test_val, expected_val) {
+func assertDates(testVal time.Time, expectedVal time.Time, t *testing.T, err string) {
+	if !testVal.Equal(expectedVal) {
 		t.Log(string(debug.Stack()))
-		t.Errorf(err+"Expected: %s Got: %s", expected_val, test_val)
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal.In(expectedVal.Location()))
+	}
+}
+
+func assertByte(testVal []byte, expectedVal []byte, t *testing.T, err string) {
+	if !bytes.Equal(testVal, expectedVal) {
+		t.Log(string(debug.Stack()))
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
+	}
+}
+
+func assertDecimal(testVal decimal.Decimal, expectedVal decimal.Decimal, t *testing.T, err string) {
+	if !testVal.Equal(expectedVal) {
+		t.Log(string(debug.Stack()))
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}
 }
 
@@ -136,6 +153,19 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 	return &fireboltRows{responses, 0, 0}
 }
 
+func mockRowsSingleValue(value interface{}, columnType string) driver.RowsNextResultSet {
+	response := QueryResponse{
+		Query:      map[string]string{"query_id": "16FF2A0300ECA753"},
+		Meta:       []Column{{Name: "single_col", Type: columnType}},
+		Data:       [][]interface{}{{value}},
+		Rows:       1,
+		Errors:     []ErrorDetails{},
+		Statistics: map[string]interface{}{},
+	}
+
+	return &fireboltRows{[]QueryResponse{response}, 0, 0}
+}
+
 // TestRowsColumns checks, that correct column names are returned
 func TestRowsColumns(t *testing.T) {
 	rows := mockRows(false)
@@ -168,83 +198,83 @@ func TestRowsNext(t *testing.T) {
 	err := rows.Next(dest)
 	loc, _ := time.LoadLocation("UTC")
 
-	assert(err, nil, t, "Next shouldn't return an error")
-	assert(dest[0], nil, t, "results not equal for int32")
-	assert(dest[1], int64(1), t, "results not equal for int64")
-	assert(dest[2], float32(0.312321), t, "results not equal for float32")
-	assert(dest[3], float64(123213.321321), t, "results not equal for float64")
-	assert(dest[4], "text", t, "results not equal for string")
-	assert(dest[5], time.Date(2080, 12, 31, 0, 0, 0, 0, loc), t, "results not equal for date")
-	assert(dest[6], time.Date(1989, 04, 15, 1, 2, 3, 0, loc), t, "results not equal for datetime")
-	assert(dest[7], time.Date(0002, 01, 01, 0, 0, 0, 0, loc), t, "results not equal for pgdate")
-	assert(dest[8], time.Date(1989, 04, 15, 1, 2, 3, 123456000, loc), t, "results not equal for timestampntz")
-	assertDates(dest[9].(time.Time), time.Date(1989, 04, 15, 2, 2, 3, 123456000, loc), t, "")
-	assert(dest[13], true, t, "results not equal for boolean")
-	assert(dest[14], 123.12345678, t, "results not equal for decimal")
-	assert(dest[15].([]driver.Value), []driver.Value{123.12345678}, t, "results not equal for decimal array")
-	assertByte(dest[16].([]byte), []byte("abc123"), t, "")
-	assert(dest[17], "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F", t, "results not equal for geography")
-	assert(dest[18].(map[string]driver.Value), map[string]driver.Value{"a": int32(1), "s": map[string]driver.Value{"a": []driver.Value{int32(1), int32(2), int32(3)}, "b": "text"}}, t, "results not equal for struct")
+	assert(err, nil, t, "Next shouldn't return an error at row 1")
+	assert(dest[0], nil, t, "results not equal for int32 at row 1")
+	assert(dest[1], int64(1), t, "results not equal for int64 at row 1")
+	assert(dest[2], float32(0.312321), t, "results not equal for float32 at row 1")
+	assert(dest[3], float64(123213.321321), t, "results not equal for float64 at row 1")
+	assert(dest[4], "text", t, "results not equal for string at row 1")
+	assert(dest[5], time.Date(2080, 12, 31, 0, 0, 0, 0, loc), t, "results not equal for date at row 1")
+	assert(dest[6], time.Date(1989, 04, 15, 1, 2, 3, 0, loc), t, "results not equal for datetime at row 1")
+	assert(dest[7], time.Date(0002, 01, 01, 0, 0, 0, 0, loc), t, "results not equal for pgdate at row 1")
+	assert(dest[8], time.Date(1989, 04, 15, 1, 2, 3, 123456000, loc), t, "results not equal for timestampntz at row 1")
+	assertDates(dest[9].(time.Time), time.Date(1989, 04, 15, 2, 2, 3, 123456000, loc), t, " at row 1")
+	assert(dest[13], true, t, "results not equal for boolean at row 1")
+	assert(dest[14], decimal.NewFromFloat(123.12345678), t, "results not equal for decimal at row 1")
+	assert(dest[15].([]driver.Value), []driver.Value{decimal.NewFromFloat(123.12345678)}, t, "results not equal for decimal array at row 1")
+	assertByte(dest[16].([]byte), []byte("abc123"), t, "results not equal for bytes at row 1")
+	assert(dest[17], "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F", t, "results not equal for geography at row 1")
+	assert(dest[18].(map[string]driver.Value), map[string]driver.Value{"a": int32(1), "s": map[string]driver.Value{"a": []driver.Value{int32(1), int32(2), int32(3)}, "b": "text"}}, t, "results not equal for struct at row 1")
 
 	// Second row
 	err = rows.Next(dest)
-	assert(err, nil, t, "Next shouldn't return an error")
-	assert(dest[1], int64(37237366456), t, "results not equal for int64")
+	assert(err, nil, t, "Next shouldn't return an error at row 2")
+	assert(dest[1], int64(37237366456), t, "results not equal for int64 at row 2")
 	// Creating custom timezone with no name (e.g. Europe/Berlin)
 	// similar to Firebolt's return format
 	timezone, _ := time.LoadLocation("Asia/Calcutta")
-	assertDates(dest[9].(time.Time), time.Date(1989, 04, 15, 1, 2, 3, 123400000, timezone), t, "")
-	assert(dest[13], true, t, "results not equal for boolean")
-	assert(dest[14], -123.12345678, t, "results not equal for decimal")
-	assert(dest[15].([]driver.Value), []driver.Value{-123.12345678, 0.0}, t, "invalid length of decimal array")
-	assertByte(dest[16].([]byte), []byte("abc\n\nㅍ ㅎ\\"), t, "")
-	assert(dest[18].(map[string]driver.Value), map[string]driver.Value{"a": int32(2), "s": nil}, t, "results not equal for struct")
+	assertDates(dest[9].(time.Time), time.Date(1989, 04, 15, 1, 2, 3, 123400000, timezone), t, "results not equal for time at row 2")
+	assert(dest[13], true, t, "results not equal for boolean at row 2")
+	assert(dest[14], decimal.NewFromFloat(-123.12345678), t, "results not equal for decimal at row 2")
+	assert(dest[15].([]driver.Value), []driver.Value{decimal.NewFromFloat(-123.12345678), decimal.NewFromFloat(0.0)}, t, "results not equal for decimal array at row 2")
+	assertByte(dest[16].([]byte), []byte("abc\n\nㅍ ㅎ\\"), t, "results not equal for bytes at row 2")
+	assert(dest[18].(map[string]driver.Value), map[string]driver.Value{"a": int32(2), "s": nil}, t, "results not equal for struct at row 2")
 
 	// Third row
 	err = rows.Next(dest)
-	assert(err, nil, t, "Next shouldn't return an error")
-	assert(dest[0], int32(3), t, "results not equal for int32")
-	assert(dest[1], nil, t, "results not equal for int64")
-	assert(dest[2], float32(math.Inf(1)), t, "results not equal for float32")
-	assert(dest[3], float64(123213.321321), t, "results not equal for float64")
-	assert(dest[4], "text", t, "results not equal for string")
-	assert(dest[13], false, t, "results not equal for boolean")
-	assert(dest[14], 0.0, t, "results not equal for decimal")
-	assert(dest[15].([]driver.Value), []driver.Value{0.0}, t, "results not equal for decimal array")
-	assert(dest[18], nil, t, "results not equal for struct")
+	assert(err, nil, t, "Next shouldn't return an error at row 3")
+	assert(dest[0], int32(3), t, "results not equal for int32 at row 3")
+	assert(dest[1], nil, t, "results not equal for int64 at row 3")
+	assert(dest[2], float32(math.Inf(1)), t, "results not equal for float32 at row 3")
+	assert(dest[3], float64(123213.321321), t, "results not equal for float64 at row 3")
+	assert(dest[4], "text", t, "results not equal for string at row 3")
+	assert(dest[13], false, t, "results not equal for boolean at row 3")
+	assert(dest[14], decimal.NewFromFloat(0.0), t, "results not equal for decimal at row 3")
+	assert(dest[15].([]driver.Value), []driver.Value{decimal.NewFromFloat(0.0)}, t, "results not equal for decimal array at row 3")
+	assert(dest[18], nil, t, "results not equal for struct at row 3")
 
 	// Fourth row
 	err = rows.Next(dest)
-	assert(err, nil, t, "Next shouldn't return an error")
-	assert(dest[2], float32(math.Inf(-1)), t, "results not equal for float32")
-	assertDates(dest[9].(time.Time), time.Date(1111, 01, 5, 11, 11, 14, 123456000, loc), t, "")
-	assert(dest[13], false, t, "results not equal for boolean")
-	var long_double = 123456781234567812345678.12345678123456781234567812345678
-	assert(dest[14], long_double, t, "results not equal for decimal")
-	assert(dest[15].([]driver.Value), []driver.Value{long_double}, t, "results not equal for decimal array")
+	assert(err, nil, t, "Next shouldn't return an error at row 4")
+	assert(dest[2], float32(math.Inf(-1)), t, "results not equal for float32 at row 4")
+	assertDates(dest[9].(time.Time), time.Date(1111, 01, 5, 11, 11, 14, 123456000, loc), t, " at row 4")
+	assert(dest[13], false, t, "results not equal for boolean at row 4")
+	var longDouble = decimal.NewFromFloat(123456781234567812345678.12345678123456781234567812345678)
+	assert(dest[14], longDouble, t, "results not equal for decimal at row 4")
+	assert(dest[15].([]driver.Value), []driver.Value{longDouble}, t, "results not equal for decimal array at row 4")
 
 	// Fifth row
 	err = rows.Next(dest)
-	assert(err, nil, t, "Next shouldn't return an error")
+	assert(err, nil, t, "Next shouldn't return an error at row 5")
 	// Cannot do assert since NaN != NaN according to the standard
 	// math.IsNaN only works for float64, converting float32 NaN to float64 results in 0
 	if !(dest[2].(float32) != dest[2].(float32)) {
 		t.Log(string(debug.Stack()))
 		t.Errorf("results not equal for float32 Expected: NaN Got: %s", dest[2])
 	}
-	assertDates(dest[9].(time.Time), time.Date(1989, 4, 15, 3, 2, 3, 123456000, loc), t, "")
-	assert(dest[13], nil, t, "results not equal for boolean")
-	assert(dest[14], nil, t, "results not equal for decimal")
-	assert(dest[15].([]driver.Value), []driver.Value{nil}, t, "results not equal for decimal array")
+	assertDates(dest[9].(time.Time), time.Date(1989, 4, 15, 3, 2, 3, 123456000, loc), t, " at row 5")
+	assert(dest[13], nil, t, "results not equal for boolean at row 5")
+	assert(dest[14], nil, t, "results not equal for decimal at row 5")
+	assert(dest[15].([]driver.Value), []driver.Value{nil}, t, "results not equal for decimal array at row 5")
 
 	// Sixth row (does not exist)
-	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
+	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore at row 6")
 
 	// Seventh row (does not exist)
-	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
+	assert(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore at row 7")
 
 	assert(rows.HasNextResultSet(), false, t, "Has Next result set didn't return false")
-	assert(rows.NextResultSet(), io.EOF, t, "Next result set didn't return false")
+	assert(rows.NextResultSet(), io.EOF, t, "Next result set didn't return false at the end")
 }
 
 // TestRowsNextSet check rows with multiple statements
@@ -309,7 +339,7 @@ func TestRowsNextStructWithNestedSpaces(t *testing.T) {
 	rows := &fireboltRows{[]QueryResponse{response}, 0, 0}
 	var dest = make([]driver.Value, 1)
 	if err := rows.Next(dest); err != nil {
-		t.Errorf("Next returned an error: %s", err)
+		t.Errorf(nextErrorMessage, err)
 	}
 
 	if dest[0].(map[string]driver.Value)["a b"] != int32(1) {
@@ -317,5 +347,35 @@ func TestRowsNextStructWithNestedSpaces(t *testing.T) {
 	}
 	if dest[0].(map[string]driver.Value)["s"].(map[string]driver.Value)["c d"] != time.Date(1989, 04, 15, 1, 2, 3, 0, time.UTC) {
 		t.Errorf("results are not equal")
+	}
+}
+
+func TestRowsQuotedLong(t *testing.T) {
+	intRaw := "-9223372036854775808"
+	intValue, _ := strconv.ParseInt(intRaw, 10, 64)
+	rows := mockRowsSingleValue(intRaw, "long")
+	var dest = make([]driver.Value, 1)
+	if err := rows.Next(dest); err != nil {
+		t.Errorf(nextErrorMessage, err)
+	}
+	assert(dest[0], intValue, t, "results are not equal for long")
+}
+
+func TestRowsDecimalType(t *testing.T) {
+	floatValue := 123456789.123456789
+	stringValue := "1234567890123456789012345678901234567890"
+	stringDecimalValue, _ := decimal.NewFromString(stringValue)
+	cases := [][]interface{}{
+		{nil, nil},
+		{floatValue, decimal.NewFromFloat(floatValue)},
+		{stringValue, stringDecimalValue},
+	}
+	for _, c := range cases {
+		rows := mockRowsSingleValue(c[0], "Decimal(10, 35)")
+		var dest = make([]driver.Value, 1)
+		if err := rows.Next(dest); err != nil {
+			t.Errorf(nextErrorMessage, err)
+		}
+		assert(dest[0], c[1], t, fmt.Sprintf("results are not equal for %v", c[0]))
 	}
 }

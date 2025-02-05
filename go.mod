@@ -7,3 +7,5 @@ require github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
 require github.com/matishsiao/goInfo v0.0.0-20210923090445-da2e3fa8d45f
 
 require github.com/astaxie/beego v1.12.3
+
+require github.com/shopspring/decimal v1.4.0

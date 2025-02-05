@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 const (
@@ -283,6 +285,27 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 	return nil, fmt.Errorf("type not known: %s", columnType)
 }
 
+func parseDecimalValue(val interface{}) (driver.Value, error) {
+	var decimalValue decimal.Decimal
+	var err error
+	switch val := val.(type) {
+	case string:
+		decimalValue, err = decimal.NewFromString(val)
+	case float32:
+		decimalValue = decimal.NewFromFloat(float64(val))
+	case float64:
+		decimalValue = decimal.NewFromFloat(val)
+	default:
+		return nil, fmt.Errorf("unable to parse decimal value: %v", val)
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse decimal value: %v", val)
+	} else {
+		return decimalValue, nil
+	}
+}
+
 // parseValue treating the val according to the column type and casts it to one of the go native types:
 // uint8, uint32, uint64, int32, int64, float32, float64, string, Time or []driver.Value for arrays
 func parseValue(columnType string, val interface{}) (driver.Value, error) {
@@ -308,7 +331,7 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		}
 		return res, nil
 	} else if strings.HasPrefix(columnType, decimalPrefix) && strings.HasSuffix(columnType, suffix) {
-		return parseSingleValue("double", val)
+		return parseDecimalValue(val)
 	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, suffix) {
 		return parseStruct(columnType[len(structPrefix):len(columnType)-len(suffix)], val)
 	} else if strings.HasSuffix(columnType, nullableSuffix) {

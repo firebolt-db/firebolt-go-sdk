@@ -11,6 +11,8 @@ import (
 	"runtime/debug"
 	"testing"
 	"time"
+
+	"github.com/shopspring/decimal"
 )
 
 func TestConnectionUseDatabase(t *testing.T) {
@@ -370,4 +372,30 @@ func TestConnectionQueryStructType(t *testing.T) {
 		},
 	}, t, "struct type check failed")
 
+}
+
+func TestConnectionQuotedDecimal(t *testing.T) {
+	conn, err := sql.Open("firebolt", dsnMock)
+	if err != nil {
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
+		t.FailNow()
+	}
+
+	sql := "SELECT 12345678901234567890123456789.123456789::decimal(38, 9)"
+
+	rows, err := conn.QueryContext(context.TODO(), sql)
+	if err != nil {
+		t.Errorf(STATEMENT_ERROR_MSG, err)
+	}
+
+	var dest driver.Value
+
+	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	if err = rows.Scan(&dest); err != nil {
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
+	}
+	expected, _ := decimal.NewFromString("12345678901234567890123456789.123456789")
+	if !expected.Equal(dest.(decimal.Decimal)) {
+		t.Errorf("Quoted decimal check failed Expected: %s Got: %s", expected, dest)
+	}
 }
