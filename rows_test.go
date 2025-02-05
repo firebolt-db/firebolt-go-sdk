@@ -17,6 +17,7 @@ import (
 )
 
 const assertErrorMessage = "Expected: %v Got: %v"
+const nextErrorMessage = "Next returned an error: %s"
 
 func assert(testVal interface{}, expectedVal interface{}, t *testing.T, err string) {
 	if m, ok := expectedVal.(map[string]driver.Value); ok {
@@ -338,7 +339,7 @@ func TestRowsNextStructWithNestedSpaces(t *testing.T) {
 	rows := &fireboltRows{[]QueryResponse{response}, 0, 0}
 	var dest = make([]driver.Value, 1)
 	if err := rows.Next(dest); err != nil {
-		t.Errorf("Next returned an error: %s", err)
+		t.Errorf(nextErrorMessage, err)
 	}
 
 	if dest[0].(map[string]driver.Value)["a b"] != int32(1) {
@@ -355,7 +356,7 @@ func TestRowsQuotedLong(t *testing.T) {
 	rows := mockRowsSingleValue(intRaw, "long")
 	var dest = make([]driver.Value, 1)
 	if err := rows.Next(dest); err != nil {
-		t.Errorf("Next returned an error: %s", err)
+		t.Errorf(nextErrorMessage, err)
 	}
 	assert(dest[0], intValue, t, "results are not equal for long")
 }
@@ -373,7 +374,7 @@ func TestRowsDecimalType(t *testing.T) {
 		rows := mockRowsSingleValue(c[0], "Decimal(10, 35)")
 		var dest = make([]driver.Value, 1)
 		if err := rows.Next(dest); err != nil {
-			t.Errorf("Next returned an error: %s", err)
+			t.Errorf(nextErrorMessage, err)
 		}
 		assert(dest[0], c[1], t, fmt.Sprintf("results are not equal for %v", c[0]))
 	}
