@@ -248,9 +248,9 @@ func TestRowsNext(t *testing.T) {
 	assert(dest[2], float32(math.Inf(-1)), t, "results not equal for float32 at row 4")
 	assertDates(dest[9].(time.Time), time.Date(1111, 01, 5, 11, 11, 14, 123456000, loc), t, " at row 4")
 	assert(dest[13], false, t, "results not equal for boolean at row 4")
-	var long_double = decimal.NewFromFloat(123456781234567812345678.12345678123456781234567812345678)
-	assert(dest[14], long_double, t, "results not equal for decimal at row 4")
-	assert(dest[15].([]driver.Value), []driver.Value{long_double}, t, "results not equal for decimal array at row 4")
+	var longDouble = decimal.NewFromFloat(123456781234567812345678.12345678123456781234567812345678)
+	assert(dest[14], longDouble, t, "results not equal for decimal at row 4")
+	assert(dest[15].([]driver.Value), []driver.Value{longDouble}, t, "results not equal for decimal array at row 4")
 
 	// Fifth row
 	err = rows.Next(dest)
