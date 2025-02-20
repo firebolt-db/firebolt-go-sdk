@@ -83,9 +83,9 @@ func (c *ClientImplV0) getAccountID(ctx context.Context, accountName string) (st
 	var err error
 	if accountName == "" {
 		infolog.Println("account name not specified, trying to get a default account id")
-		accountId, err = c.getDefaultAccountID(context.TODO())
+		accountId, err = c.getDefaultAccountID(ctx)
 	} else {
-		accountId, err = c.getAccountIDByName(context.TODO(), accountName)
+		accountId, err = c.getAccountIDByName(ctx, accountName)
 	}
 	if err != nil {
 		return "", ConstructNestedError("error during getting account id", err)

@@ -33,7 +33,7 @@ func (c *fireboltConnection) Close() error {
 
 // Begin is not implemented, as firebolt doesn't support transactions
 func (c *fireboltConnection) Begin() (driver.Tx, error) {
-	return nil, fmt.Errorf("Transactions are not implemented in firebolt")
+	return nil, fmt.Errorf("transactions are not implemented in firebolt")
 }
 
 // ExecContext sends the query to the engine and returns empty fireboltResult

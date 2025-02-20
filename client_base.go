@@ -128,7 +128,7 @@ func (c *BaseClient) handleUpdateEndpoint(updateEndpointRaw string, control conn
 	// split URL containted into updateEndpointRaw into endpoint and parameters
 	// Update parameters and set client engine endpoint
 
-	corruptUrlError := errors.New("Failed to execute USE ENGINE command. Corrupt update endpoint. Contact support")
+	corruptUrlError := errors.New("failed to execute USE ENGINE command: corrupt update endpoint - contact support")
 	updateEndpoint, newParameters, err := splitEngineEndpoint(updateEndpointRaw)
 	if err != nil {
 		return corruptUrlError
