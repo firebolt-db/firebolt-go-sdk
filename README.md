@@ -17,6 +17,7 @@ go get github.com/firebolt-db/firebolt-go-sdk
 ### Example
 Here is an example of establishing a connection and executing a simple select query.
 For it to run successfully, you have to specify your credentials, and have a default engine up and running.
+
 ```go
 package main
 
@@ -39,35 +40,44 @@ func main() {
 	// opening the firebolt driver
 	db, err := sql.Open("firebolt", dsn)
 	if err != nil {
-		fmt.Println("error during opening a driver: %v", err)
+		fmt.Printf("error during opening a driver: %v", err)
 	}
 
 	// Create table
-	_, err := db.Query("CREATE TABLE test_table(id INT, value TEXT)")
+	_, err = db.Query("CREATE TABLE test_table(id INT, value TEXT)")
 	if err != nil {
-		fmt.Println("error during select query: %v", err)
+		fmt.Printf("error during select query: %v", err)
 	}
 
 	// Parametrized insert (only ? placeholders are supported)
-	_, err := db.Query("INSERT INTO test_table VALUES (?, ?)", 1, "my value")
+	_, err = db.Query("INSERT INTO test_table VALUES (?, ?)", 1, "my value")
 	if err != nil {
-		fmt.Println("error during select query: %v", err)
+		fmt.Printf("error during select query: %v", err)
 	}
 
 	// executing a simple select query
 	rows, err := db.Query("SELECT id FROM test_table")
 	if err != nil {
-		fmt.Println("error during select query: %v", err)
+		fmt.Printf("error during select query: %v", err)
 	}
 
 	// iterating over the resulting rows
-	defer rows.Close()
+	defer func() {
+		if err := rows.Close(); err != nil {
+			fmt.Printf("error during rows.Close(): %v\n", err)
+		}
+	}()
+	
 	for rows.Next() {
 		var id int
 		if err := rows.Scan(&id); err != nil {
-			fmt.Println("error during scan: %v", err)
+			fmt.Printf("error during scan: %v", err)
 		}
 		fmt.Println(id)
+	}
+
+	if err := rows.Err(); err != nil {
+		fmt.Printf("error during rows iteration: %v\n", err)
 	}
 }
 ```
