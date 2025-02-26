@@ -303,7 +303,7 @@ func request(
 	}{}
 	if err = json.Unmarshal(body, &errorResponse); err == nil {
 		if errorResponse.Errors != nil {
-			return response{nil, resp.StatusCode, nil, NewStructuredError(errorResponse.Errors)}
+			return response{nil, resp.StatusCode, nil, errors2.NewStructuredError(errorResponse.Errors)}
 		}
 	}
 
