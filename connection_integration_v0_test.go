@@ -75,25 +75,25 @@ func TestConnectionPreparedStatementV0(t *testing.T) {
 	for i := range pointers {
 		pointers[i] = &dest[i]
 	}
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	rows2.assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(pointers...); err != nil {
 		t.Errorf("firebolt rows Scan failed with %v", err)
 		t.FailNow()
 	}
 
-	assert(dest[0], int32(1), t, "int32 results are not equal")
-	assert(dest[1], int64(2), t, "int64 results are not equal")
+	rows2.assert(dest[0], int32(1), t, "int32 results are not equal")
+	rows2.assert(dest[1], int64(2), t, "int64 results are not equal")
 	// float is now alias for double so both 32 an 64 bit float values are converted to float64
-	assert(dest[2], float32(0.333333), t, "float32 results are not equal")
-	assert(dest[3], 0.333333333333, t, "float64 results are not equal")
-	assert(dest[4], "text", t, "string results are not equal")
-	assert(dest[5], d, t, "date results are not equal")
-	assert(dest[6], ts.UTC(), t, "timestamp results are not equal")
+	rows2.assert(dest[2], float32(0.333333), t, "float32 results are not equal")
+	rows2.assert(dest[3], 0.333333333333, t, "float64 results are not equal")
+	rows2.assert(dest[4], "text", t, "string results are not equal")
+	rows2.assert(dest[5], d, t, "date results are not equal")
+	rows2.assert(dest[6], ts.UTC(), t, "timestamp results are not equal")
 	// Use .Equal to correctly compare timezones
 	if !dest[7].(time.Time).Equal(tstz) {
 		t.Errorf("timestamptz results are not equal Expected: %s Got: %s", tstz, dest[7])
 	}
-	assert(dest[8], true, t, "boolean results are not equal")
+	rows2.assert(dest[8], true, t, "boolean results are not equal")
 	baValue := dest[9].([]byte)
 	if len(baValue) != len(ba) {
 		t.Log(string(debug.Stack()))

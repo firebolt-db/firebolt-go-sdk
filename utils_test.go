@@ -8,6 +8,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/firebolt-db/firebolt-go-sdk/types"
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
+
 	"github.com/matishsiao/goInfo"
 )
 
@@ -190,22 +193,22 @@ func TestSplitStatements(t *testing.T) {
 }
 
 func TestValueToNamedValue(t *testing.T) {
-	assert(len(valueToNamedValue([]driver.Value{})), 0, t, "valueToNamedValue of empty array is wrong")
+	utils.AssertEqual(len(valueToNamedValue([]driver.Value{})), 0, t, "valueToNamedValue of empty array is wrong")
 
 	namedValues := valueToNamedValue([]driver.Value{2, "string"})
-	assert(len(namedValues), 2, t, "len of namedValues is wrong")
-	assert(namedValues[0].Value, 2, t, "namedValues value is wrong")
-	assert(namedValues[1].Value, "string", t, "namedValues value is wrong")
+	utils.AssertEqual(len(namedValues), 2, t, "len of namedValues is wrong")
+	utils.AssertEqual(namedValues[0].Value, 2, t, "namedValues value is wrong")
+	utils.AssertEqual(namedValues[1].Value, "string", t, "namedValues value is wrong")
 }
 func TestNewStructuredError(t *testing.T) {
-	errorDetails := ErrorDetails{
+	errorDetails := types.ErrorDetails{
 		Severity:    "error",
 		Name:        "TestError",
 		Code:        "123",
 		Description: "This is a test error",
 		Source:      "TestSource",
 		Resolution:  "Please fix the error",
-		Location: Location{
+		Location: types.Location{
 			FailingLine: 10,
 			StartOffset: 20,
 			EndOffset:   30,
@@ -215,7 +218,7 @@ func TestNewStructuredError(t *testing.T) {
 
 	expectedMessage := "error: TestError (123) - This is a test error, TestSource, resolution: Please fix the error at {FailingLine:10 StartOffset:20 EndOffset:30}, see https://example.com"
 
-	err := NewStructuredError([]ErrorDetails{errorDetails})
+	err := NewStructuredError([]types.ErrorDetails{errorDetails})
 
 	if err.Message != expectedMessage {
 		t.Errorf("NewStructuredError returned incorrect error message, got: %s, want: %s", err.Message, expectedMessage)
@@ -223,7 +226,7 @@ func TestNewStructuredError(t *testing.T) {
 }
 
 func TestStructuredErrorWithMissingFields(t *testing.T) {
-	errorDetails := ErrorDetails{
+	errorDetails := types.ErrorDetails{
 		Severity:    "error",
 		Name:        "TestError",
 		Code:        "123",
@@ -232,7 +235,7 @@ func TestStructuredErrorWithMissingFields(t *testing.T) {
 
 	expectedMessage := "error: TestError (123) - This is a test error"
 
-	err := NewStructuredError([]ErrorDetails{errorDetails})
+	err := NewStructuredError([]types.ErrorDetails{errorDetails})
 
 	if err.Message != expectedMessage {
 		t.Errorf("NewStructuredError returned incorrect error message, got: %s, want: %s", err.Message, expectedMessage)
@@ -240,14 +243,14 @@ func TestStructuredErrorWithMissingFields(t *testing.T) {
 }
 
 func TestStructuredErrorWithMultipleErrors(t *testing.T) {
-	errorDetails := ErrorDetails{
+	errorDetails := types.ErrorDetails{
 		Severity:    "error",
 		Name:        "TestError",
 		Code:        "123",
 		Description: "This is a test error",
 		Source:      "TestSource",
 		Resolution:  "Please fix the error",
-		Location: Location{
+		Location: types.Location{
 			FailingLine: 10,
 			StartOffset: 20,
 			EndOffset:   30,
@@ -255,7 +258,7 @@ func TestStructuredErrorWithMultipleErrors(t *testing.T) {
 		HelpLink: "https://example.com",
 	}
 
-	errorDetails2 := ErrorDetails{
+	errorDetails2 := types.ErrorDetails{
 		Severity:    "error",
 		Name:        "TestError",
 		Code:        "123",
@@ -266,7 +269,7 @@ func TestStructuredErrorWithMultipleErrors(t *testing.T) {
 
 	expectedMessage := "error: TestError (123) - This is a test error, TestSource, resolution: Please fix the error at {FailingLine:10 StartOffset:20 EndOffset:30}, see https://example.com\nerror: TestError (123) - This is a test error, TestSource, resolution: Please fix the error"
 
-	err := NewStructuredError([]ErrorDetails{errorDetails, errorDetails2})
+	err := NewStructuredError([]types.ErrorDetails{errorDetails, errorDetails2})
 
 	if err.Message != expectedMessage {
 		t.Errorf("NewStructuredError returned incorrect error message, got: %s, want: %s", err.Message, expectedMessage)

@@ -8,6 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/firebolt-db/firebolt-go-sdk/errors"
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
+
 	"github.com/astaxie/beego/cache"
 )
 
@@ -27,7 +30,7 @@ func init() {
 	var err error
 	tokenCache, err = cache.NewCache("memory", `{}`)
 	if err != nil {
-		infolog.Println(fmt.Errorf("could not create memory cache to store access tokens: %v", err))
+		logging.Infolog.Println(fmt.Errorf("could not create memory cache to store access tokens: %v", err))
 	}
 }
 
@@ -38,14 +41,14 @@ func Authenticate(settings *fireboltSettings, apiEndpoint string) (Client, error
 	if settings.newVersion {
 		_, err := getAccessTokenServiceAccount(settings.clientID, settings.clientSecret, apiEndpoint, userAgent)
 		if err != nil {
-			return nil, ConstructNestedError("error while getting access token", err)
+			return nil, errors.ConstructNestedError("error while getting access token", err)
 		} else {
 			return MakeClient(settings, apiEndpoint)
 		}
 	} else {
 		_, err := getAccessTokenUsernamePassword(settings.clientID, settings.clientSecret, apiEndpoint, userAgent)
 		if err != nil {
-			return nil, ConstructNestedError("error while getting access token", err)
+			return nil, errors.ConstructNestedError("error while getting access token", err)
 		} else {
 			return MakeClientV0(settings, apiEndpoint)
 		}
@@ -66,21 +69,21 @@ func getAccessTokenUsernamePassword(username string, password string, apiEndpoin
 		if err != nil {
 			return "", err
 		}
-		infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
+		logging.Infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
 		resp := request(requestParameters{context.TODO(), "", "POST", apiEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.err != nil {
-			return "", ConstructNestedError("authentication request failed", resp.err)
+			return "", errors.ConstructNestedError("authentication request failed", resp.err)
 		}
 
 		var authResp AuthenticationResponse
 		if err = jsonStrictUnmarshall(resp.data, &authResp); err != nil {
-			return "", ConstructNestedError("failed to unmarshal authentication response with error", err)
+			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
-		infolog.Printf("Authentication was successful")
+		logging.Infolog.Printf("Authentication was successful")
 		if tokenCache != nil {
 			err = tokenCache.Put(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
 			if err != nil {
-				infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
+				logging.Infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
 			}
 		}
 		return authResp.AccessToken, nil
@@ -93,7 +96,7 @@ func prepareUsernamePasswordLogin(username string, password string) (string, str
 	values := map[string]string{"username": username, "password": password}
 	jsonData, err := json.Marshal(values)
 	if err != nil {
-		return "", "", "", ConstructNestedError("error during json marshalling", err)
+		return "", "", "", errors.ConstructNestedError("error during json marshalling", err)
 	} else {
 		return authUrl, ContentTypeJSON, string(jsonData), nil
 	}
@@ -113,23 +116,23 @@ func getAccessTokenServiceAccount(clientId string, clientSecret string, apiEndpo
 		loginUrl, contentType, body = prepareServiceAccountLogin(clientId, clientSecret, AuthAudienceValue)
 		authEndpoint, err := getServiceAccountAuthEndpoint(apiEndpoint)
 		if err != nil {
-			return "", ConstructNestedError("error building auth endpoint", err)
+			return "", errors.ConstructNestedError("error building auth endpoint", err)
 		}
-		infolog.Printf("Start authentication into '%s' using '%s'", authEndpoint, loginUrl)
+		logging.Infolog.Printf("Start authentication into '%s' using '%s'", authEndpoint, loginUrl)
 		resp := request(requestParameters{context.TODO(), "", "POST", authEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.err != nil {
-			return "", ConstructNestedError("authentication request failed", resp.err)
+			return "", errors.ConstructNestedError("authentication request failed", resp.err)
 		}
 
 		var authResp AuthenticationResponse
 		if err = jsonStrictUnmarshall(resp.data, &authResp); err != nil {
-			return "", ConstructNestedError("failed to unmarshal authentication response with error", err)
+			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
-		infolog.Printf("Authentication was successful")
+		logging.Infolog.Printf("Authentication was successful")
 		if tokenCache != nil {
 			err = tokenCache.Put(getCacheKey(clientId, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
 			if err != nil {
-				infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
+				logging.Infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
 			}
 		}
 		return authResp.AccessToken, nil
@@ -152,7 +155,7 @@ func prepareServiceAccountLogin(clientId, clientSecret, audience string) (string
 func getServiceAccountAuthEndpoint(apiEndpoint string) (string, error) {
 	u, err := url.Parse(apiEndpoint)
 	if err != nil {
-		return "", ConstructNestedError("error parsing api endpoint", err)
+		return "", errors.ConstructNestedError("error parsing api endpoint", err)
 	}
 	s := strings.Split(u.Host, ".")
 	if s[0] != "api" {
@@ -170,7 +173,7 @@ func deleteAccessTokenFromCache(username, apiEndpoint string) {
 	if tokenCache != nil {
 		err := tokenCache.Delete(getCacheKey(username, apiEndpoint))
 		if err != nil {
-			infolog.Println(fmt.Errorf("could not remove token from the memory cache: %v", err))
+			logging.Infolog.Println(fmt.Errorf("could not remove token from the memory cache: %v", err))
 		}
 	}
 }

@@ -13,6 +13,9 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
 const OPEN_CONNECTION_ERROR_MSG = "opening a connection failed unexpectedly"
@@ -30,7 +33,7 @@ func init() {
 	if exists {
 		longTestValue, err = strconv.Atoi(longTestValueStr)
 		if err != nil {
-			infolog.Println(fmt.Errorf("failed to convert LONG_TEST_VALUE to int: %v", err))
+			logging.Infolog.Println(fmt.Errorf("failed to convert LONG_TEST_VALUE to int: %v", err))
 		}
 	}
 }
@@ -44,10 +47,10 @@ func TestConnectionSetStatement(t *testing.T) {
 	}
 
 	_, err = conn.ExecContext(context.TODO(), "SET time_zone=America/New_York")
-	assert(err, nil, t, "set time_zone returned an error, but shouldn't")
+	utils.AssertEqual(err, nil, t, "set time_zone returned an error, but shouldn't")
 
 	_, err = conn.QueryContext(context.TODO(), "SELECT * FROM information_schema.tables")
-	assert(err, nil, t, "query returned an error, but shouldn't")
+	utils.AssertEqual(err, nil, t, "query returned an error, but shouldn't")
 
 }
 
@@ -113,16 +116,16 @@ func TestConnectionQuery(t *testing.T) {
 	var i int32
 	var f float64
 	var s string
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	err = rows.Scan(&i, &f, &s)
 	if err != nil {
 		t.Errorf("Next returned an error, but shouldn't")
 	}
-	assert(i, int32(-3213212), t, "dest[0] is not equal")
-	assert(f, float64(2.3), t, "dest[1] is not equal")
-	assert(s, "some_text", t, "dest[2] is not equal")
+	utils.AssertEqual(i, int32(-3213212), t, "dest[0] is not equal")
+	utils.AssertEqual(f, float64(2.3), t, "dest[1] is not equal")
+	utils.AssertEqual(s, "some_text", t, "dest[2] is not equal")
 
-	assert(rows.Next(), false, t, "end of data didn't return io.EOF")
+	utils.AssertEqual(rows.Next(), false, t, "end of data didn't return io.EOF")
 }
 
 func TestConnectionQueryDate32Type(t *testing.T) {
@@ -140,7 +143,7 @@ func TestConnectionQueryDate32Type(t *testing.T) {
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
@@ -163,7 +166,7 @@ func TestConnectionQueryDecimalType(t *testing.T) {
 
 	var dest float64
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
@@ -187,7 +190,7 @@ func TestConnectionQueryDateTime64Type(t *testing.T) {
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
@@ -212,7 +215,7 @@ func TestConnectionQueryPGDateType(t *testing.T) {
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
@@ -236,7 +239,7 @@ func TestConnectionQueryTimestampNTZType(t *testing.T) {
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
@@ -260,7 +263,7 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
@@ -290,7 +293,7 @@ func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
 
 	var dest time.Time
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
@@ -313,19 +316,19 @@ func TestConnectionMultipleStatement(t *testing.T) {
 
 		var dest int32
 
-		assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+		utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 		err = rows.Scan(&dest)
-		assert(err, nil, t, "rows.Scan returned an error")
-		assert(dest, int32(-1), t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
+		utils.AssertEqual(err, nil, t, "rows.Scan returned an error")
+		utils.AssertEqual(dest, int32(-1), t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
 
-		assert(rows.NextResultSet(), true, t, "NextResultSet returned false")
-		assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+		utils.AssertEqual(rows.NextResultSet(), true, t, "NextResultSet returned false")
+		utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 		err = rows.Scan(&dest)
-		assert(err, nil, t, "rows.Scan returned an error")
-		assert(dest, int32(-2), t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
+		utils.AssertEqual(err, nil, t, "rows.Scan returned an error")
+		utils.AssertEqual(dest, int32(-2), t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
 
-		assert(rows.NextResultSet(), false, t, "NextResultSet returned true")
-		assert(rows.Next(), false, t, "Next returned true")
+		utils.AssertEqual(rows.NextResultSet(), false, t, "NextResultSet returned true")
+		utils.AssertEqual(rows.Next(), false, t, "Next returned true")
 	}
 }
 
@@ -345,13 +348,13 @@ func TestConnectionQueryBooleanType(t *testing.T) {
 	// Nil value can only be assigned to an interface{}
 	var b3 interface{}
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&b1, &b2, &b3); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
-	assert(b1, true, t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
-	assert(b2, false, t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
-	assert(b3, nil, t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
+	utils.AssertEqual(b1, true, t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
+	utils.AssertEqual(b2, false, t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
+	utils.AssertEqual(b3, nil, t, RESULTS_ARE_NOT_EQUAL_ERROR_MSG)
 }
 
 func TestConnectionQueryByteaType(t *testing.T) {
@@ -368,7 +371,7 @@ func TestConnectionQueryByteaType(t *testing.T) {
 
 	var dest []byte
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}

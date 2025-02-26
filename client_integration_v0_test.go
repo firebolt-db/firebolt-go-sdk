@@ -115,7 +115,7 @@ func TestQuerySetStatements(t *testing.T) {
 		t.Errorf("Query returned an error: %v", err)
 	}
 
-	date, err := parseValue("timestamptz", resp.Data[0][0])
+	date, err := rows.parseValue("timestamptz", resp.Data[0][0])
 	if err != nil {
 		t.Errorf("Error parsing date: %v", err)
 	}

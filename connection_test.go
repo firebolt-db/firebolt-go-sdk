@@ -5,6 +5,8 @@ import (
 	"errors"
 	"strings"
 	"testing"
+
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 // TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
@@ -73,7 +75,7 @@ type MockClient struct {
 	ParametersCalled []map[string]string
 }
 
-func (m *MockClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*QueryResponse, error) {
+func (m *MockClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*types.QueryResponse, error) {
 	m.ParametersCalled = append(m.ParametersCalled, parameters)
 	return nil, nil
 }
@@ -114,7 +116,7 @@ type MockClientFailingQuery struct {
 	ParametersCalled []map[string]string
 }
 
-func (m *MockClientFailingQuery) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*QueryResponse, error) {
+func (m *MockClientFailingQuery) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*types.QueryResponse, error) {
 	m.ParametersCalled = append(m.ParametersCalled, parameters)
 	return nil, errors.New("dummy error")
 }

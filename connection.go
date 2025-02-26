@@ -5,6 +5,10 @@ import (
 	"database/sql/driver"
 	"errors"
 	"fmt"
+
+	errors2 "github.com/firebolt-db/firebolt-go-sdk/errors"
+	"github.com/firebolt-db/firebolt-go-sdk/rows"
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 type fireboltConnection struct {
@@ -50,24 +54,24 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 func (c *fireboltConnection) queryContextInternal(ctx context.Context, query string, args []driver.NamedValue, isMultiStatementAllowed bool) (driver.Rows, error) {
 	query, err := prepareStatement(query, args)
 	if err != nil {
-		return nil, ConstructNestedError("error during preparing a statement", err)
+		return nil, errors2.ConstructNestedError("error during preparing a statement", err)
 	}
 	queries, err := SplitStatements(query)
 	if err != nil {
-		return nil, ConstructNestedError("error during splitting query", err)
+		return nil, errors2.ConstructNestedError("error during splitting query", err)
 	}
 	if len(queries) > 1 && !isMultiStatementAllowed {
 		return nil, fmt.Errorf("multistatement is not allowed")
 	}
 
-	var rows fireboltRows
+	var rows rows.InMemoryRows
 	for _, query := range queries {
 		if isSetStatement, err := processSetStatement(ctx, c, query); isSetStatement {
 			if err == nil {
-				rows.response = append(rows.response, QueryResponse{})
+				rows.AppendResponse(types.QueryResponse{})
 				continue
 			} else {
-				return &rows, ConstructNestedError("statement recognized as an invalid set statement", err)
+				return &rows, errors2.ConstructNestedError("statement recognized as an invalid set statement", err)
 			}
 		}
 
@@ -76,9 +80,9 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 			setEngineURL:     c.setEngineURL,
 			resetParameters:  c.resetParameters,
 		}); err != nil {
-			return &rows, ConstructNestedError("error during query execution", err)
+			return &rows, errors2.ConstructNestedError("error during query execution", err)
 		} else {
-			rows.response = append(rows.response, *response)
+			rows.AppendResponse(*response)
 		}
 	}
 	return &rows, nil

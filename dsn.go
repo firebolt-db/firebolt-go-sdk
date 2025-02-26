@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
 
 type fireboltSettings struct {
@@ -27,7 +29,7 @@ func ParseDSNString(dsn string) (*fireboltSettings, error) {
 	dsnExpr := regexp.MustCompile(dsnPattern)
 	dsnExprV0 := regexp.MustCompile(dsnPatternV0)
 
-	infolog.Println("Parsing DSN")
+	logging.Infolog.Println("Parsing DSN")
 
 	if dsnMatch := dsnExpr.FindStringSubmatch(dsn); len(dsnMatch) > 0 {
 		return makeSettings(dsnMatch)

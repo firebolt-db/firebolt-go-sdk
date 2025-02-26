@@ -6,6 +6,8 @@ package fireboltgosdk
 import (
 	"context"
 	"testing"
+
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
 func TestFireboltConnectorWithOptions(t *testing.T) {
@@ -32,7 +34,7 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 	if err != nil {
 		t.Errorf("failed unexpectedly with: %v", err)
 	}
-	assert(len(resp.Data), 1, t, "result data length is not 1")
-	assert(len(resp.Data[0]), 1, t, "result value is invalid")
-	assert(resp.Data[0][0].(float64), float64(1), t, "result is not 1")
+	utils.AssertEqual(len(resp.Data), 1, t, "result data length is not 1")
+	utils.AssertEqual(len(resp.Data[0]), 1, t, "result value is invalid")
+	utils.AssertEqual(resp.Data[0][0].(float64), float64(1), t, "result is not 1")
 }

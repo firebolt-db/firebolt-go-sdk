@@ -10,6 +10,10 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	errors2 "github.com/firebolt-db/firebolt-go-sdk/errors"
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 const outputFormat = "JSON_Compact"
@@ -24,7 +28,7 @@ var allowedUpdateParameters = []string{"database"}
 
 type Client interface {
 	GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error)
-	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*QueryResponse, error)
+	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*types.QueryResponse, error)
 }
 
 type BaseClient struct {
@@ -52,8 +56,8 @@ type connectionControl struct {
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
-func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*QueryResponse, error) {
-	infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
+func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*types.QueryResponse, error) {
+	logging.Infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
 
 	if c.parameterGetter == nil {
 		return nil, errors.New("parameterGetter is not set")
@@ -65,24 +69,24 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 
 	resp := c.request(ctx, "POST", engineUrl, params, query)
 	if resp.err != nil {
-		return nil, ConstructNestedError("error during query request", resp.err)
+		return nil, errors2.ConstructNestedError("error during query request", resp.err)
 	}
 
 	if err = c.processResponseHeaders(resp.headers, control); err != nil {
-		return nil, ConstructNestedError("error during processing response headers", err)
+		return nil, errors2.ConstructNestedError("error during processing response headers", err)
 	}
 
-	var queryResponse QueryResponse
+	var queryResponse types.QueryResponse
 	if len(resp.data) == 0 {
 		// response could be empty, which doesn't mean it is an error
 		return &queryResponse, nil
 	}
 
 	if err = json.Unmarshal(resp.data, &queryResponse); err != nil {
-		return nil, ConstructNestedError("wrong response", errors.New(string(resp.data)))
+		return nil, errors2.ConstructNestedError("wrong response", errors.New(string(resp.data)))
 	}
 
-	infolog.Printf("Query was successful")
+	logging.Infolog.Printf("Query was successful")
 	return &queryResponse, nil
 }
 
@@ -101,13 +105,13 @@ func handleUpdateParameters(updateParameters func(string, string), updateParamet
 	for _, parameter := range updateParametersPairs {
 		kv := strings.Split(parameter, "=")
 		if len(kv) != 2 {
-			infolog.Printf("Warning: invalid parameter assignment %s", parameter)
+			logging.Infolog.Printf("Warning: invalid parameter assignment %s", parameter)
 			continue
 		}
 		if contains(allowedUpdateParameters, kv[0]) {
 			updateParameters(kv[0], kv[1])
 		} else {
-			infolog.Printf("Warning: received unknown update parameter %s", kv[0])
+			logging.Infolog.Printf("Warning: received unknown update parameter %s", kv[0])
 		}
 	}
 }
@@ -170,7 +174,7 @@ func (c *BaseClient) request(ctx context.Context, method string, url string, par
 
 	accessToken, err := c.accessTokenGetter()
 	if err != nil {
-		return response{nil, 0, nil, ConstructNestedError("error while getting access token", err)}
+		return response{nil, 0, nil, errors2.ConstructNestedError("error while getting access token", err)}
 	}
 	resp := request(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
 	if resp.statusCode == http.StatusUnauthorized {
@@ -179,7 +183,7 @@ func (c *BaseClient) request(ctx context.Context, method string, url string, par
 		// Refreshing the access token as it is expired
 		accessToken, err = c.accessTokenGetter()
 		if err != nil {
-			return response{nil, 0, nil, ConstructNestedError("error while getting access token", err)}
+			return response{nil, 0, nil, errors2.ConstructNestedError("error while getting access token", err)}
 		}
 		// Trying to send the same request again now that the access token has been refreshed
 		resp = request(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
@@ -282,20 +286,20 @@ func request(
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		infolog.Println(err)
-		return response{nil, 0, nil, ConstructNestedError("error during a request execution", err)}
+		logging.Infolog.Println(err)
+		return response{nil, 0, nil, errors2.ConstructNestedError("error during a request execution", err)}
 	}
 
 	defer resp.Body.Close()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		infolog.Println(err)
-		return response{nil, 0, nil, ConstructNestedError("error during reading a request response", err)}
+		logging.Infolog.Println(err)
+		return response{nil, 0, nil, errors2.ConstructNestedError("error during reading a request response", err)}
 	}
 	// Error might be in the response body, despite the status code 200
 	errorResponse := struct {
-		Errors []ErrorDetails `json:"errors"`
+		Errors []types.ErrorDetails `json:"errors"`
 	}{}
 	if err = json.Unmarshal(body, &errorResponse); err == nil {
 		if errorResponse.Errors != nil {
@@ -305,7 +309,7 @@ func request(
 
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		if err = checkErrorResponse(body); err != nil {
-			return response{nil, resp.StatusCode, nil, ConstructNestedError("request returned an error", err)}
+			return response{nil, resp.StatusCode, nil, errors2.ConstructNestedError("request returned an error", err)}
 		}
 		if resp.StatusCode == 500 {
 			// this is a database error

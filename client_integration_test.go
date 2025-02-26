@@ -7,6 +7,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/firebolt-db/firebolt-go-sdk/rows"
 )
 
 // TestGetEnginePropsByName test getting system engine url, as well as engine url, status and database by name
@@ -49,7 +51,7 @@ func TestQuerySetStatements(t *testing.T) {
 		t.Errorf("Query returned an error: %v", err)
 	}
 
-	date, err := parseValue("timestamptz", resp.Data[0][0])
+	date, err := rows.ParseTimestampTz(resp.Data[0][0].(string))
 	if err != nil {
 		t.Errorf("Error parsing date: %v", err)
 	}

@@ -4,12 +4,15 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/firebolt-db/firebolt-go-sdk/errors"
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 
 	"github.com/matishsiao/goInfo"
 	"github.com/xwb1989/sqlparser"
@@ -23,11 +26,6 @@ func getUseParametersList() []string {
 
 func getDisallowedParametersList() []string {
 	return []string{"output_format"}
-}
-
-func ConstructNestedError(message string, err error) error {
-	infolog.Printf("%s: %v", message, err)
-	return fmt.Errorf("%s: %v", message, err)
 }
 
 func validateSetStatement(key string) error {
@@ -70,10 +68,8 @@ func parseSetStatement(query string) (string, string, error) {
 	return "", "", fmt.Errorf("Not a set statement")
 }
 
-var infolog = log.New(os.Stderr, "[firebolt-go-sdk]", log.Ldate|log.Ltime|log.Lshortfile)
-
 func init() {
-	infolog.SetOutput(ioutil.Discard)
+	logging.Infolog.SetOutput(ioutil.Discard)
 }
 
 // prepareStatement parses a query and substitude question marks with params
@@ -118,7 +114,7 @@ func SplitStatements(sql string) ([]string, error) {
 
 		query, sql, err = sqlparser.SplitStatement(sql)
 		if err != nil {
-			return nil, ConstructNestedError("error during splitting query", err)
+			return nil, errors.ConstructNestedError("error during splitting query", err)
 		}
 		if strings.Trim(query, " \t\n") == "" {
 			continue
@@ -188,7 +184,7 @@ func ConstructUserAgentString() (ua_string string) {
 		// ConstructUserAgentString is a non-essential function, used for statistic gathering
 		// so carry on working if a failure occurs
 		if err := recover(); err != nil {
-			infolog.Printf("Unable to generate User Agent string")
+			logging.Infolog.Printf("Unable to generate User Agent string")
 			ua_string = "GoSDK"
 		}
 	}()
@@ -228,7 +224,7 @@ func (e StructuredError) Error() string {
 	return e.Message
 }
 
-func NewStructuredError(errorDetails []ErrorDetails) *StructuredError {
+func NewStructuredError(errorDetails []types.ErrorDetails) *StructuredError {
 	// "{severity}: {name} ({code}) - {source}, {description}, resolution: {resolution} at {location} see {helpLink}"
 	message := strings.Builder{}
 	for _, error := range errorDetails {
@@ -241,7 +237,7 @@ func NewStructuredError(errorDetails []ErrorDetails) *StructuredError {
 		Message: message.String(),
 	}
 }
-func formatErrorDetails(message *strings.Builder, error ErrorDetails) string {
+func formatErrorDetails(message *strings.Builder, error types.ErrorDetails) string {
 	if error.Severity != "" {
 		message.WriteString(fmt.Sprintf("%s: ", error.Severity))
 	}

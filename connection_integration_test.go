@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
+
 	"github.com/shopspring/decimal"
 )
 
@@ -257,25 +259,25 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	for i := range pointers {
 		pointers[i] = &dest[i]
 	}
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(pointers...); err != nil {
 		t.Errorf("firebolt rows Scan failed with %v", err)
 		t.FailNow()
 	}
 
-	assert(dest[0], int32(1), t, "int32 results are not equal")
-	assert(dest[1], int64(2), t, "int64 results are not equal")
+	utils.AssertEqual(dest[0], int32(1), t, "int32 results are not equal")
+	utils.AssertEqual(dest[1], int64(2), t, "int64 results are not equal")
 	// float is now alias for double so both 32 an 64 bit float values are converted to float64
-	assert(dest[2], 0.333333, t, "float32 results are not equal")
-	assert(dest[3], 0.333333333333, t, "float64 results are not equal")
-	assert(dest[4], "text", t, "string results are not equal")
-	assert(dest[5], d, t, "date results are not equal")
-	assert(dest[6], ts.UTC(), t, "timestamp results are not equal")
+	utils.AssertEqual(dest[2], 0.333333, t, "float32 results are not equal")
+	utils.AssertEqual(dest[3], 0.333333333333, t, "float64 results are not equal")
+	utils.AssertEqual(dest[4], "text", t, "string results are not equal")
+	utils.AssertEqual(dest[5], d, t, "date results are not equal")
+	utils.AssertEqual(dest[6], ts.UTC(), t, "timestamp results are not equal")
 	// Use .Equal to correctly compare timezones
 	if !dest[7].(time.Time).Equal(tstz) {
 		t.Errorf("timestamptz results are not equal Expected: %s Got: %s", tstz, dest[7])
 	}
-	assert(dest[8], true, t, "boolean results are not equal")
+	utils.AssertEqual(dest[8], true, t, "boolean results are not equal")
 	baValue := dest[9].([]byte)
 	if len(baValue) != len(ba) {
 		t.Log(string(debug.Stack()))
@@ -288,7 +290,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 			break
 		}
 	}
-	assert(dest[10], geEncoded, t, "geography results are not equal")
+	utils.AssertEqual(dest[10], geEncoded, t, "geography results are not equal")
 }
 
 func TestConnectionQueryGeographyType(t *testing.T) {
@@ -305,7 +307,7 @@ func TestConnectionQueryGeographyType(t *testing.T) {
 
 	var dest string
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
@@ -359,12 +361,12 @@ func TestConnectionQueryStructType(t *testing.T) {
 
 	var dest map[string]driver.Value
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 
-	assert(dest, map[string]driver.Value{
+	utils.AssertEqual(dest, map[string]driver.Value{
 		"id": int32(1),
 		"s": map[string]driver.Value{
 			"a": []driver.Value{int32(1), int32(2)},
@@ -390,7 +392,7 @@ func TestConnectionQuotedDecimal(t *testing.T) {
 
 	var dest driver.Value
 
-	assert(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}

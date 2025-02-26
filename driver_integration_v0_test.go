@@ -86,19 +86,19 @@ func TestDriverQueryResult(t *testing.T) {
 	if !rows.Next() {
 		t.Errorf("Next returned end of output")
 	}
-	assert(rows.Scan(&dt, &d, &i, &f), nil, t, "Scan returned an error")
-	assert(dt, time.Date(2020, 01, 03, 19, 8, 45, 0, loc), t, "results not equal for datetime")
-	assert(d, time.Date(2020, 01, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
-	assert(i, 1, t, "results not equal for int")
-	assert(f, math.Inf(-1), t, "results not equal for float")
+	rows2.assert(rows.Scan(&dt, &d, &i, &f), nil, t, "Scan returned an error")
+	rows2.assert(dt, time.Date(2020, 01, 03, 19, 8, 45, 0, loc), t, "results not equal for datetime")
+	rows2.assert(d, time.Date(2020, 01, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
+	rows2.assert(i, 1, t, "results not equal for int")
+	rows2.assert(f, math.Inf(-1), t, "results not equal for float")
 
 	if !rows.Next() {
 		t.Errorf("Next returned end of output")
 	}
-	assert(rows.Scan(&dt, &d, &i, &f), nil, t, "Scan returned an error")
-	assert(dt, time.Date(2021, 01, 03, 19, 38, 34, 0, loc), t, "results not equal for datetime")
-	assert(d, time.Date(2000, 12, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
-	assert(i, 2, t, "results not equal for int")
+	rows2.assert(rows.Scan(&dt, &d, &i, &f), nil, t, "Scan returned an error")
+	rows2.assert(dt, time.Date(2021, 01, 03, 19, 38, 34, 0, loc), t, "results not equal for datetime")
+	rows2.assert(d, time.Date(2000, 12, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
+	rows2.assert(i, 2, t, "results not equal for int")
 	if !math.IsNaN(f) {
 		t.Log(string(debug.Stack()))
 		t.Errorf("results not equal for float Expected: NaN Got: %f", f)
@@ -124,7 +124,7 @@ func TestDriverInfNanValues(t *testing.T) {
 	if !rows.Next() {
 		t.Errorf("Next returned end of output")
 	}
-	assert(rows.Scan(&f, &f2, &f3, &f4), nil, t, "Scan returned an error")
+	rows2.assert(rows.Scan(&f, &f2, &f3, &f4), nil, t, "Scan returned an error")
 	if !math.IsInf(f, -1) {
 		t.Errorf("results not equal for float Expected: -Inf Got: %f", f)
 	}
