@@ -6,13 +6,16 @@ import (
 	"errors"
 	"fmt"
 
+	client2 "github.com/firebolt-db/firebolt-go-sdk/client"
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
+
 	errors2 "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/rows"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 type fireboltConnection struct {
-	client     Client
+	client     client2.Client
 	engineUrl  string
 	parameters map[string]string
 	connector  *FireboltConnector
@@ -75,10 +78,10 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 			}
 		}
 
-		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, connectionControl{
-			updateParameters: c.setParameter,
-			setEngineURL:     c.setEngineURL,
-			resetParameters:  c.resetParameters,
+		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, client2.ConnectionControl{
+			UpdateParameters: c.setParameter,
+			SetEngineURL:     c.setEngineURL,
+			ResetParameters:  c.resetParameters,
 		}); err != nil {
 			return &rows, errors2.ConstructNestedError("error during query execution", err)
 		} else {
@@ -93,7 +96,7 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 func processSetStatement(ctx context.Context, c *fireboltConnection, query string) (bool, error) {
 	setKey, setValue, err := parseSetStatement(query)
 	if err != nil {
-		// if parsing of set statement returned an error, we will not handle the request as a set statement
+		// if parsing of set statement returned an error, we will not handle the DoHttpRequest as a set statement
 		return false, nil
 	}
 	err = validateSetStatement(setKey)
@@ -108,10 +111,10 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 	}
 	combinedParameters[setKey] = setValue
 
-	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", combinedParameters, connectionControl{
-		updateParameters: c.setParameter,
-		setEngineURL:     c.setEngineURL,
-		resetParameters:  c.resetParameters,
+	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", combinedParameters, client2.ConnectionControl{
+		UpdateParameters: c.setParameter,
+		SetEngineURL:     c.setEngineURL,
+		ResetParameters:  c.resetParameters,
 	})
 	if err == nil {
 		c.setParameter(setKey, setValue)
@@ -140,14 +143,14 @@ func (c *fireboltConnection) resetParameters() {
 	ignoreParameters := append(getUseParametersList(), getDisallowedParametersList()...)
 	if c.parameters != nil {
 		for k := range c.parameters {
-			if !contains(ignoreParameters, k) {
+			if !utils.ContainsString(ignoreParameters, k) {
 				delete(c.parameters, k)
 			}
 		}
 	}
 	if c.connector.cachedParameters != nil {
 		for k := range c.connector.cachedParameters {
-			if !contains(ignoreParameters, k) {
+			if !utils.ContainsString(ignoreParameters, k) {
 				delete(c.connector.cachedParameters, k)
 			}
 		}

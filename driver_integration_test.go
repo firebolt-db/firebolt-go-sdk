@@ -27,59 +27,23 @@ var (
 	clientSecretMock                string
 	databaseMock                    string
 	engineNameMock                  string
-	engineUrlMock                   string
 	accountName                     string
 	serviceAccountNoUserName        string
-	clientMock                      *ClientImpl
-	clientMockWithAccount           *ClientImpl
 )
 
-const v0Testing = false
-
-// init populates mock variables and client for integration tests
 func init() {
 	clientIdMock = os.Getenv("CLIENT_ID")
 	clientSecretMock = os.Getenv("CLIENT_SECRET")
 	databaseMock = os.Getenv("DATABASE_NAME")
 	engineNameMock = os.Getenv("ENGINE_NAME")
 	accountName = os.Getenv("ACCOUNT_NAME")
+	serviceAccountNoUserName = databaseMock + "_sa_no_user"
 
 	dsnMock = fmt.Sprintf("firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountName, engineNameMock, clientIdMock, clientSecretMock)
 	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountName, engineNameMock, clientIdMock, clientSecretMock)
 	dsnSystemEngineWithDatabaseMock = fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseMock, accountName, clientIdMock, clientSecretMock)
 
 	dsnSystemEngineMock = fmt.Sprintf("firebolt://?account_name=%s&client_id=%s&client_secret=%s", accountName, clientIdMock, clientSecretMock)
-
-	var err error
-	client, err := Authenticate(&fireboltSettings{
-		clientID:     clientIdMock,
-		clientSecret: clientSecretMock,
-		accountName:  accountName,
-		engineName:   engineNameMock,
-		database:     databaseMock,
-		newVersion:   true,
-	}, GetHostNameURL())
-	if err != nil {
-		panic(fmt.Errorf("Error authenticating with client id %s: %v", clientIdMock, err))
-	}
-	clientMock = client.(*ClientImpl)
-	clientWithAccount, err := Authenticate(&fireboltSettings{
-		clientID:     clientIdMock,
-		clientSecret: clientSecretMock,
-		accountName:  accountName,
-		database:     databaseMock,
-		newVersion:   true,
-	}, GetHostNameURL())
-	if err != nil {
-		panic(fmt.Sprintf("Authentication error: %v", err))
-	}
-	engineUrlMock, _, err = clientMock.GetConnectionParameters(context.TODO(), engineNameMock, databaseMock)
-	if err != nil {
-		panic(fmt.Errorf("Error getting connection parameters: %v", err))
-	}
-	clientMockWithAccount = clientWithAccount.(*ClientImpl)
-	clientMockWithAccount.ConnectedToSystemEngine = true
-	serviceAccountNoUserName = databaseMock + "_sa_no_user"
 }
 
 // TestDriverQueryResult tests query happy path, as user would do it
@@ -292,7 +256,7 @@ func TestIncorrectQueryThrowingStructuredError(t *testing.T) {
 		t.Errorf("Query didn't return an error, although it should")
 	}
 
-	if !strings.HasPrefix(err.Error(), "error during query execution: error during query request:") || !strings.Contains(err.Error(), "Unable to cast text 'blue' to integer") {
+	if !strings.HasPrefix(err.Error(), "error during query execution: error during query DoHttpRequest:") || !strings.Contains(err.Error(), "Unable to cast text 'blue' to integer") {
 		t.Errorf("Query didn't return an error with correct message, got: %s", err.Error())
 	}
 }

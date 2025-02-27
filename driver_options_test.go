@@ -3,6 +3,8 @@ package fireboltgosdk
 import (
 	"testing"
 
+	"github.com/firebolt-db/firebolt-go-sdk/client"
+
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
@@ -22,14 +24,14 @@ func TestDriverOptions(t *testing.T) {
 	utils.AssertEqual(conn.engineUrl, engineUrl, t, "engineUrl is invalid")
 	utils.AssertEqual(conn.cachedParameters["database"], databaseName, t, "databaseName is invalid")
 
-	cl, ok := conn.client.(*ClientImpl)
+	cl, ok := conn.client.(*client.ClientImpl)
 	utils.AssertEqual(ok, true, t, "client is not *ClientImpl")
 
 	connectionAccountID := conn.cachedParameters["account_id"]
 	utils.AssertEqual(connectionAccountID, accountID, t, "accountID is invalid")
 	utils.AssertEqual(cl.UserAgent, userAgent, t, "userAgent is invalid")
 
-	tok, err := cl.accessTokenGetter()
+	tok, err := cl.AccessTokenGetter()
 	if err != nil {
 		t.Errorf("token getter returned an error: %v", err)
 	}

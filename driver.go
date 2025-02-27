@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"database/sql/driver"
 
+	client2 "github.com/firebolt-db/firebolt-go-sdk/client"
+
 	"github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
@@ -12,7 +14,7 @@ import (
 type FireboltDriver struct {
 	engineUrl    string
 	cachedParams map[string]string
-	client       Client
+	client       client2.Client
 	lastUsedDsn  string
 }
 
@@ -48,12 +50,12 @@ func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 
 		// authenticating and getting access token
 		logging.Infolog.Println("dsn parsed correctly, trying to authenticate")
-		d.client, err = Authenticate(settings, GetHostNameURL())
+		d.client, err = client2.ClientFactory(settings, client2.GetHostNameURL())
 		if err != nil {
 			return nil, errors.ConstructNestedError("error during authentication", err)
 		}
 
-		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), settings.engineName, settings.database)
+		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), settings.EngineName, settings.Database)
 		if err != nil {
 			return nil, errors.ConstructNestedError("error during getting engine url", err)
 		}
@@ -66,7 +68,7 @@ func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 // FireboltConnector is an intermediate type between a Connection and a Driver which stores session data
 type FireboltConnector struct {
 	engineUrl        string
-	client           Client
+	client           client2.Client
 	cachedParameters map[string]string
 	driver           *FireboltDriver
 }

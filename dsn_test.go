@@ -1,36 +1,40 @@
 package fireboltgosdk
 
-import "testing"
+import (
+	"testing"
 
-func runDSNTest(t *testing.T, input string, expectedSettings fireboltSettings) {
+	"github.com/firebolt-db/firebolt-go-sdk/types"
+)
+
+func runDSNTest(t *testing.T, input string, expectedSettings types.FireboltSettings) {
 	settings, err := ParseDSNString(input)
 
 	if err != nil {
 		t.Errorf("ParseDSNString unexpectedly failed: %v", err)
 	}
 
-	if settings.accountName != expectedSettings.accountName {
-		t.Errorf("for account_name got %s want %s", settings.accountName, expectedSettings.accountName)
+	if settings.AccountName != expectedSettings.AccountName {
+		t.Errorf("for account_name got %s want %s", settings.AccountName, expectedSettings.AccountName)
 	}
 
-	if settings.engineName != expectedSettings.engineName {
-		t.Errorf("for engine got %s want %s", settings.engineName, expectedSettings.engineName)
+	if settings.EngineName != expectedSettings.EngineName {
+		t.Errorf("for engine got %s want %s", settings.EngineName, expectedSettings.EngineName)
 	}
 
-	if settings.clientID != expectedSettings.clientID {
-		t.Errorf("for client_id got %s want %s", settings.clientID, expectedSettings.clientID)
+	if settings.ClientID != expectedSettings.ClientID {
+		t.Errorf("for client_id got %s want %s", settings.ClientID, expectedSettings.ClientID)
 	}
 
-	if settings.clientSecret != expectedSettings.clientSecret {
-		t.Errorf("for client_secret got %s want %s", settings.clientSecret, expectedSettings.clientSecret)
+	if settings.ClientSecret != expectedSettings.ClientSecret {
+		t.Errorf("for client_secret got %s want %s", settings.ClientSecret, expectedSettings.ClientSecret)
 	}
 
-	if settings.database != expectedSettings.database {
-		t.Errorf("for database got %s want %s", settings.database, expectedSettings.database)
+	if settings.Database != expectedSettings.Database {
+		t.Errorf("for Database got %s want %s", settings.Database, expectedSettings.Database)
 	}
 
-	if settings.newVersion != expectedSettings.newVersion {
-		t.Errorf("for newVersion got %t want %t", settings.newVersion, expectedSettings.newVersion)
+	if settings.NewVersion != expectedSettings.NewVersion {
+		t.Errorf("for NewVersion got %t want %t", settings.NewVersion, expectedSettings.NewVersion)
 	}
 }
 
@@ -42,19 +46,19 @@ func runDSNTestFail(t *testing.T, input string) {
 }
 
 func TestDSNHappyPath(t *testing.T) {
-	runDSNTest(t, "firebolt://", fireboltSettings{newVersion: true})
+	runDSNTest(t, "firebolt://", types.FireboltSettings{NewVersion: true})
 
-	runDSNTest(t, "firebolt:///test_db", fireboltSettings{database: "test_db", newVersion: true})
+	runDSNTest(t, "firebolt:///test_db", types.FireboltSettings{Database: "test_db", NewVersion: true})
 
 	runDSNTest(t, "firebolt://?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_cs",
-		fireboltSettings{accountName: "test_acc", engineName: "test_eng", clientID: "test_cid", clientSecret: "test_cs", newVersion: true})
+		types.FireboltSettings{AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_cs", NewVersion: true})
 
 	runDSNTest(t, "firebolt:///test_db?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_cs",
-		fireboltSettings{database: "test_db", accountName: "test_acc", engineName: "test_eng", clientID: "test_cid", clientSecret: "test_cs", newVersion: true})
+		types.FireboltSettings{Database: "test_db", AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_cs", NewVersion: true})
 
 	// special characters
 	runDSNTest(t, "firebolt:///test_db?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_*-()@\\.",
-		fireboltSettings{database: "test_db", accountName: "test_acc", engineName: "test_eng", clientID: "test_cid", clientSecret: "test_*-()@\\.", newVersion: true})
+		types.FireboltSettings{Database: "test_db", AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_*-()@\\.", NewVersion: true})
 }
 
 // TestDSNFailed test different failure scenarios for ParseDSNString
@@ -68,28 +72,28 @@ func TestDSNFailed(t *testing.T) {
 
 func TestDSNV0HappyPath(t *testing.T) {
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name",
-		fireboltSettings{clientID: "user@firebolt.io", clientSecret: "password", database: "db_name", newVersion: false})
+		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name",
-		fireboltSettings{clientID: "user@firebolt.io", clientSecret: "password", database: "db_name", engineName: "engine_name", newVersion: false})
+		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", EngineName: "engine_name", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name",
-		fireboltSettings{clientID: "user@firebolt.io", clientSecret: "password", database: "db_name", engineName: "engine_name", newVersion: false})
+		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", EngineName: "engine_name", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_url.firebolt.io",
-		fireboltSettings{clientID: "user@firebolt.io", clientSecret: "password", database: "db_name", engineName: "engine_url.firebolt.io", newVersion: false})
+		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", EngineName: "engine_url.firebolt.io", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/https://engine_url.firebolt.io",
-		fireboltSettings{clientID: "user@firebolt.io", clientSecret: "password", database: "db_name", engineName: "https://engine_url.firebolt.io", newVersion: false})
+		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", EngineName: "https://engine_url.firebolt.io", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name?account_name=firebolt_account",
-		fireboltSettings{clientID: "user@firebolt.io", clientSecret: "password", database: "db_name", accountName: "firebolt_account", newVersion: false})
+		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", AccountName: "firebolt_account", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@fire:bolt.io:passwo@rd@db_name?account_name=firebolt_account",
-		fireboltSettings{clientID: "user@fire:bolt.io", clientSecret: "passwo@rd", database: "db_name", accountName: "firebolt_account", newVersion: false})
+		types.FireboltSettings{ClientID: "user@fire:bolt.io", ClientSecret: "passwo@rd", Database: "db_name", AccountName: "firebolt_account", NewVersion: false})
 
 	runDSNTest(t, "firebolt://client_id:client_secret@db_name?account_name=firebolt_account",
-		fireboltSettings{clientID: "client_id", clientSecret: "client_secret", database: "db_name", accountName: "firebolt_account", newVersion: true})
+		types.FireboltSettings{ClientID: "client_id", ClientSecret: "client_secret", Database: "db_name", AccountName: "firebolt_account", NewVersion: true})
 }
 
 // TestDSNFailed test different failure scenarios for ParseDSNString

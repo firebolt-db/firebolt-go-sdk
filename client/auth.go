@@ -1,6 +1,7 @@
-package fireboltgosdk
+package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,10 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/astaxie/beego/cache"
 	"github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
-
-	"github.com/astaxie/beego/cache"
 )
 
 const AuthAudienceValue = "https://api.firebolt.io"
@@ -34,25 +34,12 @@ func init() {
 	}
 }
 
-// Authenticate sends an authentication request, and returns a newly constructed client object
-func Authenticate(settings *fireboltSettings, apiEndpoint string) (Client, error) {
-	userAgent := ConstructUserAgentString()
-
-	if settings.newVersion {
-		_, err := getAccessTokenServiceAccount(settings.clientID, settings.clientSecret, apiEndpoint, userAgent)
-		if err != nil {
-			return nil, errors.ConstructNestedError("error while getting access token", err)
-		} else {
-			return MakeClient(settings, apiEndpoint)
-		}
-	} else {
-		_, err := getAccessTokenUsernamePassword(settings.clientID, settings.clientSecret, apiEndpoint, userAgent)
-		if err != nil {
-			return nil, errors.ConstructNestedError("error while getting access token", err)
-		} else {
-			return MakeClientV0(settings, apiEndpoint)
-		}
-	}
+// jsonStrictUnmarshall unmarshalls json into object, and returns an error
+// if some fields are missing, or extra fields are present
+func jsonStrictUnmarshall(data []byte, v interface{}) error {
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	return decoder.Decode(v)
 }
 
 // getAccessTokenUsernamePassword gets an access token from the cache when it is available in the cache or from the server when it is not available in the cache
@@ -70,14 +57,14 @@ func getAccessTokenUsernamePassword(username string, password string, apiEndpoin
 			return "", err
 		}
 		logging.Infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
-		resp := request(requestParameters{context.TODO(), "", "POST", apiEndpoint + loginUrl, userAgent, nil, body, contentType})
+		resp := DoHttpRequest(requestParameters{context.TODO(), "", "POST", apiEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.err != nil {
-			return "", errors.ConstructNestedError("authentication request failed", resp.err)
+			return "", errors.ConstructNestedError("authentication DoHttpRequest failed", resp.err)
 		}
 
 		var authResp AuthenticationResponse
 		if err = jsonStrictUnmarshall(resp.data, &authResp); err != nil {
-			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
+			return "", errors.ConstructNestedError("failed to unmarshal authentication Response with error", err)
 		}
 		logging.Infolog.Printf("Authentication was successful")
 		if tokenCache != nil {
@@ -119,14 +106,14 @@ func getAccessTokenServiceAccount(clientId string, clientSecret string, apiEndpo
 			return "", errors.ConstructNestedError("error building auth endpoint", err)
 		}
 		logging.Infolog.Printf("Start authentication into '%s' using '%s'", authEndpoint, loginUrl)
-		resp := request(requestParameters{context.TODO(), "", "POST", authEndpoint + loginUrl, userAgent, nil, body, contentType})
+		resp := DoHttpRequest(requestParameters{context.TODO(), "", "POST", authEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.err != nil {
-			return "", errors.ConstructNestedError("authentication request failed", resp.err)
+			return "", errors.ConstructNestedError("authentication DoHttpRequest failed", resp.err)
 		}
 
 		var authResp AuthenticationResponse
 		if err = jsonStrictUnmarshall(resp.data, &authResp); err != nil {
-			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
+			return "", errors.ConstructNestedError("failed to unmarshal authentication Response with error", err)
 		}
 		logging.Infolog.Printf("Authentication was successful")
 		if tokenCache != nil {

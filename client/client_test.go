@@ -1,4 +1,4 @@
-package fireboltgosdk
+package client
 
 import (
 	"context"
@@ -7,10 +7,11 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
 func init() {
@@ -19,12 +20,6 @@ func init() {
 
 var originalEndpoint string
 
-func raiseIfError(t *testing.T, err error) {
-	if err != nil {
-		t.Errorf("Encountered error %s", err)
-	}
-}
-
 // TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
 func TestCacheAccessToken(t *testing.T) {
 	var fetchTokenCount = 0
@@ -32,7 +27,7 @@ func TestCacheAccessToken(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
 			fetchTokenCount++
-			_, _ = w.Write(getAuthResponse(10000))
+			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
@@ -43,10 +38,10 @@ func TestCacheAccessToken(t *testing.T) {
 	var client = &ClientImpl{
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
-	client.accessTokenGetter = client.getAccessToken
+	client.AccessTokenGetter = client.getAccessToken
 	for i := 0; i < 3; i++ {
-		resp := client.request(context.TODO(), "GET", server.URL, nil, "")
-		raiseIfError(t, resp.err)
+		resp := client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
+		utils.RaiseIfError(t, resp.err)
 	}
 
 	token, _ := getAccessTokenServiceAccount("client_id", "", server.URL, "")
@@ -64,7 +59,7 @@ func TestCacheAccessToken(t *testing.T) {
 	}
 
 	if totalCount != 4 {
-		t.Errorf("Expected to call the server 4 times (1x to fetch token and 3x to send another request). Total: %d", totalCount)
+		t.Errorf("Expected to call the server 4 times (1x to fetch token and 3x to send another DoHttpRequest). Total: %d", totalCount)
 	}
 }
 
@@ -75,7 +70,7 @@ func TestRefreshTokenOn401(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
 			fetchTokenCount++
-			_, _ = w.Write(getAuthResponse(10000))
+			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
 		}
@@ -86,8 +81,8 @@ func TestRefreshTokenOn401(t *testing.T) {
 	var client = &ClientImpl{
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
-	client.accessTokenGetter = client.getAccessToken
-	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	client.AccessTokenGetter = client.getAccessToken
+	_ = client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
 
 	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")
@@ -99,8 +94,8 @@ func TestRefreshTokenOn401(t *testing.T) {
 	}
 
 	if totalCount != 4 {
-		// The token is fetched twice and the request is retried
-		t.Errorf("Expected to call the server 4 times (2x to fetch tokens and 2x to send the request that returns a 403). Total: %d", totalCount)
+		// The token is fetched twice and the DoHttpRequest is retried
+		t.Errorf("Expected to call the server 4 times (2x to fetch tokens and 2x to send the DoHttpRequest that returns a 403). Total: %d", totalCount)
 	}
 
 }
@@ -112,7 +107,7 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
 			fetchTokenCount++
-			_, _ = w.Write(getAuthResponse(1))
+			_, _ = w.Write(utils.GetAuthResponse(1))
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
@@ -123,11 +118,11 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	var client = &ClientImpl{
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
-	client.accessTokenGetter = client.getAccessToken
-	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	client.AccessTokenGetter = client.getAccessToken
+	_ = client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
 	time.Sleep(2 * time.Millisecond)
-	_ = client.request(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
 
 	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
 
@@ -145,11 +140,11 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	}
 
 	if totalCount != 4 {
-		t.Errorf("Expected to call the server 5 times (2x to fetch tokens and 3x to send the request that returns a 403). Total: %d", totalCount)
+		t.Errorf("Expected to call the server 5 times (2x to fetch tokens and 3x to send the DoHttpRequest that returns a 403). Total: %d", totalCount)
 	}
 }
 
-// TestUserAgent tests that UserAgent is correctly set on request
+// TestUserAgent tests that UserAgent is correctly set on DoHttpRequest
 func TestUserAgent(t *testing.T) {
 	var userAgentValue = "userAgent"
 	var userAgentHeader = ""
@@ -162,12 +157,12 @@ func TestUserAgent(t *testing.T) {
 	var client = &ClientImpl{
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: userAgentValue},
 	}
-	client.accessTokenGetter = client.getAccessToken
-	client.parameterGetter = client.getQueryParams
+	client.AccessTokenGetter = client.getAccessToken
+	client.ParameterGetter = client.GetQueryParams
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, connectionControl{})
+	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, ConnectionControl{})
 	if userAgentHeader != userAgentValue {
-		t.Errorf("Did not set User-Agent value correctly on a query request")
+		t.Errorf("Did not set User-Agent value correctly on a query DoHttpRequest")
 	}
 }
 
@@ -175,8 +170,8 @@ func clientFactory(apiEndpoint string) Client {
 	var client = &ClientImpl{
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: apiEndpoint},
 	}
-	client.accessTokenGetter = client.getAccessToken
-	client.parameterGetter = client.getQueryParams
+	client.AccessTokenGetter = client.getAccessToken
+	client.ParameterGetter = client.GetQueryParams
 	err := initialiseCaches()
 	if err != nil {
 		log.Printf("Error while initializing caches: %s", err)
@@ -184,25 +179,14 @@ func clientFactory(apiEndpoint string) Client {
 	return client
 }
 
-// TestProtocolVersion tests that protocol version is correctly set on request
+// TestProtocolVersion tests that protocol version is correctly set on DoHttpRequest
 func TestProtocolVersion(t *testing.T) {
 	testProtocolVersion(t, clientFactory)
 }
 
-// TestUpdateParameters tests that update parameters are correctly set on request
+// TestUpdateParameters tests that update parameters are correctly set on DoHttpRequest
 func TestUpdateParameters(t *testing.T) {
 	testUpdateParameters(t, clientFactory)
-}
-
-func getAuthResponse(expiry int) []byte {
-	var response = `{
-   "access_token": "aMysteriousToken",
-   "refresh_token": "refresh",
-   "scope": "offline_access",
-   "expires_in": ` + strconv.Itoa(expiry) + `,
-   "token_type": "Bearer"
-}`
-	return []byte(response)
 }
 
 func setupTestServerAndClient(t *testing.T, testAccountName string) (*httptest.Server, *ClientImpl) {
@@ -211,7 +195,7 @@ func setupTestServerAndClient(t *testing.T, testAccountName string) (*httptest.S
 		if req.URL.Path == fmt.Sprintf(EngineUrlByAccountName, testAccountName) {
 			rw.WriteHeader(http.StatusNotFound)
 		} else {
-			_, _ = rw.Write(getAuthResponse(10000))
+			_, _ = rw.Write(utils.GetAuthResponse(10000))
 		}
 	}))
 
@@ -219,8 +203,8 @@ func setupTestServerAndClient(t *testing.T, testAccountName string) (*httptest.S
 	client := &ClientImpl{
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL},
 	}
-	client.accessTokenGetter = client.getAccessToken
-	client.parameterGetter = client.getQueryParams
+	client.AccessTokenGetter = client.getAccessToken
+	client.ParameterGetter = client.GetQueryParams
 
 	return server, client
 }
@@ -250,7 +234,7 @@ func TestGetSystemEngineURLCaching(t *testing.T) {
 			_, _ = rw.Write([]byte(`{"engineUrl": "https://my_url.com"}`))
 			urlCalled++
 		} else {
-			_, _ = rw.Write(getAuthResponse(10000))
+			_, _ = rw.Write(utils.GetAuthResponse(10000))
 		}
 	}))
 	defer server.Close()
@@ -260,9 +244,9 @@ func TestGetSystemEngineURLCaching(t *testing.T) {
 
 	var err error
 	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
-	raiseIfError(t, err)
+	utils.RaiseIfError(t, err)
 	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
-	raiseIfError(t, err)
+	utils.RaiseIfError(t, err)
 	if urlCalled != 1 {
 		t.Errorf("Expected to call the server only once, got %d", urlCalled)
 	}
@@ -270,7 +254,7 @@ func TestGetSystemEngineURLCaching(t *testing.T) {
 
 	client = clientFactory(server.URL).(*ClientImpl)
 	_, _, err = client.getSystemEngineURLAndParameters(context.Background(), testAccountName, "")
-	raiseIfError(t, err)
+	utils.RaiseIfError(t, err)
 	// Still only one call, as the cache is shared between clients
 	if urlCalled != 1 {
 		t.Errorf("Expected to call the server only once, got %d", urlCalled)
@@ -281,9 +265,9 @@ func TestUpdateEndpoint(t *testing.T) {
 	var newEndpoint = "new-endpoint/path?query=param"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
-			_, _ = w.Write(getAuthResponse(10000))
+			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else if r.URL.Path == UsernamePasswordURLSuffix {
-			_, _ = w.Write(getAuthResponseV0(10000))
+			_, _ = w.Write(utils.GetAuthResponseV0(10000))
 		} else {
 			w.Header().Set(updateEndpointHeader, newEndpoint)
 			w.WriteHeader(http.StatusOK)
@@ -299,15 +283,15 @@ func TestUpdateEndpoint(t *testing.T) {
 
 	engineEndpoint := "old-endpoint"
 
-	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, connectionControl{
-		updateParameters: func(key, value string) {
+	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, ConnectionControl{
+		UpdateParameters: func(key, value string) {
 			params[key] = value
 		},
-		setEngineURL: func(value string) {
+		SetEngineURL: func(value string) {
 			engineEndpoint = value
 		},
 	})
-	raiseIfError(t, err)
+	utils.RaiseIfError(t, err)
 	if params["query"] != "param" {
 		t.Errorf("Query parameter was not set correctly. Expected 'param' but was %s", params["query"])
 	}
@@ -320,7 +304,7 @@ func TestUpdateEndpoint(t *testing.T) {
 func TestResetSession(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
-			_, _ = w.Write(getAuthResponse(10000))
+			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else {
 			w.Header().Set(resetSessionHeader, "true")
 			w.WriteHeader(http.StatusOK)
@@ -335,12 +319,12 @@ func TestResetSession(t *testing.T) {
 		"database": "db",
 	}
 
-	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, connectionControl{
-		resetParameters: func() {
+	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, ConnectionControl{
+		ResetParameters: func() {
 			resetCalled = true
 		},
 	})
-	raiseIfError(t, err)
+	utils.RaiseIfError(t, err)
 	if !resetCalled {
 		t.Errorf("Reset session was not called")
 	}

@@ -1,13 +1,47 @@
 //go:build integration_v0
 // +build integration_v0
 
-package fireboltgosdk
+package client
 
 import (
 	"context"
+	"fmt"
+	"os"
 	"testing"
 	"time"
+
+	"github.com/firebolt-db/firebolt-go-sdk/rows"
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
+
+var (
+	usernameMock    string
+	passwordMock    string
+	databaseMock    string
+	engineUrlMock   string
+	engineNameMock  string
+	accountNameMock string
+	clientMock      *ClientImplV0
+)
+
+func init() {
+	usernameMock = os.Getenv("USER_NAME")
+	passwordMock = os.Getenv("PASSWORD")
+	databaseMock = os.Getenv("DATABASE_NAME")
+	engineNameMock = os.Getenv("ENGINE_NAME")
+	engineUrlMock = os.Getenv("ENGINE_URL")
+	accountNameMock = os.Getenv("ACCOUNT_NAME")
+
+	client, err := ClientFactory(&types.FireboltSettings{
+		ClientID:     usernameMock,
+		ClientSecret: passwordMock,
+		NewVersion:   false,
+	}, GetHostNameURL())
+	if err != nil {
+		panic(fmt.Errorf("Error authenticating with username password %s: %v", usernameMock, err))
+	}
+	clientMock = client.(*ClientImplV0)
+}
 
 // TestGetAccountId test getting account ID with existing and not existing accounts
 func TestGetAccountId(t *testing.T) {
@@ -56,7 +90,7 @@ func TestGetEngineUrlByName(t *testing.T) {
 	if err != nil {
 		t.Errorf("getEngineUrlByName returned an error: %v", err)
 	}
-	if makeCanonicalUrl(engineUrl) != makeCanonicalUrl(engineUrlMock) {
+	if MakeCanonicalUrl(engineUrl) != MakeCanonicalUrl(engineUrlMock) {
 		t.Errorf("Returned engine url is not equal to a mocked engine url %s != %s", engineUrl, engineUrlMock)
 	}
 	if res, err := clientMock.getEngineUrlByName(context.TODO(), "not_existing_engine", accountNameMock); err == nil || res != "" {
@@ -74,7 +108,7 @@ func TestGetEngineUrlByDatabase(t *testing.T) {
 	if err != nil {
 		t.Errorf("getEngineUrlByDatabase failed with: %v, %s", err, accountNameMock)
 	}
-	if makeCanonicalUrl(engineUrl) != makeCanonicalUrl(engineUrlMock) {
+	if MakeCanonicalUrl(engineUrl) != MakeCanonicalUrl(engineUrlMock) {
 		t.Errorf("Returned engine url is not equal to a mocked engine url %s != %s", engineUrl, engineUrlMock)
 	}
 
@@ -88,12 +122,12 @@ func TestGetEngineUrlByDatabase(t *testing.T) {
 
 // TestQuery tests simple query
 func TestQuery(t *testing.T) {
-	queryResponse, err := clientMock.Query(context.TODO(), engineUrlMock, "SELECT 1", map[string]string{"database": databaseMock}, connectionControl{})
+	queryResponse, err := clientMock.Query(context.TODO(), engineUrlMock, "SELECT 1", map[string]string{"database": databaseMock}, ConnectionControl{})
 	if err != nil {
 		t.Errorf("Query returned an error: %v", err)
 	}
 	if queryResponse.Rows != 1 {
-		t.Errorf("Query response has an invalid number of rows %d != %d", queryResponse.Rows, 1)
+		t.Errorf("Query Response has an invalid number of rows %d != %d", queryResponse.Rows, 1)
 	}
 
 	if queryResponse.Data[0][0].(float64) != 1 {
@@ -109,13 +143,13 @@ func TestQuerySetStatements(t *testing.T) {
 		engineUrlMock,
 		query,
 		map[string]string{"time_zone": "America/New_York", "database": databaseMock},
-		connectionControl{},
+		ConnectionControl{},
 	)
 	if err != nil {
 		t.Errorf("Query returned an error: %v", err)
 	}
 
-	date, err := rows.parseValue("timestamptz", resp.Data[0][0])
+	date, err := rows.ParseTimestampTz(resp.Data[0][0].(string))
 	if err != nil {
 		t.Errorf("Error parsing date: %v", err)
 	}

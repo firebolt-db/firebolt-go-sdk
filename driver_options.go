@@ -1,5 +1,7 @@
 package fireboltgosdk
 
+import "github.com/firebolt-db/firebolt-go-sdk/client"
+
 type driverOption func(d *FireboltDriver)
 
 // WithEngineUrl defines engine url for the driver
@@ -26,16 +28,18 @@ func WithClientParams(accountID string, token string, userAgent string) driverOp
 			d.cachedParams = map[string]string{}
 		}
 		// Put account_id in cachedParams for it to work both with engines v1 and v2
-		d.cachedParams["account_id"] = accountID
+		if accountID != "" {
+			d.cachedParams["account_id"] = accountID
+		}
 
-		cl := &ClientImpl{
+		cl := &client.ClientImpl{
 			ConnectedToSystemEngine: true,
 		}
 
 		cl.UserAgent = userAgent
 
-		cl.parameterGetter = cl.getQueryParams
-		cl.accessTokenGetter = func() (string, error) {
+		cl.ParameterGetter = cl.GetQueryParams
+		cl.AccessTokenGetter = func() (string, error) {
 			return token, nil
 		}
 

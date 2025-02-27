@@ -6,12 +6,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/firebolt-db/firebolt-go-sdk/types"
+	"github.com/firebolt-db/firebolt-go-sdk/client"
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
 // TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
 func TestConnectionPrepareStatement(t *testing.T) {
-	emptyClient := ClientImplV0{}
+	emptyClient := client.ClientImplV0{}
 	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, nil}
 
 	queryMock := "SELECT 1"
@@ -24,7 +25,7 @@ func TestConnectionPrepareStatement(t *testing.T) {
 // TestConnectionClose, tests that connection close doesn't result an error
 // and prepare statement on closed connection is not possible
 func TestConnectionClose(t *testing.T) {
-	emptyClient := ClientImplV0{}
+	emptyClient := client.ClientImplV0{}
 	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, nil}
 	if err := fireboltConnection.Close(); err != nil {
 		t.Errorf("Close failed with an err: %v", err)
@@ -37,7 +38,7 @@ func TestConnectionClose(t *testing.T) {
 }
 
 func runProcessSetStatementFail(t *testing.T, value string) {
-	emptyClient := ClientImpl{} // Client version is irrelevant for this test
+	emptyClient := client.ClientImpl{} // Client version is irrelevant for this test
 	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, nil}
 	expectedError := "could not set parameter"
 
@@ -58,7 +59,7 @@ func TestProcessSetStatement(t *testing.T) {
 func TestSetParameter(t *testing.T) {
 
 	connector := FireboltConnector{}
-	emptyClient := ClientImpl{} // Client version is irrelevant for this test
+	emptyClient := client.ClientImpl{} // Client version is irrelevant for this test
 	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, &connector}
 
 	fireboltConnection.setParameter("key", "value")
@@ -70,32 +71,17 @@ func TestSetParameter(t *testing.T) {
 	}
 }
 
-// MockClient rudimentary mocks Client and tracks the parameters passed to Query
-type MockClient struct {
-	ParametersCalled []map[string]string
-}
-
-func (m *MockClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*types.QueryResponse, error) {
-	m.ParametersCalled = append(m.ParametersCalled, parameters)
-	return nil, nil
-}
-
-func (m *MockClient) GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error) {
-	// Implement to satisfy Client interface
-	return "", nil, nil
-}
-
 func TestMultipleSetParameters(t *testing.T) {
 	connector := FireboltConnector{}
-	emptyClient := MockClient{}
+	emptyClient := client.MakeMockClient()
 
-	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, &connector}
+	fireboltConnection := fireboltConnection{emptyClient, "engine_url", map[string]string{}, &connector}
 	var err error
 
 	_, err = processSetStatement(context.TODO(), &fireboltConnection, "SET key1=value1")
-	raiseIfError(t, err)
+	utils.RaiseIfError(t, err)
 	_, err = processSetStatement(context.TODO(), &fireboltConnection, "SET key2=value")
-	raiseIfError(t, err)
+	utils.RaiseIfError(t, err)
 	// Check if parameters were set correctly
 	if len(emptyClient.ParametersCalled) != 2 {
 		t.Errorf("processSetStatement didn't set parameters correctly")
@@ -111,26 +97,11 @@ func TestMultipleSetParameters(t *testing.T) {
 	}
 }
 
-// MockClient rudimentary mocks Client and tracks the parameters passed to Query
-type MockClientFailingQuery struct {
-	ParametersCalled []map[string]string
-}
-
-func (m *MockClientFailingQuery) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control connectionControl) (*types.QueryResponse, error) {
-	m.ParametersCalled = append(m.ParametersCalled, parameters)
-	return nil, errors.New("dummy error")
-}
-
-func (m *MockClientFailingQuery) GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error) {
-	// Implement to satisfy Client interface
-	return "", nil, nil
-}
-
 func TestFailingQueryDoesntSetParameter(t *testing.T) {
 	connector := FireboltConnector{}
-	emptyClient := MockClientFailingQuery{}
+	emptyClient := client.MakeMockClientWithError(errors.New("dummy error"))
 
-	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, &connector}
+	fireboltConnection := fireboltConnection{emptyClient, "engine_url", map[string]string{}, &connector}
 	var err error
 
 	_, err = processSetStatement(context.TODO(), &fireboltConnection, "SET key1=value1")
@@ -167,7 +138,7 @@ func TestResetParameters(t *testing.T) {
 		"output_format": "output_format",
 		"key":           "value",
 	}
-	emptyClient := ClientImpl{} // Client version is irrelevant for this test
+	emptyClient := client.ClientImpl{} // Client version is irrelevant for this test
 	fireboltConnection := fireboltConnection{&emptyClient, "engine_url", map[string]string{}, &connector}
 
 	fireboltConnection.parameters = map[string]string{

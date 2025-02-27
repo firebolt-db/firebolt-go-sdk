@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"runtime/debug"
+	"strconv"
 	"testing"
 	"time"
 
@@ -70,4 +71,32 @@ func assertDecimal(testVal decimal.Decimal, expectedVal decimal.Decimal, t *test
 		t.Log(string(debug.Stack()))
 		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}
+}
+
+func RaiseIfError(t *testing.T, err error) {
+	if err != nil {
+		t.Errorf("Encountered error %s", err)
+	}
+}
+
+func GetAuthResponse(expiry int) []byte {
+	var response = `{
+   "access_token": "aMysteriousToken",
+   "refresh_token": "refresh",
+   "scope": "offline_access",
+   "expires_in": ` + strconv.Itoa(expiry) + `,
+   "token_type": "Bearer"
+}`
+	return []byte(response)
+}
+
+func GetAuthResponseV0(expiry int) []byte {
+	var response = `{
+   "access_token": "aMysteriousToken",
+   "refresh_token": "refresh",
+   "scope": "offline_access",
+   "expires_in": ` + strconv.Itoa(expiry) + `,
+   "token_type": "Bearer"
+}`
+	return []byte(response)
 }

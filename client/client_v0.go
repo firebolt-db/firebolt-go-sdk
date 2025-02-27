@@ -1,4 +1,4 @@
-package fireboltgosdk
+package client
 
 import (
 	"context"
@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 
 	errors2 "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
@@ -16,20 +18,20 @@ type ClientImplV0 struct {
 	BaseClient
 }
 
-func MakeClientV0(settings *fireboltSettings, apiEndpoint string) (*ClientImplV0, error) {
+func MakeClientV0(settings *types.FireboltSettings, apiEndpoint string) (*ClientImplV0, error) {
 	client := &ClientImplV0{
 		BaseClient: BaseClient{
-			ClientID:     settings.clientID,
-			ClientSecret: settings.clientSecret,
+			ClientID:     settings.ClientID,
+			ClientSecret: settings.ClientSecret,
 			ApiEndpoint:  apiEndpoint,
 			UserAgent:    ConstructUserAgentString(),
 		},
 	}
-	client.parameterGetter = client.getQueryParams
-	client.accessTokenGetter = client.getAccessToken
+	client.ParameterGetter = client.getQueryParams
+	client.AccessTokenGetter = client.getAccessToken
 
 	var err error
-	client.AccountID, err = client.getAccountID(context.Background(), settings.accountName)
+	client.AccountID, err = client.getAccountID(context.Background(), settings.AccountName)
 	if err != nil {
 		return nil, errors2.ConstructNestedError("error during getting account id", err)
 	}
@@ -46,14 +48,14 @@ func (c *ClientImplV0) getAccountIDByName(ctx context.Context, accountName strin
 
 	params := map[string]string{"account_name": accountName}
 
-	resp := c.request(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, params, "")
+	resp := c.requestWithAuthRetry(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, params, "")
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting account id by name request", resp.err)
+		return "", errors2.ConstructNestedError("error during getting account id by name DoHttpRequest", resp.err)
 	}
 
 	var accountIdByNameResponse AccountIdByNameResponse
 	if err := json.Unmarshal(resp.data, &accountIdByNameResponse); err != nil {
-		return "", errors2.ConstructNestedError("error during unmarshalling account id by name response", errors.New(string(resp.data)))
+		return "", errors2.ConstructNestedError("error during unmarshalling account id by name Response", errors.New(string(resp.data)))
 	}
 	return accountIdByNameResponse.AccountId, nil
 }
@@ -68,14 +70,14 @@ func (c *ClientImplV0) getDefaultAccountID(ctx context.Context) (string, error) 
 		Account AccountResponse `json:"account"`
 	}
 
-	resp := c.request(ctx, "GET", c.ApiEndpoint+DefaultAccountURL, make(map[string]string), "")
+	resp := c.requestWithAuthRetry(ctx, "GET", c.ApiEndpoint+DefaultAccountURL, make(map[string]string), "")
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting default account id request", resp.err)
+		return "", errors2.ConstructNestedError("error during getting default account id DoHttpRequest", resp.err)
 	}
 
 	var defaultAccountResponse DefaultAccountResponse
 	if err := json.Unmarshal(resp.data, &defaultAccountResponse); err != nil {
-		return "", errors2.ConstructNestedError("error during unmarshalling default account response", errors.New(string(resp.data)))
+		return "", errors2.ConstructNestedError("error during unmarshalling default account Response", errors.New(string(resp.data)))
 	}
 
 	return defaultAccountResponse.Account.Id, nil
@@ -109,14 +111,14 @@ func (c *ClientImplV0) getEngineIdByName(ctx context.Context, engineName string,
 	}
 
 	params := map[string]string{"engine_name": engineName}
-	resp := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), params, "")
+	resp := c.requestWithAuthRetry(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), params, "")
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting engine id by name request", resp.err)
+		return "", errors2.ConstructNestedError("error during getting engine id by name DoHttpRequest", resp.err)
 	}
 
 	var engineIdByNameResponse EngineIdByNameResponse
 	if err := json.Unmarshal(resp.data, &engineIdByNameResponse); err != nil {
-		return "", errors2.ConstructNestedError("error during unmarshalling engine id by name response", errors.New(string(resp.data)))
+		return "", errors2.ConstructNestedError("error during unmarshalling engine id by name Response", errors.New(string(resp.data)))
 	}
 	return engineIdByNameResponse.EngineId.EngineId, nil
 }
@@ -132,17 +134,17 @@ func (c *ClientImplV0) getEngineUrlById(ctx context.Context, engineId string, ac
 		Engine EngineResponse `json:"engine"`
 	}
 
-	resp := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), make(map[string]string), "")
+	resp := c.requestWithAuthRetry(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), make(map[string]string), "")
 
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting engine url by id request", resp.err)
+		return "", errors2.ConstructNestedError("error during getting engine url by id DoHttpRequest", resp.err)
 	}
 
 	var engineByIdResponse EngineByIdResponse
 	if err := json.Unmarshal(resp.data, &engineByIdResponse); err != nil {
-		return "", errors2.ConstructNestedError("error during unmarshalling engine url by id response", errors.New(string(resp.data)))
+		return "", errors2.ConstructNestedError("error during unmarshalling engine url by id Response", errors.New(string(resp.data)))
 	}
-	return makeCanonicalUrl(engineByIdResponse.Engine.Endpoint), nil
+	return MakeCanonicalUrl(engineByIdResponse.Engine.Endpoint), nil
 }
 
 // getEngineUrlByName return engine URL based on engineName and accountName
@@ -171,14 +173,14 @@ func (c *ClientImplV0) getEngineUrlByDatabase(ctx context.Context, databaseName 
 	}
 
 	params := map[string]string{"database_name": databaseName}
-	resp := c.request(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), params, "")
+	resp := c.requestWithAuthRetry(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), params, "")
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting engine url by database request", resp.err)
+		return "", errors2.ConstructNestedError("error during getting engine url by database DoHttpRequest", resp.err)
 	}
 
 	var engineUrlByDatabaseResponse EngineUrlByDatabaseResponse
 	if err := json.Unmarshal(resp.data, &engineUrlByDatabaseResponse); err != nil {
-		return "", errors2.ConstructNestedError("error during unmarshalling engine url by database response", errors.New(string(resp.data)))
+		return "", errors2.ConstructNestedError("error during unmarshalling engine url by database Response", errors.New(string(resp.data)))
 	}
 	return engineUrlByDatabaseResponse.EngineUrl, nil
 }
@@ -192,7 +194,7 @@ func (c *ClientImplV0) GetConnectionParameters(ctx context.Context, engineName, 
 	params := map[string]string{"database": databaseName}
 	if engineName != "" {
 		if strings.Contains(engineName, ".") {
-			engineUrl, err = makeCanonicalUrl(engineName), nil
+			engineUrl, err = MakeCanonicalUrl(engineName), nil
 		} else {
 			engineUrl, err = c.getEngineUrlByName(ctx, engineName, c.AccountID)
 		}

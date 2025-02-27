@@ -4,19 +4,13 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io/ioutil"
-	"os"
-	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
-	"github.com/matishsiao/goInfo"
 	"github.com/xwb1989/sqlparser"
 )
-
-var goInfoFunc = goInfo.GetInfo
 
 func getUseParametersList() []string {
 	return []string{"database", "engine"}
@@ -164,46 +158,6 @@ func formatValue(value driver.Value) (string, error) {
 	default:
 		return "", fmt.Errorf("not supported type: %v", v)
 	}
-}
-
-// GetHostNameURL returns a hostname url, either default or overwritten with the environment variable
-func GetHostNameURL() string {
-	if val := os.Getenv("FIREBOLT_ENDPOINT"); val != "" {
-		return makeCanonicalUrl(val)
-	}
-	return "https://api.app.firebolt.io"
-}
-
-// ConstructUserAgentString returns a string with go, GoSDK and os type and versions
-// additionally user can set "FIREBOLT_GO_DRIVERS" and "FIREBOLT_GO_CLIENTS" env variable,
-// and they will be concatenated with the final user-agent string
-func ConstructUserAgentString() (ua_string string) {
-	defer func() {
-		// ConstructUserAgentString is a non-essential function, used for statistic gathering
-		// so carry on working if a failure occurs
-		if err := recover(); err != nil {
-			logging.Infolog.Printf("Unable to generate User Agent string")
-			ua_string = "GoSDK"
-		}
-	}()
-	osNameVersion := runtime.GOOS
-	if gi, err := goInfoFunc(); err == nil {
-		osNameVersion += " " + gi.Core
-	}
-
-	var isStringAllowed = regexp.MustCompile(`^[\w\d._\-/ ]+$`).MatchString
-
-	goDrivers := os.Getenv("FIREBOLT_GO_DRIVERS")
-	if !isStringAllowed(goDrivers) {
-		goDrivers = ""
-	}
-	goClients := os.Getenv("FIREBOLT_GO_CLIENTS")
-	if !isStringAllowed(goClients) {
-		goClients = ""
-	}
-
-	ua_string = strings.TrimSpace(fmt.Sprintf("%s GoSDK/%s (Go %s; %s) %s", goClients, sdkVersion, runtime.Version(), osNameVersion, goDrivers))
-	return ua_string
 }
 
 func valueToNamedValue(args []driver.Value) []driver.NamedValue {
