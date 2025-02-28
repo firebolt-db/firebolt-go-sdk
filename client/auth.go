@@ -62,8 +62,13 @@ func getAccessTokenUsernamePassword(username string, password string, apiEndpoin
 			return "", errors.ConstructNestedError("authentication request failed", resp.err)
 		}
 
+		content, err := resp.Content()
+		if err != nil {
+			return "", errors.ConstructNestedError("error during reading response content", err)
+		}
+
 		var authResp AuthenticationResponse
-		if err = jsonStrictUnmarshall(resp.data, &authResp); err != nil {
+		if err = jsonStrictUnmarshall(content, &authResp); err != nil {
 			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
 		logging.Infolog.Printf("Authentication was successful")
@@ -111,8 +116,13 @@ func getAccessTokenServiceAccount(clientId string, clientSecret string, apiEndpo
 			return "", errors.ConstructNestedError("authentication request failed", resp.err)
 		}
 
+		content, err := resp.Content()
+		if err != nil {
+			return "", errors.ConstructNestedError("error during reading response content", err)
+		}
+
 		var authResp AuthenticationResponse
-		if err = jsonStrictUnmarshall(resp.data, &authResp); err != nil {
+		if err = jsonStrictUnmarshall(content, &authResp); err != nil {
 			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
 		logging.Infolog.Printf("Authentication was successful")

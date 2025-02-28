@@ -53,9 +53,14 @@ func (c *ClientImplV0) getAccountIDByName(ctx context.Context, accountName strin
 		return "", errorUtils.ConstructNestedError("error during getting account id by name request", resp.err)
 	}
 
+	content, err := resp.Content()
+	if err != nil {
+		return "", errorUtils.ConstructNestedError("error during reading response content", err)
+	}
+
 	var accountIdByNameResponse AccountIdByNameResponse
-	if err := json.Unmarshal(resp.data, &accountIdByNameResponse); err != nil {
-		return "", errorUtils.ConstructNestedError("error during unmarshalling account id by name Response", errors.New(string(resp.data)))
+	if err := json.Unmarshal(content, &accountIdByNameResponse); err != nil {
+		return "", errorUtils.ConstructNestedError("error during unmarshalling account id by name response", errors.New(string(content)))
 	}
 	return accountIdByNameResponse.AccountId, nil
 }
@@ -75,9 +80,14 @@ func (c *ClientImplV0) getDefaultAccountID(ctx context.Context) (string, error) 
 		return "", errorUtils.ConstructNestedError("error during getting default account id request", resp.err)
 	}
 
+	content, err := resp.Content()
+	if err != nil {
+		return "", errorUtils.ConstructNestedError("error during reading response content", err)
+	}
+
 	var defaultAccountResponse DefaultAccountResponse
-	if err := json.Unmarshal(resp.data, &defaultAccountResponse); err != nil {
-		return "", errorUtils.ConstructNestedError("error during unmarshalling default account Response", errors.New(string(resp.data)))
+	if err := json.Unmarshal(content, &defaultAccountResponse); err != nil {
+		return "", errorUtils.ConstructNestedError("error during unmarshalling default account response", errors.New(string(content)))
 	}
 
 	return defaultAccountResponse.Account.Id, nil
@@ -116,9 +126,14 @@ func (c *ClientImplV0) getEngineIdByName(ctx context.Context, engineName string,
 		return "", errorUtils.ConstructNestedError("error during getting engine id by name request", resp.err)
 	}
 
+	content, err := resp.Content()
+	if err != nil {
+		return "", errorUtils.ConstructNestedError("error during reading response content", err)
+	}
+
 	var engineIdByNameResponse EngineIdByNameResponse
-	if err := json.Unmarshal(resp.data, &engineIdByNameResponse); err != nil {
-		return "", errorUtils.ConstructNestedError("error during unmarshalling engine id by name Response", errors.New(string(resp.data)))
+	if err := json.Unmarshal(content, &engineIdByNameResponse); err != nil {
+		return "", errorUtils.ConstructNestedError("error during unmarshalling engine id by name response", errors.New(string(content)))
 	}
 	return engineIdByNameResponse.EngineId.EngineId, nil
 }
@@ -140,9 +155,14 @@ func (c *ClientImplV0) getEngineUrlById(ctx context.Context, engineId string, ac
 		return "", errorUtils.ConstructNestedError("error during getting engine url by id request", resp.err)
 	}
 
+	content, err := resp.Content()
+	if err != nil {
+		return "", errorUtils.ConstructNestedError("error during reading response content", err)
+	}
+
 	var engineByIdResponse EngineByIdResponse
-	if err := json.Unmarshal(resp.data, &engineByIdResponse); err != nil {
-		return "", errorUtils.ConstructNestedError("error during unmarshalling engine url by id Response", errors.New(string(resp.data)))
+	if err := json.Unmarshal(content, &engineByIdResponse); err != nil {
+		return "", errorUtils.ConstructNestedError("error during unmarshalling engine url by id response", errors.New(string(content)))
 	}
 	return MakeCanonicalUrl(engineByIdResponse.Engine.Endpoint), nil
 }
@@ -178,9 +198,14 @@ func (c *ClientImplV0) getEngineUrlByDatabase(ctx context.Context, databaseName 
 		return "", errorUtils.ConstructNestedError("error during getting engine url by database request", resp.err)
 	}
 
+	content, err := resp.Content()
+	if err != nil {
+		return "", errorUtils.ConstructNestedError("error during reading response content", err)
+	}
+
 	var engineUrlByDatabaseResponse EngineUrlByDatabaseResponse
-	if err := json.Unmarshal(resp.data, &engineUrlByDatabaseResponse); err != nil {
-		return "", errorUtils.ConstructNestedError("error during unmarshalling engine url by database Response", errors.New(string(resp.data)))
+	if err := json.Unmarshal(content, &engineUrlByDatabaseResponse); err != nil {
+		return "", errorUtils.ConstructNestedError("error during unmarshalling engine url by database response", errors.New(string(content)))
 	}
 	return engineUrlByDatabaseResponse.EngineUrl, nil
 }

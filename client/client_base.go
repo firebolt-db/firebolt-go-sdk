@@ -2,7 +2,6 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/url"
@@ -12,7 +11,6 @@ import (
 
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
-	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 const outputFormat = "JSON_Compact"
@@ -27,7 +25,7 @@ var allowedUpdateParameters = []string{"database"}
 
 type Client interface {
 	GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error)
-	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control ConnectionControl) (*types.QueryResponse, error)
+	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control ConnectionControl) (*Response, error)
 }
 
 type BaseClient struct {
@@ -48,7 +46,7 @@ type ConnectionControl struct {
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
-func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control ConnectionControl) (*types.QueryResponse, error) {
+func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control ConnectionControl) (*Response, error) {
 	logging.Infolog.Printf("Query engine '%s' with '%s'", engineUrl, query)
 
 	if c.ParameterGetter == nil {
@@ -67,19 +65,7 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 	if err = c.processResponseHeaders(resp.headers, control); err != nil {
 		return nil, errorUtils.ConstructNestedError("error during processing response headers", err)
 	}
-
-	var queryResponse types.QueryResponse
-	if len(resp.data) == 0 {
-		// response could be empty, which doesn't mean it is an error
-		return &queryResponse, nil
-	}
-
-	if err = json.Unmarshal(resp.data, &queryResponse); err != nil {
-		return nil, errorUtils.ConstructNestedError("wrong Response", errors.New(string(resp.data)))
-	}
-
-	logging.Infolog.Printf("Query was successful")
-	return &queryResponse, nil
+	return resp, nil
 }
 
 func handleUpdateParameters(updateParameters func(string, string), updateParametersRaw string) {
@@ -111,7 +97,7 @@ func splitEngineEndpoint(endpoint string) (string, url.Values, error) {
 }
 
 func (c *BaseClient) handleUpdateEndpoint(updateEndpointRaw string, control ConnectionControl) error {
-	// split URL containted into updateEndpointRaw into endpoint and parameters
+	// split URL contained into updateEndpointRaw into endpoint and parameters
 	// Update parameters and set client engine endpoint
 
 	corruptUrlError := errors.New("failed to execute USE ENGINE command: corrupt update endpoint - contact support")
@@ -147,16 +133,16 @@ func (c *BaseClient) processResponseHeaders(headers http.Header, control Connect
 
 // request fetches an access token from the cache or re-authenticate when the access token is not available in the cache
 // and sends a request using that token
-func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, url string, params map[string]string, bodyStr string) Response {
+func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, url string, params map[string]string, bodyStr string) *Response {
 	var err error
 
 	if c.AccessTokenGetter == nil {
-		return Response{nil, 0, nil, errors.New("AccessTokenGetter is not set")}
+		return MakeResponse(nil, 0, nil, errors.New("AccessTokenGetter is not set"))
 	}
 
 	accessToken, err := c.AccessTokenGetter()
 	if err != nil {
-		return Response{nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err)}
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 	}
 	resp := DoHttpRequest(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
 	if resp.statusCode == http.StatusUnauthorized {
@@ -165,7 +151,7 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 		// Refreshing the access token as it is expired
 		accessToken, err = c.AccessTokenGetter()
 		if err != nil {
-			return Response{nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err)}
+			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 		}
 		// Trying to send the same request again now that the access token has been refreshed
 		resp = DoHttpRequest(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})

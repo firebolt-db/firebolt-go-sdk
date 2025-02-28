@@ -1,6 +1,10 @@
 package rows
 
-import "database/sql/driver"
+import (
+	"database/sql/driver"
+
+	"github.com/firebolt-db/firebolt-go-sdk/client"
+)
 
 type StreamRows struct {
 	// TODO: add fields
@@ -32,6 +36,11 @@ func (r *StreamRows) HasNextResultSet() bool {
 
 // NextResultSet advances to the next result set, if it is available, otherwise returns io.EOF
 func (r *StreamRows) NextResultSet() error {
+	// TODO: implement this method
+	return nil
+}
+
+func (r *StreamRows) AppendResponse(response *client.Response) error {
 	// TODO: implement this method
 	return nil
 }

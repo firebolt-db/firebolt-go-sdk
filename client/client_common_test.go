@@ -7,6 +7,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
+
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
@@ -88,7 +90,7 @@ func testAdditionalHeaders(t *testing.T, clientFactory func(string) Client) {
 	prepareEnvVariablesForTest(t, server)
 	client := clientFactory(server.URL)
 
-	ctx := context.WithValue(context.TODO(), ContextKey("additionalHeaders"), additionalHeaders)
+	ctx := contextUtils.WithAdditionalHeaders(context.Background(), additionalHeaders)
 
 	_, _ = client.Query(ctx, server.URL, selectOne, map[string]string{}, ConnectionControl{})
 

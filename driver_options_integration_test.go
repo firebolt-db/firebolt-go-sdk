@@ -5,7 +5,10 @@ package fireboltgosdk
 
 import (
 	"context"
+	"database/sql/driver"
 	"testing"
+
+	rows2 "github.com/firebolt-db/firebolt-go-sdk/rows"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
@@ -52,7 +55,17 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 		t.Errorf("failed unexpectedly with: %v", err)
 		t.FailNow()
 	}
-	utils.AssertEqual(len(resp.Data), 1, t, "result data length is not 1")
-	utils.AssertEqual(len(resp.Data[0]), 1, t, "result value is invalid")
-	utils.AssertEqual(resp.Data[0][0].(float64), float64(1), t, "result is not 1")
+
+	rows := rows2.InMemoryRows{}
+	rows.AppendResponse(resp)
+
+	var values []driver.Value
+
+	if err := rows.Next(values); err != nil {
+		t.Errorf("failed to get result: %v", err)
+		t.FailNow()
+	}
+
+	utils.AssertEqual(len(values), 1, t, "returned more that one value")
+	utils.AssertEqual(values[0], 1, t, "result is not 1")
 }

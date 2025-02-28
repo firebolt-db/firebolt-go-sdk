@@ -106,9 +106,14 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 		return "", nil, errorUtils.ConstructNestedError("error during system engine url http request", resp.err)
 	}
 
+	content, err := resp.Content()
+	if err != nil {
+		return "", nil, errorUtils.ConstructNestedError("error during reading response content", err)
+	}
+
 	var systemEngineURLResponse SystemEngineURLResponse
-	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
-		return "", nil, errorUtils.ConstructNestedError("error during unmarshalling system engine URL Response", errors.New(string(resp.data)))
+	if err := json.Unmarshal(content, &systemEngineURLResponse); err != nil {
+		return "", nil, errorUtils.ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(content)))
 	}
 	if URLCache != nil {
 		URLCache.Put(url, systemEngineURLResponse, 0) //nolint:errcheck
