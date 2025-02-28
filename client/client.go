@@ -1,10 +1,15 @@
-package fireboltgosdk
+package client
 
 import (
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/firebolt-db/firebolt-go-sdk/types"
+
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
 
 	"github.com/astaxie/beego/cache"
 )
@@ -38,21 +43,21 @@ func initialiseCaches() error {
 	return nil
 }
 
-func MakeClient(settings *fireboltSettings, apiEndpoint string) (*ClientImpl, error) {
+func MakeClient(settings *types.FireboltSettings, apiEndpoint string) (*ClientImpl, error) {
 	client := &ClientImpl{
 		BaseClient: BaseClient{
-			ClientID:     settings.clientID,
-			ClientSecret: settings.clientSecret,
+			ClientID:     settings.ClientID,
+			ClientSecret: settings.ClientSecret,
 			ApiEndpoint:  apiEndpoint,
 			UserAgent:    ConstructUserAgentString(),
 		},
-		AccountName: settings.accountName,
+		AccountName: settings.AccountName,
 	}
-	client.parameterGetter = client.getQueryParams
-	client.accessTokenGetter = client.getAccessToken
+	client.ParameterGetter = client.GetQueryParams
+	client.AccessTokenGetter = client.getAccessToken
 
 	if err := initialiseCaches(); err != nil {
-		infolog.Printf("Error during cache initialisation: %v", err)
+		logging.Infolog.Printf("Error during cache initialisation: %v", err)
 	}
 
 	return client, nil
@@ -70,7 +75,7 @@ func constructParameters(databaseName string, queryParams map[string][]string) m
 }
 
 func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accountName string, databaseName string) (string, map[string]string, error) {
-	infolog.Printf("Get system engine URL for account '%s'", accountName)
+	logging.Infolog.Printf("Get system engine URL for account '%s'", accountName)
 
 	type SystemEngineURLResponse struct {
 		EngineUrl string `json:"engineUrl"`
@@ -82,10 +87,10 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 		val := URLCache.Get(url)
 		if val != nil {
 			if systemEngineURLResponse, ok := val.(SystemEngineURLResponse); ok {
-				infolog.Printf("Resolved account %s to system engine URL %s from cache", accountName, systemEngineURLResponse.EngineUrl)
+				logging.Infolog.Printf("Resolved account %s to system engine URL %s from cache", accountName, systemEngineURLResponse.EngineUrl)
 				engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 				if err != nil {
-					return "", nil, ConstructNestedError("error during splitting system engine URL", err)
+					return "", nil, errorUtils.ConstructNestedError("error during splitting system engine URL", err)
 				}
 				parameters := constructParameters(databaseName, queryParams)
 				return engineUrl, parameters, nil
@@ -93,24 +98,24 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 		}
 	}
 
-	resp := c.request(ctx, "GET", url, make(map[string]string), "")
+	resp := c.requestWithAuthRetry(ctx, "GET", url, make(map[string]string), "")
 	if resp.statusCode == 404 {
 		return "", nil, fmt.Errorf(accountError, accountName)
 	}
 	if resp.err != nil {
-		return "", nil, ConstructNestedError("error during system engine url http request", resp.err)
+		return "", nil, errorUtils.ConstructNestedError("error during system engine url http request", resp.err)
 	}
 
 	var systemEngineURLResponse SystemEngineURLResponse
 	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
-		return "", nil, ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(resp.data)))
+		return "", nil, errorUtils.ConstructNestedError("error during unmarshalling system engine URL Response", errors.New(string(resp.data)))
 	}
 	if URLCache != nil {
 		URLCache.Put(url, systemEngineURLResponse, 0) //nolint:errcheck
 	}
 	engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 	if err != nil {
-		return "", nil, ConstructNestedError("error during splitting system engine URL", err)
+		return "", nil, errorUtils.ConstructNestedError("error during splitting system engine URL", err)
 	}
 
 	parameters := constructParameters(databaseName, queryParams)
@@ -118,7 +123,7 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 	return engineUrl, parameters, nil
 }
 
-func (c *ClientImpl) getQueryParams(setStatements map[string]string) (map[string]string, error) {
+func (c *ClientImpl) GetQueryParams(setStatements map[string]string) (map[string]string, error) {
 	params := map[string]string{"output_format": outputFormat}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
@@ -136,18 +141,18 @@ func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, da
 
 	engineURL, parameters, err := c.getSystemEngineURLAndParameters(context.Background(), c.AccountName, databaseName)
 	if err != nil {
-		return "", nil, ConstructNestedError("error during getting system engine url", err)
+		return "", nil, errorUtils.ConstructNestedError("error during getting system engine url", err)
 	}
 	c.ConnectedToSystemEngine = true
 
-	control := connectionControl{
-		updateParameters: func(key, value string) {
+	control := ConnectionControl{
+		UpdateParameters: func(key, value string) {
 			parameters[key] = value
 		},
-		setEngineURL: func(s string) {
+		SetEngineURL: func(s string) {
 			engineURL = s
 		},
-		resetParameters: func() {},
+		ResetParameters: func() { /* empty because we only want to collect new parameters without resetting anything*/ },
 	}
 	if databaseName != "" {
 		sql := fmt.Sprintf("USE DATABASE \"%s\"", databaseName)

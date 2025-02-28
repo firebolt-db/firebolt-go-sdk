@@ -4,18 +4,13 @@ import (
 	"database/sql/driver"
 	"fmt"
 	"io/ioutil"
-	"log"
-	"os"
-	"regexp"
-	"runtime"
 	"strings"
 	"time"
 
-	"github.com/matishsiao/goInfo"
+	"github.com/firebolt-db/firebolt-go-sdk/errors"
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
 	"github.com/xwb1989/sqlparser"
 )
-
-var goInfoFunc = goInfo.GetInfo
 
 func getUseParametersList() []string {
 	return []string{"database", "engine"}
@@ -23,11 +18,6 @@ func getUseParametersList() []string {
 
 func getDisallowedParametersList() []string {
 	return []string{"output_format"}
-}
-
-func ConstructNestedError(message string, err error) error {
-	infolog.Printf("%s: %v", message, err)
-	return fmt.Errorf("%s: %v", message, err)
 }
 
 func validateSetStatement(key string) error {
@@ -70,10 +60,8 @@ func parseSetStatement(query string) (string, string, error) {
 	return "", "", fmt.Errorf("Not a set statement")
 }
 
-var infolog = log.New(os.Stderr, "[firebolt-go-sdk]", log.Ldate|log.Ltime|log.Lshortfile)
-
 func init() {
-	infolog.SetOutput(ioutil.Discard)
+	logging.Infolog.SetOutput(ioutil.Discard)
 }
 
 // prepareStatement parses a query and substitude question marks with params
@@ -118,7 +106,7 @@ func SplitStatements(sql string) ([]string, error) {
 
 		query, sql, err = sqlparser.SplitStatement(sql)
 		if err != nil {
-			return nil, ConstructNestedError("error during splitting query", err)
+			return nil, errors.ConstructNestedError("error during splitting query", err)
 		}
 		if strings.Trim(query, " \t\n") == "" {
 			continue
@@ -172,111 +160,10 @@ func formatValue(value driver.Value) (string, error) {
 	}
 }
 
-// GetHostNameURL returns a hostname url, either default or overwritten with the environment variable
-func GetHostNameURL() string {
-	if val := os.Getenv("FIREBOLT_ENDPOINT"); val != "" {
-		return makeCanonicalUrl(val)
-	}
-	return "https://api.app.firebolt.io"
-}
-
-// ConstructUserAgentString returns a string with go, GoSDK and os type and versions
-// additionally user can set "FIREBOLT_GO_DRIVERS" and "FIREBOLT_GO_CLIENTS" env variable,
-// and they will be concatenated with the final user-agent string
-func ConstructUserAgentString() (ua_string string) {
-	defer func() {
-		// ConstructUserAgentString is a non-essential function, used for statistic gathering
-		// so carry on working if a failure occurs
-		if err := recover(); err != nil {
-			infolog.Printf("Unable to generate User Agent string")
-			ua_string = "GoSDK"
-		}
-	}()
-	osNameVersion := runtime.GOOS
-	if gi, err := goInfoFunc(); err == nil {
-		osNameVersion += " " + gi.Core
-	}
-
-	var isStringAllowed = regexp.MustCompile(`^[\w\d._\-/ ]+$`).MatchString
-
-	goDrivers := os.Getenv("FIREBOLT_GO_DRIVERS")
-	if !isStringAllowed(goDrivers) {
-		goDrivers = ""
-	}
-	goClients := os.Getenv("FIREBOLT_GO_CLIENTS")
-	if !isStringAllowed(goClients) {
-		goClients = ""
-	}
-
-	ua_string = strings.TrimSpace(fmt.Sprintf("%s GoSDK/%s (Go %s; %s) %s", goClients, sdkVersion, runtime.Version(), osNameVersion, goDrivers))
-	return ua_string
-}
-
 func valueToNamedValue(args []driver.Value) []driver.NamedValue {
 	namedValues := make([]driver.NamedValue, 0, len(args))
 	for i, arg := range args {
 		namedValues = append(namedValues, driver.NamedValue{Ordinal: i, Value: arg})
 	}
 	return namedValues
-}
-
-type StructuredError struct {
-	Message string
-}
-
-func (e StructuredError) Error() string {
-	return e.Message
-}
-
-func NewStructuredError(errorDetails []ErrorDetails) *StructuredError {
-	// "{severity}: {name} ({code}) - {source}, {description}, resolution: {resolution} at {location} see {helpLink}"
-	message := strings.Builder{}
-	for _, error := range errorDetails {
-		if message.Len() > 0 {
-			message.WriteString("\n")
-		}
-		formatErrorDetails(&message, error)
-	}
-	return &StructuredError{
-		Message: message.String(),
-	}
-}
-func formatErrorDetails(message *strings.Builder, error ErrorDetails) string {
-	if error.Severity != "" {
-		message.WriteString(fmt.Sprintf("%s: ", error.Severity))
-	}
-	if error.Name != "" {
-		message.WriteString(fmt.Sprintf("%s ", error.Name))
-	}
-	if error.Code != "" {
-		message.WriteString(fmt.Sprintf("(%s) ", error.Code))
-	}
-	if error.Description != "" {
-		addDelimiterIfNotEmpty(message, "-")
-		message.WriteString(error.Description)
-	}
-	if error.Source != "" {
-		addDelimiterIfNotEmpty(message, ",")
-		message.WriteString(error.Source)
-	}
-	if error.Resolution != "" {
-		addDelimiterIfNotEmpty(message, ",")
-		message.WriteString(fmt.Sprintf("resolution: %s", error.Resolution))
-	}
-	if error.Location.FailingLine != 0 || error.Location.StartOffset != 0 || error.Location.EndOffset != 0 {
-		addDelimiterIfNotEmpty(message, " at")
-		message.WriteString(fmt.Sprintf("%+v", error.Location))
-	}
-	if error.HelpLink != "" {
-		addDelimiterIfNotEmpty(message, ",")
-		message.WriteString(fmt.Sprintf("see %s", error.HelpLink))
-	}
-	return message.String()
-}
-
-func addDelimiterIfNotEmpty(message *strings.Builder, delimiter string) {
-	if message.Len() > 0 {
-		message.WriteString(delimiter)
-		message.WriteString(" ")
-	}
 }

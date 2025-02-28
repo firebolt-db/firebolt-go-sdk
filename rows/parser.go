@@ -1,16 +1,16 @@
-package fireboltgosdk
+package rows
 
 import (
 	"database/sql/driver"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"math"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/shopspring/decimal"
 )
 
@@ -34,66 +34,6 @@ const (
 
 	geographyType = "geography"
 )
-
-type fireboltRows struct {
-	response          []QueryResponse
-	resultSetPosition int // Position of the result set (for multiple statements)
-	cursorPosition    int // Position of the cursor in current result set
-}
-
-// Columns returns a list of Meta names in response
-func (f *fireboltRows) Columns() []string {
-	numColumns := len(f.response[f.resultSetPosition].Meta)
-	result := make([]string, 0, numColumns)
-
-	for _, column := range f.response[f.resultSetPosition].Meta {
-		result = append(result, column.Name)
-	}
-
-	return result
-}
-
-// Close makes the rows unusable
-func (f *fireboltRows) Close() error {
-	f.resultSetPosition = len(f.response) - 1
-	f.cursorPosition = len(f.response[f.resultSetPosition].Data)
-	return nil
-}
-
-// Next fetches the values of the next row, returns io.EOF if it was the end
-func (f *fireboltRows) Next(dest []driver.Value) error {
-	if f.cursorPosition == len(f.response[f.resultSetPosition].Data) {
-		return io.EOF
-	}
-
-	for i, column := range f.response[f.resultSetPosition].Meta {
-		var err error
-		//log.Printf("Rows.Next: %s, %v", column.Type, f.response.Data[f.cursorPosition][i])
-		if dest[i], err = parseValue(column.Type, f.response[f.resultSetPosition].Data[f.cursorPosition][i]); err != nil {
-			return ConstructNestedError("error during fetching Next result", err)
-		}
-	}
-
-	f.cursorPosition++
-	return nil
-}
-
-// HasNextResultSet reports whether there is another result set available
-func (f *fireboltRows) HasNextResultSet() bool {
-	return len(f.response) > f.resultSetPosition+1
-}
-
-// NextResultSet advances to the next result set, if it is available, otherwise returns io.EOF
-func (f *fireboltRows) NextResultSet() error {
-	if !f.HasNextResultSet() {
-		return io.EOF
-	}
-
-	f.cursorPosition = 0
-	f.resultSetPosition += 1
-
-	return nil
-}
 
 // checkTypeValue checks that val type could be changed to columnType
 func checkTypeValue(columnType string, val interface{}) error {
@@ -176,7 +116,7 @@ func extractStructColumns(columnTypes string) (map[string]string, error) {
 func parseStruct(structInnerFields string, val interface{}) (map[string]driver.Value, error) {
 	fields, err := extractStructColumns(structInnerFields)
 	if err != nil {
-		return nil, ConstructNestedError("error during parsing struct type", err)
+		return nil, errors.ConstructNestedError("error during parsing struct type", err)
 	}
 	structValue, ok := val.(map[string]interface{})
 	if !ok {
@@ -190,7 +130,7 @@ func parseStruct(structInnerFields string, val interface{}) (map[string]driver.V
 		if fieldValue, ok := structValue[fieldName]; ok {
 			res[fieldName], err = parseValue(fieldType, fieldValue)
 			if err != nil {
-				return nil, ConstructNestedError("error during parsing struct field", err)
+				return nil, errors.ConstructNestedError("error during parsing struct field", err)
 			}
 		} else {
 			return nil, fmt.Errorf("field %s is missing in struct value %v", fieldName, structValue)
@@ -199,7 +139,7 @@ func parseStruct(structInnerFields string, val interface{}) (map[string]driver.V
 	return res, nil
 }
 
-func parseTimestampTz(value string) (driver.Value, error) {
+func ParseTimestampTz(value string) (driver.Value, error) {
 	formats := [...]string{"2006-01-02 15:04:05.000000-07", "2006-01-02 15:04:05.000000-07:00", "2006-01-02 15:04:05.000000-07:00:00",
 		"2006-01-02 15:04:05-07", "2006-01-02 15:04:05-07:00", "2006-01-02 15:04:05-07:00:00"}
 	var res time.Time
@@ -224,7 +164,7 @@ func parseDateTimeValue(columnType string, value string) (driver.Value, error) {
 	case timestampNtzType:
 		return time.Parse("2006-01-02 15:04:05.000000", value)
 	case timestampTzType:
-		return parseTimestampTz(value)
+		return ParseTimestampTz(value)
 	}
 	return nil, fmt.Errorf("type not known: %s", columnType)
 }
@@ -250,7 +190,7 @@ func parseFloatValue(val interface{}) (float64, error) {
 // parseSingleValue parses all columns types except arrays
 func parseSingleValue(columnType string, val interface{}) (driver.Value, error) {
 	if err := checkTypeValue(columnType, val); err != nil {
-		return nil, ConstructNestedError("error during value parsing", err)
+		return nil, errors.ConstructNestedError("error during value parsing", err)
 	}
 
 	switch columnType {

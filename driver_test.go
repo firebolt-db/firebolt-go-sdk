@@ -6,14 +6,17 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/firebolt-db/firebolt-go-sdk/client"
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
 // TestDriverOpen tests that the connector is opened (happy path)
 func TestDriverOpen(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == UsernamePasswordURLSuffix {
-			_, _ = w.Write(getAuthResponse(10000))
-		} else if r.URL.Path == DefaultAccountURL {
+		if r.URL.Path == client.UsernamePasswordURLSuffix {
+			_, _ = w.Write(utils.GetAuthResponse(10000))
+		} else if r.URL.Path == client.DefaultAccountURL {
 			_, _ = w.Write(getDefaultAccountResponse())
 		}
 	}))
@@ -45,9 +48,9 @@ func getDefaultAccountResponse() []byte {
 // TestDriverOpenFail tests opening a connector with wrong dsn
 func TestDriverOpenFail(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == UsernamePasswordURLSuffix {
-			_, _ = w.Write(getAuthResponse(10000))
-		} else if r.URL.Path == DefaultAccountURL {
+		if r.URL.Path == client.UsernamePasswordURLSuffix {
+			_, _ = w.Write(utils.GetAuthResponse(10000))
+		} else if r.URL.Path == client.DefaultAccountURL {
 			_, _ = w.Write(getDefaultAccountResponse())
 		}
 	}))

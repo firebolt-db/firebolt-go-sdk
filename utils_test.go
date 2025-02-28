@@ -2,13 +2,11 @@ package fireboltgosdk
 
 import (
 	"database/sql/driver"
-	"os"
 	"reflect"
-	"strings"
 	"testing"
 	"time"
 
-	"github.com/matishsiao/goInfo"
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
 func runParseSetStatementSuccess(t *testing.T, value, expectedKey, expectedValue string) {
@@ -126,46 +124,6 @@ func TestFormatValue(t *testing.T) {
 
 }
 
-func TestConstructUserAgentString(t *testing.T) {
-	os.Setenv("FIREBOLT_GO_DRIVERS", "GORM/0.0.1")
-	os.Setenv("FIREBOLT_GO_CLIENTS", "Client1/0.2.3 Client2/0.3.4")
-
-	userAgentString := ConstructUserAgentString()
-
-	if !strings.Contains(userAgentString, sdkVersion) {
-		t.Errorf("sdk Version is not in userAgent string")
-	}
-	if !strings.Contains(userAgentString, "GoSDK") {
-		t.Errorf("sdk name is not in userAgent string")
-	}
-	if !strings.Contains(userAgentString, "GORM/0.0.1") {
-		t.Errorf("drivers is not in userAgent string")
-	}
-	if !strings.Contains(userAgentString, "Client1/0.2.3 Client2/0.3.4") {
-		t.Errorf("clients are not in userAgent string")
-	}
-
-	os.Unsetenv("FIREBOLT_GO_DRIVERS")
-	os.Unsetenv("FIREBOLT_GO_CLIENTS")
-}
-
-// FIR-25705
-func TestConstructUserAgentStringFails(t *testing.T) {
-	// Save current function and restore at the end
-	old := goInfoFunc
-	defer func() { goInfoFunc = old }()
-
-	goInfoFunc = func() (goInfo.GoInfoObject, error) {
-		// Simulate goinfo failing
-		panic("Aaaaaaaaaa")
-	}
-	userAgentString := ConstructUserAgentString()
-
-	if userAgentString != "GoSDK" {
-		t.Errorf("UserAgent string was not generated correctly")
-	}
-}
-
 func runSplitStatement(t *testing.T, value string, expected []string) {
 	stmts, err := SplitStatements(value)
 	if err != nil {
@@ -190,85 +148,10 @@ func TestSplitStatements(t *testing.T) {
 }
 
 func TestValueToNamedValue(t *testing.T) {
-	assert(len(valueToNamedValue([]driver.Value{})), 0, t, "valueToNamedValue of empty array is wrong")
+	utils.AssertEqual(len(valueToNamedValue([]driver.Value{})), 0, t, "valueToNamedValue of empty array is wrong")
 
 	namedValues := valueToNamedValue([]driver.Value{2, "string"})
-	assert(len(namedValues), 2, t, "len of namedValues is wrong")
-	assert(namedValues[0].Value, 2, t, "namedValues value is wrong")
-	assert(namedValues[1].Value, "string", t, "namedValues value is wrong")
-}
-func TestNewStructuredError(t *testing.T) {
-	errorDetails := ErrorDetails{
-		Severity:    "error",
-		Name:        "TestError",
-		Code:        "123",
-		Description: "This is a test error",
-		Source:      "TestSource",
-		Resolution:  "Please fix the error",
-		Location: Location{
-			FailingLine: 10,
-			StartOffset: 20,
-			EndOffset:   30,
-		},
-		HelpLink: "https://example.com",
-	}
-
-	expectedMessage := "error: TestError (123) - This is a test error, TestSource, resolution: Please fix the error at {FailingLine:10 StartOffset:20 EndOffset:30}, see https://example.com"
-
-	err := NewStructuredError([]ErrorDetails{errorDetails})
-
-	if err.Message != expectedMessage {
-		t.Errorf("NewStructuredError returned incorrect error message, got: %s, want: %s", err.Message, expectedMessage)
-	}
-}
-
-func TestStructuredErrorWithMissingFields(t *testing.T) {
-	errorDetails := ErrorDetails{
-		Severity:    "error",
-		Name:        "TestError",
-		Code:        "123",
-		Description: "This is a test error",
-	}
-
-	expectedMessage := "error: TestError (123) - This is a test error"
-
-	err := NewStructuredError([]ErrorDetails{errorDetails})
-
-	if err.Message != expectedMessage {
-		t.Errorf("NewStructuredError returned incorrect error message, got: %s, want: %s", err.Message, expectedMessage)
-	}
-}
-
-func TestStructuredErrorWithMultipleErrors(t *testing.T) {
-	errorDetails := ErrorDetails{
-		Severity:    "error",
-		Name:        "TestError",
-		Code:        "123",
-		Description: "This is a test error",
-		Source:      "TestSource",
-		Resolution:  "Please fix the error",
-		Location: Location{
-			FailingLine: 10,
-			StartOffset: 20,
-			EndOffset:   30,
-		},
-		HelpLink: "https://example.com",
-	}
-
-	errorDetails2 := ErrorDetails{
-		Severity:    "error",
-		Name:        "TestError",
-		Code:        "123",
-		Description: "This is a test error",
-		Source:      "TestSource",
-		Resolution:  "Please fix the error",
-	}
-
-	expectedMessage := "error: TestError (123) - This is a test error, TestSource, resolution: Please fix the error at {FailingLine:10 StartOffset:20 EndOffset:30}, see https://example.com\nerror: TestError (123) - This is a test error, TestSource, resolution: Please fix the error"
-
-	err := NewStructuredError([]ErrorDetails{errorDetails, errorDetails2})
-
-	if err.Message != expectedMessage {
-		t.Errorf("NewStructuredError returned incorrect error message, got: %s, want: %s", err.Message, expectedMessage)
-	}
+	utils.AssertEqual(len(namedValues), 2, t, "len of namedValues is wrong")
+	utils.AssertEqual(namedValues[0].Value, 2, t, "namedValues value is wrong")
+	utils.AssertEqual(namedValues[1].Value, "string", t, "namedValues value is wrong")
 }
