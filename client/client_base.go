@@ -10,7 +10,7 @@ import (
 
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 
-	errors2 "github.com/firebolt-db/firebolt-go-sdk/errors"
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
@@ -61,11 +61,11 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 
 	resp := c.requestWithAuthRetry(ctx, "POST", engineUrl, params, query)
 	if resp.err != nil {
-		return nil, errors2.ConstructNestedError("error during query request", resp.err)
+		return nil, errorUtils.ConstructNestedError("error during query request", resp.err)
 	}
 
 	if err = c.processResponseHeaders(resp.headers, control); err != nil {
-		return nil, errors2.ConstructNestedError("error during processing response headers", err)
+		return nil, errorUtils.ConstructNestedError("error during processing response headers", err)
 	}
 
 	var queryResponse types.QueryResponse
@@ -75,7 +75,7 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 	}
 
 	if err = json.Unmarshal(resp.data, &queryResponse); err != nil {
-		return nil, errors2.ConstructNestedError("wrong Response", errors.New(string(resp.data)))
+		return nil, errorUtils.ConstructNestedError("wrong Response", errors.New(string(resp.data)))
 	}
 
 	logging.Infolog.Printf("Query was successful")
@@ -156,7 +156,7 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 
 	accessToken, err := c.AccessTokenGetter()
 	if err != nil {
-		return Response{nil, 0, nil, errors2.ConstructNestedError("error while getting access token", err)}
+		return Response{nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err)}
 	}
 	resp := DoHttpRequest(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
 	if resp.statusCode == http.StatusUnauthorized {
@@ -165,7 +165,7 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 		// Refreshing the access token as it is expired
 		accessToken, err = c.AccessTokenGetter()
 		if err != nil {
-			return Response{nil, 0, nil, errors2.ConstructNestedError("error while getting access token", err)}
+			return Response{nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err)}
 		}
 		// Trying to send the same request again now that the access token has been refreshed
 		resp = DoHttpRequest(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})

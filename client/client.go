@@ -8,7 +8,7 @@ import (
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 
-	errors2 "github.com/firebolt-db/firebolt-go-sdk/errors"
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 
 	"github.com/astaxie/beego/cache"
@@ -90,7 +90,7 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 				logging.Infolog.Printf("Resolved account %s to system engine URL %s from cache", accountName, systemEngineURLResponse.EngineUrl)
 				engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 				if err != nil {
-					return "", nil, errors2.ConstructNestedError("error during splitting system engine URL", err)
+					return "", nil, errorUtils.ConstructNestedError("error during splitting system engine URL", err)
 				}
 				parameters := constructParameters(databaseName, queryParams)
 				return engineUrl, parameters, nil
@@ -103,19 +103,19 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 		return "", nil, fmt.Errorf(accountError, accountName)
 	}
 	if resp.err != nil {
-		return "", nil, errors2.ConstructNestedError("error during system engine url http request", resp.err)
+		return "", nil, errorUtils.ConstructNestedError("error during system engine url http request", resp.err)
 	}
 
 	var systemEngineURLResponse SystemEngineURLResponse
 	if err := json.Unmarshal(resp.data, &systemEngineURLResponse); err != nil {
-		return "", nil, errors2.ConstructNestedError("error during unmarshalling system engine URL Response", errors.New(string(resp.data)))
+		return "", nil, errorUtils.ConstructNestedError("error during unmarshalling system engine URL Response", errors.New(string(resp.data)))
 	}
 	if URLCache != nil {
 		URLCache.Put(url, systemEngineURLResponse, 0) //nolint:errcheck
 	}
 	engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 	if err != nil {
-		return "", nil, errors2.ConstructNestedError("error during splitting system engine URL", err)
+		return "", nil, errorUtils.ConstructNestedError("error during splitting system engine URL", err)
 	}
 
 	parameters := constructParameters(databaseName, queryParams)
@@ -141,7 +141,7 @@ func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, da
 
 	engineURL, parameters, err := c.getSystemEngineURLAndParameters(context.Background(), c.AccountName, databaseName)
 	if err != nil {
-		return "", nil, errors2.ConstructNestedError("error during getting system engine url", err)
+		return "", nil, errorUtils.ConstructNestedError("error during getting system engine url", err)
 	}
 	c.ConnectedToSystemEngine = true
 

@@ -6,16 +6,16 @@ import (
 	"errors"
 	"fmt"
 
-	client2 "github.com/firebolt-db/firebolt-go-sdk/client"
+	"github.com/firebolt-db/firebolt-go-sdk/client"
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 
-	errors2 "github.com/firebolt-db/firebolt-go-sdk/errors"
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/rows"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 type fireboltConnection struct {
-	client     client2.Client
+	client     client.Client
 	engineUrl  string
 	parameters map[string]string
 	connector  *FireboltConnector
@@ -57,11 +57,11 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 func (c *fireboltConnection) queryContextInternal(ctx context.Context, query string, args []driver.NamedValue, isMultiStatementAllowed bool) (driver.Rows, error) {
 	query, err := prepareStatement(query, args)
 	if err != nil {
-		return nil, errors2.ConstructNestedError("error during preparing a statement", err)
+		return nil, errorUtils.ConstructNestedError("error during preparing a statement", err)
 	}
 	queries, err := SplitStatements(query)
 	if err != nil {
-		return nil, errors2.ConstructNestedError("error during splitting query", err)
+		return nil, errorUtils.ConstructNestedError("error during splitting query", err)
 	}
 	if len(queries) > 1 && !isMultiStatementAllowed {
 		return nil, fmt.Errorf("multistatement is not allowed")
@@ -74,16 +74,16 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 				rows.AppendResponse(types.QueryResponse{})
 				continue
 			} else {
-				return &rows, errors2.ConstructNestedError("statement recognized as an invalid set statement", err)
+				return &rows, errorUtils.ConstructNestedError("statement recognized as an invalid set statement", err)
 			}
 		}
 
-		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, client2.ConnectionControl{
+		if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, client.ConnectionControl{
 			UpdateParameters: c.setParameter,
 			SetEngineURL:     c.setEngineURL,
 			ResetParameters:  c.resetParameters,
 		}); err != nil {
-			return &rows, errors2.ConstructNestedError("error during query execution", err)
+			return &rows, errorUtils.ConstructNestedError("error during query execution", err)
 		} else {
 			rows.AppendResponse(*response)
 		}
@@ -111,7 +111,7 @@ func processSetStatement(ctx context.Context, c *fireboltConnection, query strin
 	}
 	combinedParameters[setKey] = setValue
 
-	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", combinedParameters, client2.ConnectionControl{
+	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", combinedParameters, client.ConnectionControl{
 		UpdateParameters: c.setParameter,
 		SetEngineURL:     c.setEngineURL,
 		ResetParameters:  c.resetParameters,

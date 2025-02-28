@@ -9,7 +9,7 @@ import (
 	"net/http"
 	"strings"
 
-	errors2 "github.com/firebolt-db/firebolt-go-sdk/errors"
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
@@ -107,7 +107,7 @@ func DoHttpRequest(reqParams requestParameters) Response {
 	resp, err := client.Do(req)
 	if err != nil {
 		logging.Infolog.Println(err)
-		return Response{nil, 0, nil, errors2.ConstructNestedError("error during a request execution", err)}
+		return Response{nil, 0, nil, errorUtils.ConstructNestedError("error during a request execution", err)}
 	}
 
 	defer resp.Body.Close()
@@ -115,7 +115,7 @@ func DoHttpRequest(reqParams requestParameters) Response {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logging.Infolog.Println(err)
-		return Response{nil, 0, nil, errors2.ConstructNestedError("error during reading a request Response", err)}
+		return Response{nil, 0, nil, errorUtils.ConstructNestedError("error during reading a request Response", err)}
 	}
 	// Error might be in the response body, despite the status code 200
 	errorResponse := struct {
@@ -123,13 +123,13 @@ func DoHttpRequest(reqParams requestParameters) Response {
 	}{}
 	if err = json.Unmarshal(body, &errorResponse); err == nil {
 		if errorResponse.Errors != nil {
-			return Response{nil, resp.StatusCode, nil, errors2.NewStructuredError(errorResponse.Errors)}
+			return Response{nil, resp.StatusCode, nil, errorUtils.NewStructuredError(errorResponse.Errors)}
 		}
 	}
 
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		if err = checkErrorResponse(body); err != nil {
-			return Response{nil, resp.StatusCode, nil, errors2.ConstructNestedError("request returned an error", err)}
+			return Response{nil, resp.StatusCode, nil, errorUtils.ConstructNestedError("request returned an error", err)}
 		}
 		if resp.StatusCode == 500 {
 			// this is a database error
