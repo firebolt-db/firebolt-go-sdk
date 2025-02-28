@@ -234,8 +234,8 @@ func (c *ClientImplV0) GetConnectionParameters(ctx context.Context, engineName, 
 
 }
 
-func (c *ClientImplV0) getQueryParams(setStatements map[string]string) (map[string]string, error) {
-	params := map[string]string{"output_format": outputFormat}
+func (c *ClientImplV0) getQueryParams(_ context.Context, setStatements map[string]string) (map[string]string, error) {
+	params := map[string]string{"output_format": jsonOutputFormat}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}

@@ -38,6 +38,10 @@ func MakeResponse(body io.ReadCloser, statusCode int, headers http.Header, err e
 	return response
 }
 
+func (r *Response) Body() io.ReadCloser {
+	return r.body
+}
+
 func (r *Response) Content() ([]byte, error) {
 	var err error
 	if r.content == nil {

@@ -7,13 +7,16 @@ import (
 	"net/url"
 	"strings"
 
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
+
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
 
-const outputFormat = "JSON_Compact"
+const jsonOutputFormat = "JSON_Compact"
+const jsonLinesOutputFormat = "JSONLines_Compact"
 const protocolVersionHeader = "Firebolt-Protocol-Version"
 const protocolVersion = "2.1"
 
@@ -33,7 +36,7 @@ type BaseClient struct {
 	ClientSecret      string
 	ApiEndpoint       string
 	UserAgent         string
-	ParameterGetter   func(map[string]string) (map[string]string, error)
+	ParameterGetter   func(context.Context, map[string]string) (map[string]string, error)
 	AccessTokenGetter func() (string, error)
 }
 
@@ -52,7 +55,7 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 	if c.ParameterGetter == nil {
 		return nil, errors.New("ParameterGetter is not set")
 	}
-	params, err := c.ParameterGetter(parameters)
+	params, err := c.ParameterGetter(ctx, parameters)
 	if err != nil {
 		return nil, err
 	}
@@ -131,7 +134,14 @@ func (c *BaseClient) processResponseHeaders(headers http.Header, control Connect
 	return nil
 }
 
-// request fetches an access token from the cache or re-authenticate when the access token is not available in the cache
+func (c *BaseClient) getOutputFormat(ctx context.Context) string {
+	if contextUtils.IsStreaming(ctx) {
+		return jsonLinesOutputFormat
+	}
+	return jsonOutputFormat
+}
+
+// requestWithAuthRetry fetches an access token from the cache or re-authenticate when the access token is not available in the cache
 // and sends a request using that token
 func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, url string, params map[string]string, bodyStr string) *Response {
 	var err error

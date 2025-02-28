@@ -128,8 +128,8 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 	return engineUrl, parameters, nil
 }
 
-func (c *ClientImpl) GetQueryParams(setStatements map[string]string) (map[string]string, error) {
-	params := map[string]string{"output_format": outputFormat}
+func (c *ClientImpl) GetQueryParams(ctx context.Context, setStatements map[string]string) (map[string]string, error) {
+	params := map[string]string{"output_format": c.getOutputFormat(ctx)}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
