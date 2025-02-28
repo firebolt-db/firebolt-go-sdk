@@ -10,6 +10,8 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
+const selectOne = "SELECT 1"
+
 func testProtocolVersion(t *testing.T, clientFactory func(string) Client) {
 	var protocolVersionValue = ""
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -21,7 +23,7 @@ func testProtocolVersion(t *testing.T, clientFactory func(string) Client) {
 
 	client := clientFactory(server.URL)
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, ConnectionControl{})
+	_, _ = client.Query(context.TODO(), server.URL, selectOne, map[string]string{}, ConnectionControl{})
 	if protocolVersionValue != protocolVersion {
 		t.Errorf("Did not set Protocol-Version value correctly on a query DoHttpRequest")
 	}
@@ -33,7 +35,7 @@ func testUpdateParameters(t *testing.T, clientFactory func(string) Client) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
 			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else if r.URL.Path == UsernamePasswordURLSuffix {
-			_, _ = w.Write(utils.GetAuthResponseV0(10000))
+			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else {
 			w.Header().Set(updateParametersHeader, fmt.Sprintf("%s=%s", "database", newDatabaseName))
 			w.WriteHeader(http.StatusOK)
@@ -46,7 +48,7 @@ func testUpdateParameters(t *testing.T, clientFactory func(string) Client) {
 	params := map[string]string{
 		"database": "db",
 	}
-	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, ConnectionControl{
+	_, err := client.Query(context.TODO(), server.URL, selectOne, params, ConnectionControl{
 		UpdateParameters: func(key, value string) {
 			params[key] = value
 		},
@@ -70,7 +72,7 @@ func testAdditionalHeaders(t *testing.T, clientFactory func(string) Client) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
 			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else if r.URL.Path == UsernamePasswordURLSuffix {
-			_, _ = w.Write(utils.GetAuthResponseV0(10000))
+			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else {
 			if r.Header.Get("Firebolt-Test-Header") != "test" {
 				t.Errorf("Did not set Firebolt-Test-Header value when passed in ctx")
@@ -88,6 +90,6 @@ func testAdditionalHeaders(t *testing.T, clientFactory func(string) Client) {
 
 	ctx := context.WithValue(context.TODO(), ContextKey("additionalHeaders"), additionalHeaders)
 
-	_, _ = client.Query(ctx, server.URL, "SELECT 1", map[string]string{}, ConnectionControl{})
+	_, _ = client.Query(ctx, server.URL, selectOne, map[string]string{}, ConnectionControl{})
 
 }

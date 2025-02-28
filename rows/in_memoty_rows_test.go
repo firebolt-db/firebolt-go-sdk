@@ -200,9 +200,7 @@ func TestRowsNext(t *testing.T) {
 	// Fifth row
 	err = rows.Next(dest)
 	utils.AssertEqual(err, nil, t, "Next shouldn't return an error at row 5")
-	// Cannot do assert since NaN != NaN according to the standard
-	// math.IsNaN only works for float64, converting float32 NaN to float64 results in 0
-	if !(dest[2].(float32) != dest[2].(float32)) {
+	if !math.IsNaN(float64(dest[2].(float32))) {
 		t.Log(string(debug.Stack()))
 		t.Errorf("results not equal for float32 Expected: NaN Got: %s", dest[2])
 	}
@@ -239,10 +237,10 @@ func TestRowsNextSet(t *testing.T) {
 	var dest = make([]driver.Value, 1)
 
 	utils.AssertEqual(rows.Next(dest), nil, t, "Next shouldn't return an error")
-	utils.AssertEqual(dest[0], int32(3), t, "results are not equal")
+	utils.AssertEqual(dest[0], int32(3), t, "results are not equal for int32")
 
 	utils.AssertEqual(rows.Next(dest), nil, t, "Next shouldn't return an error")
-	utils.AssertEqual(dest[0], nil, t, "results are not equal")
+	utils.AssertEqual(dest[0], nil, t, "results are not equal for final row")
 
 	utils.AssertEqual(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
 }
@@ -287,10 +285,10 @@ func TestRowsNextStructWithNestedSpaces(t *testing.T) {
 	}
 
 	if dest[0].(map[string]driver.Value)["a b"] != int32(1) {
-		t.Errorf("results are not equal")
+		t.Errorf("results are not equal for struct field with a space in name")
 	}
 	if dest[0].(map[string]driver.Value)["s"].(map[string]driver.Value)["c d"] != time.Date(1989, 04, 15, 1, 2, 3, 0, time.UTC) {
-		t.Errorf("results are not equal")
+		t.Errorf("results are not equal for nested struct field with a space in name")
 	}
 }
 

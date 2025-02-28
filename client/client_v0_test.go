@@ -11,6 +11,8 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
+const mockClientId = "client_id@firebolt.io"
+
 // TestCacheAccessToken tests that a token is cached during authentication and reused for subsequent requests
 func TestCacheAccessTokenV0(t *testing.T) {
 	var fetchTokenCount = 0
@@ -18,7 +20,7 @@ func TestCacheAccessTokenV0(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
-			_, _ = w.Write(utils.GetAuthResponseV0(10000))
+			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
@@ -28,7 +30,7 @@ func TestCacheAccessTokenV0(t *testing.T) {
 	prepareEnvVariablesForTest(t, server)
 	var client = &ClientImplV0{
 		"",
-		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+		BaseClient{ClientID: mockClientId, ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.AccessTokenGetter = client.getAccessToken
 	for i := 0; i < 3; i++ {
@@ -38,14 +40,14 @@ func TestCacheAccessTokenV0(t *testing.T) {
 		}
 	}
 
-	token, _ := getAccessTokenUsernamePassword("ClientID@firebolt.io", "", server.URL, "")
+	token, _ := getAccessTokenUsernamePassword(mockClientId, "", server.URL, "")
 
 	if token != "aMysteriousToken" {
-		t.Errorf("Did not fetch missing token")
+		t.Error(missingTokenError)
 	}
 
-	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
-		t.Errorf("Did not fetch missing token")
+	if getCachedAccessToken(mockClientId, server.URL) != "aMysteriousToken" {
+		t.Error(missingTokenError)
 	}
 
 	if fetchTokenCount != 1 {
@@ -64,7 +66,7 @@ func TestRefreshTokenOn401V0(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/auth/v1/login" {
 			fetchTokenCount++
-			_, _ = w.Write(utils.GetAuthResponseV0(10000))
+			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else {
 			w.WriteHeader(http.StatusUnauthorized)
 		}
@@ -74,13 +76,13 @@ func TestRefreshTokenOn401V0(t *testing.T) {
 	prepareEnvVariablesForTest(t, server)
 	var client = &ClientImplV0{
 		"",
-		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+		BaseClient{ClientID: mockClientId, ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.AccessTokenGetter = client.getAccessToken
 	_ = client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
 
-	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
-		t.Errorf("Did not fetch missing token")
+	if getCachedAccessToken(mockClientId, server.URL) != "aMysteriousToken" {
+		t.Error(missingTokenError)
 	}
 
 	if fetchTokenCount != 2 {
@@ -102,7 +104,7 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == UsernamePasswordURLSuffix {
 			fetchTokenCount++
-			_, _ = w.Write(utils.GetAuthResponseV0(1))
+			_, _ = w.Write(utils.GetAuthResponse(1))
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
@@ -112,7 +114,7 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 	prepareEnvVariablesForTest(t, server)
 	var client = &ClientImplV0{
 		"",
-		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
+		BaseClient{ClientID: mockClientId, ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.AccessTokenGetter = client.getAccessToken
 	_ = client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
@@ -120,14 +122,14 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 	time.Sleep(2 * time.Millisecond)
 	_ = client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
 
-	token, _ := getAccessTokenUsernamePassword("ClientID@firebolt.io", "", server.URL, "")
+	token, _ := getAccessTokenUsernamePassword(mockClientId, "", server.URL, "")
 
 	if token != "aMysteriousToken" {
-		t.Errorf("Did not fetch missing token")
+		t.Error(missingTokenError)
 	}
 
-	if getCachedAccessToken("ClientID@firebolt.io", server.URL) != "aMysteriousToken" {
-		t.Errorf("Did not fetch missing token")
+	if getCachedAccessToken(mockClientId, server.URL) != "aMysteriousToken" {
+		t.Error(missingTokenError)
 	}
 
 	if fetchTokenCount != 2 {
@@ -152,7 +154,7 @@ func TestUserAgentV0(t *testing.T) {
 	prepareEnvVariablesForTest(t, server)
 	var client = &ClientImplV0{
 		"",
-		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue},
+		BaseClient{ClientID: mockClientId, ClientSecret: "password", ApiEndpoint: server.URL, UserAgent: userAgentValue},
 	}
 	client.AccessTokenGetter = client.getAccessToken
 	client.ParameterGetter = client.getQueryParams
@@ -166,7 +168,7 @@ func TestUserAgentV0(t *testing.T) {
 func clientFactoryV0(apiEndpoint string) Client {
 	var client = &ClientImplV0{
 		"",
-		BaseClient{ClientID: "ClientID@firebolt.io", ClientSecret: "password", ApiEndpoint: apiEndpoint},
+		BaseClient{ClientID: mockClientId, ClientSecret: "password", ApiEndpoint: apiEndpoint},
 	}
 	client.AccessTokenGetter = client.getAccessToken
 	client.ParameterGetter = client.getQueryParams

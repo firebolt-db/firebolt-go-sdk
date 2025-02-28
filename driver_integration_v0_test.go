@@ -31,6 +31,8 @@ var (
 	accountNameMock       string
 )
 
+const scanErrorMessage = "Scan returned an error"
+
 // init populates mock variables and client for integration tests
 func init() {
 	usernameMock = os.Getenv("USER_NAME")
@@ -74,7 +76,7 @@ func TestDriverQueryResult(t *testing.T) {
 	if !rows.Next() {
 		t.Errorf("Next returned end of output")
 	}
-	utils.AssertEqual(rows.Scan(&dt, &d, &i, &f), nil, t, "Scan returned an error")
+	utils.AssertEqual(rows.Scan(&dt, &d, &i, &f), nil, t, scanErrorMessage)
 	utils.AssertEqual(dt, time.Date(2020, 01, 03, 19, 8, 45, 0, loc), t, "results not equal for datetime")
 	utils.AssertEqual(d, time.Date(2020, 01, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
 	utils.AssertEqual(i, 1, t, "results not equal for int")
@@ -83,7 +85,7 @@ func TestDriverQueryResult(t *testing.T) {
 	if !rows.Next() {
 		t.Errorf("Next returned end of output")
 	}
-	utils.AssertEqual(rows.Scan(&dt, &d, &i, &f), nil, t, "Scan returned an error")
+	utils.AssertEqual(rows.Scan(&dt, &d, &i, &f), nil, t, scanErrorMessage)
 	utils.AssertEqual(dt, time.Date(2021, 01, 03, 19, 38, 34, 0, loc), t, "results not equal for datetime")
 	utils.AssertEqual(d, time.Date(2000, 12, 03, 0, 0, 0, 0, loc), t, "results not equal for date")
 	utils.AssertEqual(i, 2, t, "results not equal for int")
@@ -112,7 +114,7 @@ func TestDriverInfNanValues(t *testing.T) {
 	if !rows.Next() {
 		t.Errorf("Next returned end of output")
 	}
-	utils.AssertEqual(rows.Scan(&f, &f2, &f3, &f4), nil, t, "Scan returned an error")
+	utils.AssertEqual(rows.Scan(&f, &f2, &f3, &f4), nil, t, scanErrorMessage)
 	if !math.IsInf(f, -1) {
 		t.Errorf("results not equal for float Expected: -Inf Got: %f", f)
 	}

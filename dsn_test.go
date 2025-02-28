@@ -6,6 +6,8 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
+const mockUserName = "user@firebolt.io"
+
 func runDSNTest(t *testing.T, input string, expectedSettings types.FireboltSettings) {
 	settings, err := ParseDSNString(input)
 
@@ -72,22 +74,22 @@ func TestDSNFailed(t *testing.T) {
 
 func TestDSNV0HappyPath(t *testing.T) {
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name",
-		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", NewVersion: false})
+		types.FireboltSettings{ClientID: mockUserName, ClientSecret: "password", Database: "db_name", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name",
-		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", EngineName: "engine_name", NewVersion: false})
+		types.FireboltSettings{ClientID: mockUserName, ClientSecret: "password", Database: "db_name", EngineName: "engine_name", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_name",
-		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", EngineName: "engine_name", NewVersion: false})
+		types.FireboltSettings{ClientID: mockUserName, ClientSecret: "password", Database: "db_name", EngineName: "engine_name", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/engine_url.firebolt.io",
-		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", EngineName: "engine_url.firebolt.io", NewVersion: false})
+		types.FireboltSettings{ClientID: mockUserName, ClientSecret: "password", Database: "db_name", EngineName: "engine_url.firebolt.io", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name/https://engine_url.firebolt.io",
-		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", EngineName: "https://engine_url.firebolt.io", NewVersion: false})
+		types.FireboltSettings{ClientID: mockUserName, ClientSecret: "password", Database: "db_name", EngineName: "https://engine_url.firebolt.io", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@firebolt.io:password@db_name?account_name=firebolt_account",
-		types.FireboltSettings{ClientID: "user@firebolt.io", ClientSecret: "password", Database: "db_name", AccountName: "firebolt_account", NewVersion: false})
+		types.FireboltSettings{ClientID: mockUserName, ClientSecret: "password", Database: "db_name", AccountName: "firebolt_account", NewVersion: false})
 
 	runDSNTest(t, "firebolt://user@fire:bolt.io:passwo@rd@db_name?account_name=firebolt_account",
 		types.FireboltSettings{ClientID: "user@fire:bolt.io", ClientSecret: "passwo@rd", Database: "db_name", AccountName: "firebolt_account", NewVersion: false})

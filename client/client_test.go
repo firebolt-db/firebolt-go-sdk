@@ -14,6 +14,8 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
+const missingTokenError = "Did not fetch missing token"
+
 func init() {
 	originalEndpoint = os.Getenv("FIREBOLT_ENDPOINT")
 }
@@ -47,11 +49,11 @@ func TestCacheAccessToken(t *testing.T) {
 	token, _ := getAccessTokenServiceAccount("client_id", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
-		t.Errorf("Did not fetch missing token")
+		t.Error(missingTokenError)
 	}
 
 	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
-		t.Errorf("Did not fetch missing token")
+		t.Error(missingTokenError)
 	}
 
 	if fetchTokenCount != 1 {
@@ -127,11 +129,11 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
-		t.Errorf("Did not fetch missing token")
+		t.Error(missingTokenError)
 	}
 
 	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
-		t.Errorf("Did not fetch missing token")
+		t.Error(missingTokenError)
 	}
 
 	if fetchTokenCount != 2 {
@@ -160,7 +162,7 @@ func TestUserAgent(t *testing.T) {
 	client.AccessTokenGetter = client.getAccessToken
 	client.ParameterGetter = client.GetQueryParams
 
-	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, ConnectionControl{})
+	_, _ = client.Query(context.TODO(), server.URL, selectOne, map[string]string{}, ConnectionControl{})
 	if userAgentHeader != userAgentValue {
 		t.Errorf("Did not set User-Agent value correctly on a query DoHttpRequest")
 	}
@@ -267,7 +269,7 @@ func TestUpdateEndpoint(t *testing.T) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
 			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else if r.URL.Path == UsernamePasswordURLSuffix {
-			_, _ = w.Write(utils.GetAuthResponseV0(10000))
+			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else {
 			w.Header().Set(updateEndpointHeader, newEndpoint)
 			w.WriteHeader(http.StatusOK)
@@ -283,7 +285,7 @@ func TestUpdateEndpoint(t *testing.T) {
 
 	engineEndpoint := "old-endpoint"
 
-	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, ConnectionControl{
+	_, err := client.Query(context.TODO(), server.URL, selectOne, params, ConnectionControl{
 		UpdateParameters: func(key, value string) {
 			params[key] = value
 		},
@@ -319,7 +321,7 @@ func TestResetSession(t *testing.T) {
 		"database": "db",
 	}
 
-	_, err := client.Query(context.TODO(), server.URL, "SELECT 1", params, ConnectionControl{
+	_, err := client.Query(context.TODO(), server.URL, selectOne, params, ConnectionControl{
 		ResetParameters: func() {
 			resetCalled = true
 		},

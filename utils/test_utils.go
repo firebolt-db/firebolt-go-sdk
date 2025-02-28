@@ -89,14 +89,3 @@ func GetAuthResponse(expiry int) []byte {
 }`
 	return []byte(response)
 }
-
-func GetAuthResponseV0(expiry int) []byte {
-	var response = `{
-   "access_token": "aMysteriousToken",
-   "refresh_token": "refresh",
-   "scope": "offline_access",
-   "expires_in": ` + strconv.Itoa(expiry) + `,
-   "token_type": "Bearer"
-}`
-	return []byte(response)
-}
