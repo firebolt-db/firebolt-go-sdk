@@ -103,7 +103,7 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 		return "", nil, fmt.Errorf(accountError, accountName)
 	}
 	if resp.err != nil {
-		return "", nil, errors2.ConstructNestedError("error during system engine url http DoHttpRequest", resp.err)
+		return "", nil, errors2.ConstructNestedError("error during system engine url http request", resp.err)
 	}
 
 	var systemEngineURLResponse SystemEngineURLResponse

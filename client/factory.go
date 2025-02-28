@@ -5,7 +5,7 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
-// ClientFactory sends an authentication DoHttpRequest, and returns a newly constructed client object
+// ClientFactory sends an authentication request, and returns a newly constructed client object
 func ClientFactory(settings *types.FireboltSettings, apiEndpoint string) (Client, error) {
 	userAgent := ConstructUserAgentString()
 

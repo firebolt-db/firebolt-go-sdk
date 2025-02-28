@@ -21,7 +21,7 @@ type Response struct {
 	err        error
 }
 
-// Collect arguments for DoHttpRequest function
+// Collect arguments for request function
 type requestParameters struct {
 	ctx         context.Context
 	accessToken string
@@ -35,9 +35,9 @@ type requestParameters struct {
 
 type ContextKey string
 
-// checkErrorResponse, checks whether error Response is returned instead of a desired Response.
+// checkErrorResponse, checks whether error response is returned instead of a desired Response.
 func checkErrorResponse(response []byte) error {
-	// ErrorResponse definition of any Response with some error
+	// ErrorResponse definition of any response with some error
 	type ErrorResponse struct {
 		Error   string        `json:"error"`
 		Code    int           `json:"code"`
@@ -48,7 +48,7 @@ func checkErrorResponse(response []byte) error {
 	var errorResponse ErrorResponse
 
 	if err := json.Unmarshal(response, &errorResponse); err == nil && errorResponse.Code != 0 {
-		// return error only if error Response was
+		// return error only if error response was
 		// unmarshalled correctly and error code is not zero
 		return errors.New(errorResponse.Message)
 	}
@@ -70,10 +70,10 @@ func extractAdditionalHeaders(ctx context.Context) map[string]string {
 	return map[string]string{}
 }
 
-// DoHttpRequest sends a DoHttpRequest using "POST" or "GET" method on a specified url
+// request sends a request using "POST" or "GET" method on a specified url
 // additionally it passes the parameters and a bodyStr as a payload
 // if accessToken is passed, it is used for authorization
-// returns Response and an error
+// returns response and an error
 func DoHttpRequest(reqParams requestParameters) Response {
 	req, _ := http.NewRequestWithContext(reqParams.ctx, reqParams.method, MakeCanonicalUrl(reqParams.url), strings.NewReader(reqParams.bodyStr))
 
@@ -107,7 +107,7 @@ func DoHttpRequest(reqParams requestParameters) Response {
 	resp, err := client.Do(req)
 	if err != nil {
 		logging.Infolog.Println(err)
-		return Response{nil, 0, nil, errors2.ConstructNestedError("error during a DoHttpRequest execution", err)}
+		return Response{nil, 0, nil, errors2.ConstructNestedError("error during a request execution", err)}
 	}
 
 	defer resp.Body.Close()
@@ -115,9 +115,9 @@ func DoHttpRequest(reqParams requestParameters) Response {
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logging.Infolog.Println(err)
-		return Response{nil, 0, nil, errors2.ConstructNestedError("error during reading a DoHttpRequest Response", err)}
+		return Response{nil, 0, nil, errors2.ConstructNestedError("error during reading a request Response", err)}
 	}
-	// Error might be in the Response body, despite the status code 200
+	// Error might be in the response body, despite the status code 200
 	errorResponse := struct {
 		Errors []types.ErrorDetails `json:"errors"`
 	}{}
@@ -129,13 +129,13 @@ func DoHttpRequest(reqParams requestParameters) Response {
 
 	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
 		if err = checkErrorResponse(body); err != nil {
-			return Response{nil, resp.StatusCode, nil, errors2.ConstructNestedError("DoHttpRequest returned an error", err)}
+			return Response{nil, resp.StatusCode, nil, errors2.ConstructNestedError("request returned an error", err)}
 		}
 		if resp.StatusCode == 500 {
 			// this is a database error
 			return Response{nil, resp.StatusCode, nil, fmt.Errorf("%s", string(body))}
 		}
-		return Response{nil, resp.StatusCode, nil, fmt.Errorf("DoHttpRequest returned non ok status code: %d, %s", resp.StatusCode, string(body))}
+		return Response{nil, resp.StatusCode, nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body))}
 	}
 
 	return Response{body, resp.StatusCode, resp.Header, nil}

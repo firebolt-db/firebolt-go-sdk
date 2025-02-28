@@ -25,7 +25,7 @@ func testProtocolVersion(t *testing.T, clientFactory func(string) Client) {
 
 	_, _ = client.Query(context.TODO(), server.URL, selectOne, map[string]string{}, ConnectionControl{})
 	if protocolVersionValue != protocolVersion {
-		t.Errorf("Did not set Protocol-Version value correctly on a query DoHttpRequest")
+		t.Errorf("Did not set Protocol-Version value correctly on a query request")
 	}
 }
 
@@ -54,7 +54,7 @@ func testUpdateParameters(t *testing.T, clientFactory func(string) Client) {
 		},
 	})
 	if err != nil {
-		t.Errorf("Error during query execution with update parameters header in Response %s", err)
+		t.Errorf("Error during query execution with update parameters header in response %s", err)
 	}
 	if params["database"] != newDatabaseName {
 		t.Errorf("Database is not set correctly. Expected %s but was %s", newDatabaseName, params["database"])

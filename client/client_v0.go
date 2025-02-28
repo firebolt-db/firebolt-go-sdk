@@ -50,7 +50,7 @@ func (c *ClientImplV0) getAccountIDByName(ctx context.Context, accountName strin
 
 	resp := c.requestWithAuthRetry(ctx, "GET", c.ApiEndpoint+AccountIdByNameURL, params, "")
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting account id by name DoHttpRequest", resp.err)
+		return "", errors2.ConstructNestedError("error during getting account id by name request", resp.err)
 	}
 
 	var accountIdByNameResponse AccountIdByNameResponse
@@ -72,7 +72,7 @@ func (c *ClientImplV0) getDefaultAccountID(ctx context.Context) (string, error) 
 
 	resp := c.requestWithAuthRetry(ctx, "GET", c.ApiEndpoint+DefaultAccountURL, make(map[string]string), "")
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting default account id DoHttpRequest", resp.err)
+		return "", errors2.ConstructNestedError("error during getting default account id request", resp.err)
 	}
 
 	var defaultAccountResponse DefaultAccountResponse
@@ -113,7 +113,7 @@ func (c *ClientImplV0) getEngineIdByName(ctx context.Context, engineName string,
 	params := map[string]string{"engine_name": engineName}
 	resp := c.requestWithAuthRetry(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineIdByNameURL, accountId), params, "")
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting engine id by name DoHttpRequest", resp.err)
+		return "", errors2.ConstructNestedError("error during getting engine id by name request", resp.err)
 	}
 
 	var engineIdByNameResponse EngineIdByNameResponse
@@ -137,7 +137,7 @@ func (c *ClientImplV0) getEngineUrlById(ctx context.Context, engineId string, ac
 	resp := c.requestWithAuthRetry(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineByIdURL, accountId, engineId), make(map[string]string), "")
 
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting engine url by id DoHttpRequest", resp.err)
+		return "", errors2.ConstructNestedError("error during getting engine url by id request", resp.err)
 	}
 
 	var engineByIdResponse EngineByIdResponse
@@ -175,7 +175,7 @@ func (c *ClientImplV0) getEngineUrlByDatabase(ctx context.Context, databaseName 
 	params := map[string]string{"database_name": databaseName}
 	resp := c.requestWithAuthRetry(ctx, "GET", fmt.Sprintf(c.ApiEndpoint+EngineUrlByDatabaseNameURL, accountId), params, "")
 	if resp.err != nil {
-		return "", errors2.ConstructNestedError("error during getting engine url by database DoHttpRequest", resp.err)
+		return "", errors2.ConstructNestedError("error during getting engine url by database request", resp.err)
 	}
 
 	var engineUrlByDatabaseResponse EngineUrlByDatabaseResponse

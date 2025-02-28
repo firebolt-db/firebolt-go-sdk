@@ -55,7 +55,7 @@ func TestCacheAccessTokenV0(t *testing.T) {
 	}
 
 	if totalCount != 4 {
-		t.Errorf("Expected to call the server 4 times (1x to fetch token and 3x to send another DoHttpRequest). Total: %d", totalCount)
+		t.Errorf("Expected to call the server 4 times (1x to fetch token and 3x to send another request). Total: %d", totalCount)
 	}
 }
 
@@ -91,8 +91,8 @@ func TestRefreshTokenOn401V0(t *testing.T) {
 	}
 
 	if totalCount != 4 {
-		// The token is fetched twice and the DoHttpRequest is retried
-		t.Errorf("Expected to call the server 4 times (2x to fetch tokens and 2x to send the DoHttpRequest that returns a 403). Total: %d", totalCount)
+		// The token is fetched twice and the request is retried
+		t.Errorf("Expected to call the server 4 times (2x to fetch tokens and 2x to send the request that returns a 403). Total: %d", totalCount)
 	}
 
 }
@@ -138,11 +138,11 @@ func TestFetchTokenWhenExpiredV0(t *testing.T) {
 	}
 
 	if totalCount != 4 {
-		t.Errorf("Expected to call the server 5 times (2x to fetch tokens and 3x to send the DoHttpRequest that returns a 403). Total: %d", totalCount)
+		t.Errorf("Expected to call the server 5 times (2x to fetch tokens and 3x to send the request that returns a 403). Total: %d", totalCount)
 	}
 }
 
-// TestUserAgent tests that UserAgent is correctly set on DoHttpRequest
+// TestUserAgent tests that UserAgent is correctly set on request
 func TestUserAgentV0(t *testing.T) {
 	var userAgentValue = "userAgent"
 	var userAgentHeader = ""
@@ -161,7 +161,7 @@ func TestUserAgentV0(t *testing.T) {
 
 	_, _ = client.Query(context.TODO(), server.URL, "SELECT 1", map[string]string{}, ConnectionControl{})
 	if userAgentHeader != userAgentValue {
-		t.Errorf("Did not set User-Agent value correctly on a query DoHttpRequest")
+		t.Errorf("Did not set User-Agent value correctly on a query request")
 	}
 }
 
@@ -175,7 +175,7 @@ func clientFactoryV0(apiEndpoint string) Client {
 	return client
 }
 
-// TestProtocolVersion tests that protocol version is correctly set on DoHttpRequest
+// TestProtocolVersion tests that protocol version is correctly set on request
 func TestProtocolVersionV0(t *testing.T) {
 	testProtocolVersion(t, clientFactoryV0)
 }

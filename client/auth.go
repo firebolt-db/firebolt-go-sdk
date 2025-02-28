@@ -59,12 +59,12 @@ func getAccessTokenUsernamePassword(username string, password string, apiEndpoin
 		logging.Infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
 		resp := DoHttpRequest(requestParameters{context.TODO(), "", "POST", apiEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.err != nil {
-			return "", errors.ConstructNestedError("authentication DoHttpRequest failed", resp.err)
+			return "", errors.ConstructNestedError("authentication request failed", resp.err)
 		}
 
 		var authResp AuthenticationResponse
 		if err = jsonStrictUnmarshall(resp.data, &authResp); err != nil {
-			return "", errors.ConstructNestedError("failed to unmarshal authentication Response with error", err)
+			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
 		logging.Infolog.Printf("Authentication was successful")
 		if tokenCache != nil {
@@ -108,12 +108,12 @@ func getAccessTokenServiceAccount(clientId string, clientSecret string, apiEndpo
 		logging.Infolog.Printf("Start authentication into '%s' using '%s'", authEndpoint, loginUrl)
 		resp := DoHttpRequest(requestParameters{context.TODO(), "", "POST", authEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.err != nil {
-			return "", errors.ConstructNestedError("authentication DoHttpRequest failed", resp.err)
+			return "", errors.ConstructNestedError("authentication request failed", resp.err)
 		}
 
 		var authResp AuthenticationResponse
 		if err = jsonStrictUnmarshall(resp.data, &authResp); err != nil {
-			return "", errors.ConstructNestedError("failed to unmarshal authentication Response with error", err)
+			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
 		logging.Infolog.Printf("Authentication was successful")
 		if tokenCache != nil {

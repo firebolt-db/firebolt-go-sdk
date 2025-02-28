@@ -61,16 +61,16 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 
 	resp := c.requestWithAuthRetry(ctx, "POST", engineUrl, params, query)
 	if resp.err != nil {
-		return nil, errors2.ConstructNestedError("error during query DoHttpRequest", resp.err)
+		return nil, errors2.ConstructNestedError("error during query request", resp.err)
 	}
 
 	if err = c.processResponseHeaders(resp.headers, control); err != nil {
-		return nil, errors2.ConstructNestedError("error during processing Response headers", err)
+		return nil, errors2.ConstructNestedError("error during processing response headers", err)
 	}
 
 	var queryResponse types.QueryResponse
 	if len(resp.data) == 0 {
-		// Response could be empty, which doesn't mean it is an error
+		// response could be empty, which doesn't mean it is an error
 		return &queryResponse, nil
 	}
 
@@ -145,8 +145,8 @@ func (c *BaseClient) processResponseHeaders(headers http.Header, control Connect
 	return nil
 }
 
-// DoHttpRequest fetches an access token from the cache or re-authenticate when the access token is not available in the cache
-// and sends a DoHttpRequest using that token
+// request fetches an access token from the cache or re-authenticate when the access token is not available in the cache
+// and sends a request using that token
 func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, url string, params map[string]string, bodyStr string) Response {
 	var err error
 
@@ -167,7 +167,7 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 		if err != nil {
 			return Response{nil, 0, nil, errors2.ConstructNestedError("error while getting access token", err)}
 		}
-		// Trying to send the same DoHttpRequest again now that the access token has been refreshed
+		// Trying to send the same request again now that the access token has been refreshed
 		resp = DoHttpRequest(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
 	}
 	return resp

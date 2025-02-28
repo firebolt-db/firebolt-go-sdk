@@ -96,7 +96,7 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 func processSetStatement(ctx context.Context, c *fireboltConnection, query string) (bool, error) {
 	setKey, setValue, err := parseSetStatement(query)
 	if err != nil {
-		// if parsing of set statement returned an error, we will not handle the DoHttpRequest as a set statement
+		// if parsing of set statement returned an error, we will not handle the request as a set statement
 		return false, nil
 	}
 	err = validateSetStatement(setKey)

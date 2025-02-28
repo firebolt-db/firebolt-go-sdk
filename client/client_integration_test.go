@@ -85,7 +85,7 @@ func TestQuery(t *testing.T) {
 		t.Errorf("Query returned an error: %v", err)
 	}
 	if queryResponse.Rows != 1 {
-		t.Errorf("Query Response has an invalid number of rows %d != %d", queryResponse.Rows, 1)
+		t.Errorf("Query response has an invalid number of rows %d != %d", queryResponse.Rows, 1)
 	}
 
 	if queryResponse.Data[0][0].(float64) != 1 {
