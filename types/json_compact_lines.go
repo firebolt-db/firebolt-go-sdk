@@ -5,7 +5,7 @@ type RecordMessageType string
 const (
 	MessageTypeStart   RecordMessageType = "START"
 	MessageTypeData    RecordMessageType = "DATA"
-	MessageTypeSuccess RecordMessageType = "FINISH_SUCCESSFULLY"
+	MessageTypeSuccess RecordMessageType = "FINISHED_WITH_SUCCESS"
 	MessageTypeError   RecordMessageType = "FINISH_WITH_ERROR"
 )
 

@@ -39,6 +39,7 @@ func readJsonLine(scanner *bufio.Scanner) (types.JSONLinesRecord, error) {
 func (r *StreamRows) scanner() *bufio.Scanner {
 	if r.rowScanner == nil {
 		r.rowScanner = bufio.NewScanner(r.responses[r.resultSetPosition].Body())
+		r.rowScanner.Split(bufio.ScanLines)
 	}
 	return r.rowScanner
 }
@@ -63,6 +64,10 @@ func (r *StreamRows) Close() error {
 			return errorUtils.ConstructNestedError("Error closing response body:", err)
 		}
 	}
+	r.resultSetPosition = len(r.responses)
+	r.dataBuffer = nil
+	r.dataBufferCursor = 0
+	r.consumedResponse = true
 	return nil
 }
 
@@ -81,7 +86,7 @@ func (r *StreamRows) populateDataBuffer() error {
 			errors = *nextRecord.Errors
 		}
 		return errorUtils.NewStructuredError(errors)
-	} else if nextRecord.MessageType != types.MessageTypeSuccess {
+	} else if nextRecord.MessageType == types.MessageTypeSuccess {
 		r.consumedResponse = true
 		return io.EOF
 	} else {
@@ -101,6 +106,7 @@ func (r *StreamRows) Next(dest []driver.Value) error {
 	}
 	if !r.bufferHasMoreData() {
 		if err := r.populateDataBuffer(); err != nil {
+			r.consumedResponse = true
 			return err
 		}
 	}
@@ -121,20 +127,7 @@ func (r *StreamRows) HasNextResultSet() bool {
 	return r.resultSetPosition < len(r.responses)-1
 }
 
-// NextResultSet advances to the next result set, if it is available, otherwise returns io.EOF
-func (r *StreamRows) NextResultSet() error {
-	err := r.responses[r.resultSetPosition].Body().Close()
-	if err != nil {
-		return errorUtils.ConstructNestedError("Error closing response body:", err)
-	}
-
-	r.resultSetPosition++
-	r.rowScanner = nil
-	r.dataBuffer = nil
-	r.dataBufferCursor = 0
-	r.consumedResponse = false
-
-	// Fetch metadata for the next result set
+func (r *StreamRows) fetchColumns() error {
 	if startRecord, err := readJsonLine(r.scanner()); err != nil {
 		return err
 	} else if startRecord.MessageType != types.MessageTypeStart {
@@ -147,7 +140,30 @@ func (r *StreamRows) NextResultSet() error {
 	return nil
 }
 
+// NextResultSet advances to the next result set, if it is available, otherwise returns io.EOF
+func (r *StreamRows) NextResultSet() error {
+	err := r.responses[r.resultSetPosition].Body().Close()
+	if err != nil {
+		return errorUtils.ConstructNestedError("Error closing response body:", err)
+	}
+
+	if r.resultSetPosition+1 == len(r.responses) {
+		return io.EOF
+	}
+
+	r.resultSetPosition++
+	r.rowScanner = nil
+	r.dataBuffer = nil
+	r.dataBufferCursor = 0
+	r.consumedResponse = false
+
+	return r.fetchColumns()
+}
+
 func (r *StreamRows) AppendResponse(response *client.Response) error {
 	r.responses = append(r.responses, response)
+	if r.columns == nil {
+		return r.fetchColumns()
+	}
 	return nil
 }
