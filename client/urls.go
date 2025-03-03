@@ -1,4 +1,4 @@
-package fireboltgosdk
+package client
 
 const (
 	ServiceAccountLoginURLSuffix = "/oauth/token"

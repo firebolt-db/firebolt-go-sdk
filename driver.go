@@ -4,12 +4,17 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+
+	"github.com/firebolt-db/firebolt-go-sdk/client"
+
+	"github.com/firebolt-db/firebolt-go-sdk/errors"
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
 
 type FireboltDriver struct {
 	engineUrl    string
 	cachedParams map[string]string
-	client       Client
+	client       client.Client
 	lastUsedDsn  string
 }
 
@@ -31,28 +36,28 @@ func copyMap(original map[string]string) map[string]string {
 }
 
 func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
-	infolog.Println("Opening firebolt connector")
+	logging.Infolog.Println("Opening firebolt connector")
 
 	if d.lastUsedDsn != dsn || d.lastUsedDsn == "" {
 
 		d.lastUsedDsn = "" //nolint
-		infolog.Println("constructing new client")
+		logging.Infolog.Println("constructing new client")
 		// parsing dsn string to get configuration settings
 		settings, err := ParseDSNString(dsn)
 		if err != nil {
-			return nil, ConstructNestedError("error during parsing a dsn", err)
+			return nil, errors.ConstructNestedError("error during parsing a dsn", err)
 		}
 
 		// authenticating and getting access token
-		infolog.Println("dsn parsed correctly, trying to authenticate")
-		d.client, err = Authenticate(settings, GetHostNameURL())
+		logging.Infolog.Println("dsn parsed correctly, trying to authenticate")
+		d.client, err = client.ClientFactory(settings, client.GetHostNameURL())
 		if err != nil {
-			return nil, ConstructNestedError("error during authentication", err)
+			return nil, errors.ConstructNestedError("error during authentication", err)
 		}
 
-		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), settings.engineName, settings.database)
+		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), settings.EngineName, settings.Database)
 		if err != nil {
-			return nil, ConstructNestedError("error during getting engine url", err)
+			return nil, errors.ConstructNestedError("error during getting engine url", err)
 		}
 		d.lastUsedDsn = dsn //nolint
 	}
@@ -63,14 +68,14 @@ func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 // FireboltConnector is an intermediate type between a Connection and a Driver which stores session data
 type FireboltConnector struct {
 	engineUrl        string
-	client           Client
+	client           client.Client
 	cachedParameters map[string]string
 	driver           *FireboltDriver
 }
 
 // Connect returns a connection to the database
 func (c *FireboltConnector) Connect(ctx context.Context) (driver.Conn, error) {
-	infolog.Printf("firebolt connection is created")
+	logging.Infolog.Printf("firebolt connection is created")
 	return &fireboltConnection{c.client, c.engineUrl, c.cachedParameters, c}, nil
 }
 
