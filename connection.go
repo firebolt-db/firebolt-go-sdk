@@ -55,9 +55,9 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 	return c.queryContextInternal(ctx, query, args, true)
 }
 
-func makeRows(ctx context.Context) rows.ExtendableRows {
+func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRows {
 	isStreaming := contextUtils.IsStreaming(ctx)
-	if isStreaming {
+	if isStreaming && c.client.IsNewVersion() {
 		return &rows.StreamRows{}
 	}
 	return &rows.InMemoryRows{}
@@ -76,7 +76,7 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 		return nil, fmt.Errorf("multistatement is not allowed")
 	}
 
-	var rowsInst = makeRows(ctx)
+	var rowsInst = c.makeRows(ctx)
 
 	for _, query := range queries {
 		if isSetStatement, err := processSetStatement(ctx, c, query); isSetStatement {

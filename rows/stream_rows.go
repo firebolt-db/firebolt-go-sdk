@@ -2,6 +2,7 @@ package rows
 
 import (
 	"bufio"
+	"bytes"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -17,31 +18,40 @@ type StreamRows struct {
 	resultSetPosition int
 	// current row
 	columns          []types.Column
-	rowScanner       *bufio.Scanner
+	rowReader        *bufio.Reader
 	dataBuffer       [][]interface{}
 	dataBufferCursor int
 	consumedResponse bool
 }
 
-func readJsonLine(scanner *bufio.Scanner) (types.JSONLinesRecord, error) {
+func (r *StreamRows) readJsonLine() (types.JSONLinesRecord, error) {
+	reader := r.reader()
+
 	var record types.JSONLinesRecord
-	scanner.Scan()
-	if err := scanner.Err(); err != nil {
+	rawJsonLine, err := reader.ReadBytes('\n')
+	if err == io.EOF || rawJsonLine == nil {
+		return types.JSONLinesRecord{}, io.EOF
+	}
+	if err != nil {
 		return record, errorUtils.ConstructNestedError("Error reading JSON line:", err)
 	}
-	err := json.Unmarshal(scanner.Bytes(), &record)
+	err = json.Unmarshal(rawJsonLine, &record)
 	if err != nil {
 		return record, errorUtils.ConstructNestedError("JSON parse error:", err)
 	}
 	return record, nil
 }
 
-func (r *StreamRows) scanner() *bufio.Scanner {
-	if r.rowScanner == nil {
-		r.rowScanner = bufio.NewScanner(r.responses[r.resultSetPosition].Body())
-		r.rowScanner.Split(bufio.ScanLines)
+func (r *StreamRows) reader() *bufio.Reader {
+	if r.rowReader == nil {
+		body := r.responses[r.resultSetPosition].Body()
+		if body != nil {
+			r.rowReader = bufio.NewReader(body)
+		} else {
+			r.rowReader = bufio.NewReader(io.NopCloser(bytes.NewReader([]byte{})))
+		}
 	}
-	return r.rowScanner
+	return r.rowReader
 }
 
 // Columns returns a list of Meta names in response
@@ -76,7 +86,13 @@ func (r *StreamRows) bufferHasMoreData() bool {
 }
 
 func (r *StreamRows) populateDataBuffer() error {
-	nextRecord, err := readJsonLine(r.scanner())
+	nextRecord, err := r.readJsonLine()
+	if err == io.EOF {
+		r.consumedResponse = true
+		r.dataBuffer = [][]interface{}{}
+		r.dataBufferCursor = 0
+		return nil
+	}
 	if err != nil {
 		return errorUtils.ConstructNestedError("Error reading JSON line:", err)
 	}
@@ -85,6 +101,7 @@ func (r *StreamRows) populateDataBuffer() error {
 		if nextRecord.Errors != nil {
 			errors = *nextRecord.Errors
 		}
+		r.consumedResponse = true
 		return errorUtils.NewStructuredError(errors)
 	} else if nextRecord.MessageType == types.MessageTypeSuccess {
 		r.consumedResponse = true
@@ -110,6 +127,10 @@ func (r *StreamRows) Next(dest []driver.Value) error {
 			return err
 		}
 	}
+	// We populated the buffer, but it's still empty
+	if r.dataBufferCursor == len(r.dataBuffer) {
+		return io.EOF
+	}
 
 	for i, column := range r.columns {
 		var err error
@@ -128,8 +149,11 @@ func (r *StreamRows) HasNextResultSet() bool {
 }
 
 func (r *StreamRows) fetchColumns() error {
-	if startRecord, err := readJsonLine(r.scanner()); err != nil {
-		return err
+	if startRecord, err := r.readJsonLine(); err == io.EOF {
+		r.columns = []types.Column{}
+		return nil
+	} else if err != nil {
+		return errorUtils.ConstructNestedError("Error reading JSON line:", err)
 	} else if startRecord.MessageType != types.MessageTypeStart {
 		return fmt.Errorf("unexpected first message type returned from the server %s", startRecord.MessageType)
 	} else if startRecord.ResultColumns == nil {
@@ -152,7 +176,7 @@ func (r *StreamRows) NextResultSet() error {
 	}
 
 	r.resultSetPosition++
-	r.rowScanner = nil
+	r.rowReader = nil
 	r.dataBuffer = nil
 	r.dataBufferCursor = 0
 	r.consumedResponse = false

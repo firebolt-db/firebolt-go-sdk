@@ -29,6 +29,7 @@ var allowedUpdateParameters = []string{"database"}
 type Client interface {
 	GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error)
 	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control ConnectionControl) (*Response, error)
+	IsNewVersion() bool
 }
 
 type BaseClient struct {
@@ -38,6 +39,7 @@ type BaseClient struct {
 	UserAgent         string
 	ParameterGetter   func(context.Context, map[string]string) (map[string]string, error)
 	AccessTokenGetter func() (string, error)
+	newVersion        bool
 }
 
 // ConnectionControl is a struct that holds methods for updating connection properties
@@ -46,6 +48,11 @@ type ConnectionControl struct {
 	UpdateParameters func(string, string)
 	ResetParameters  func()
 	SetEngineURL     func(string)
+}
+
+// IsNewVersion returns true if the client is using the 2.0 version of Firebolt
+func (c *BaseClient) IsNewVersion() bool {
+	return c.newVersion
 }
 
 // Query sends a query to the engine URL and populates queryResponse, if query was successful
@@ -135,7 +142,7 @@ func (c *BaseClient) processResponseHeaders(headers http.Header, control Connect
 }
 
 func (c *BaseClient) getOutputFormat(ctx context.Context) string {
-	if contextUtils.IsStreaming(ctx) {
+	if contextUtils.IsStreaming(ctx) && c.IsNewVersion() {
 		return jsonLinesOutputFormat
 	}
 	return jsonOutputFormat

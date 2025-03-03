@@ -27,3 +27,8 @@ func (m *MockClient) GetConnectionParameters(ctx context.Context, engineName str
 	// Implement to satisfy Client interface
 	return "", nil, nil
 }
+
+func (m *MockClient) IsNewVersion() bool {
+	// It's only used now to determine if we can do streaming, so we can return true
+	return true
+}
