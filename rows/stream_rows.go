@@ -134,7 +134,6 @@ func (r *StreamRows) Next(dest []driver.Value) error {
 
 	for i, column := range r.columns {
 		var err error
-		//log.Printf("Rows.Next: %s, %v", column.Type, r.queryResponses.Data[r.cursorPosition][i])
 		if dest[i], err = parseValue(column.Type, r.dataBuffer[r.dataBufferCursor][i]); err != nil {
 			return errorUtils.ConstructNestedError("error during fetching Next result", err)
 		}

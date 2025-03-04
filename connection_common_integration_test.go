@@ -444,7 +444,8 @@ func TestStreamMultipleDataBlocks(t *testing.T) {
 		t.FailNow()
 	}
 
-	query := "SELECT 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' FROM generate_series(0, 100000)"
+	expectedValue, rowCount := "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", 100000
+	query := fmt.Sprintf("SELECT '%s' FROM generate_series(0, %d)", expectedValue, rowCount)
 
 	rows, err := conn.QueryContext(contextUtils.WithStreaming(context.Background()), query)
 
@@ -453,10 +454,9 @@ func TestStreamMultipleDataBlocks(t *testing.T) {
 		t.FailNow()
 	}
 
-	cnt := 100001
 	var dest string
 
-	for i := 0; i < cnt; i++ {
+	for i := 0; i <= rowCount; i++ {
 		if !rows.Next() {
 			t.Errorf("Next() call returned false with error: %v", rows.Err())
 			t.FailNow()
@@ -465,6 +465,7 @@ func TestStreamMultipleDataBlocks(t *testing.T) {
 		if err != nil {
 			t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 		}
+		utils.AssertEqual(dest, expectedValue, t, "dest is not equal")
 	}
 
 	if rows.Next() {

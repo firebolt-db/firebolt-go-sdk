@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
+
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
@@ -127,6 +129,13 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 	parameters := constructParameters(databaseName, queryParams)
 
 	return engineUrl, parameters, nil
+}
+
+func (c *ClientImpl) getOutputFormat(ctx context.Context) string {
+	if contextUtils.IsStreaming(ctx) {
+		return jsonLinesOutputFormat
+	}
+	return jsonOutputFormat
 }
 
 func (c *ClientImpl) GetQueryParams(ctx context.Context, setStatements map[string]string) (map[string]string, error) {

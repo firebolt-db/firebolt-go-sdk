@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
-
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
@@ -139,13 +137,6 @@ func (c *BaseClient) processResponseHeaders(headers http.Header, control Connect
 	}
 
 	return nil
-}
-
-func (c *BaseClient) getOutputFormat(ctx context.Context) string {
-	if contextUtils.IsStreaming(ctx) && c.IsNewVersion() {
-		return jsonLinesOutputFormat
-	}
-	return jsonOutputFormat
 }
 
 // requestWithAuthRetry fetches an access token from the cache or re-authenticate when the access token is not available in the cache

@@ -8,7 +8,7 @@ import (
 	"database/sql/driver"
 	"testing"
 
-	rows2 "github.com/firebolt-db/firebolt-go-sdk/rows"
+	"github.com/firebolt-db/firebolt-go-sdk/rows"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
@@ -56,7 +56,7 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 		t.FailNow()
 	}
 
-	rows := rows2.InMemoryRows{}
+	rows := rows.InMemoryRows{}
 	rows.AppendResponse(resp)
 
 	var values []driver.Value
