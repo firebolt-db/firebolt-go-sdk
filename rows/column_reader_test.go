@@ -202,6 +202,16 @@ var testCases = []columnReaderTestCase{
 		expectedPrecision:  -1,
 		expectedScale:      -1,
 	},
+	{
+		column:             types.Column{Name: "col_struct", Type: "struct(a int null, s struct(a array(int) null, b text null) null) null"},
+		expectedName:       "col_struct",
+		expectedType:       reflect.TypeOf(map[string]interface{}{}),
+		expectedDBTypeName: "struct(a int null, s struct(a array(int) null, b text null) null)",
+		expectedNullable:   true,
+		expectedLength:     -1,
+		expectedPrecision:  -1,
+		expectedScale:      -1,
+	},
 }
 
 func testColumns() []types.Column {

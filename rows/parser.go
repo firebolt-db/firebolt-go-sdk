@@ -37,6 +37,7 @@ const (
 	// Alternative names for the same types
 	integerType         = "integer"
 	bigIntType          = "bigint"
+	realType            = "real"
 	doublePrecisionType = "double precision"
 
 	// Prefixes and suffixes for complex types
@@ -48,12 +49,21 @@ const (
 	suffix         = ")"
 )
 
+// isFloatingPointPrimitiveType checks if the columnType is a floating point type
+func isFloatingPointPrimitiveType(columnType string) bool {
+	switch columnType {
+	case floatType, realType, doubleType, doublePrecisionType:
+		return true
+	}
+	return false
+}
+
 // checkTypeValue checks that val type could be changed to columnType
 func checkTypeValue(columnType string, val interface{}) error {
 	switch columnType {
-	case intType, integerType, longType, bigIntType, floatType, doubleType, doublePrecisionType:
+	case intType, integerType, longType, bigIntType, floatType, realType, doubleType, doublePrecisionType:
 		if _, ok := val.(float64); !ok {
-			if columnType == floatType || columnType == doubleType {
+			if isFloatingPointPrimitiveType(columnType) {
 				for _, v := range []string{"inf", "-inf", "nan", "-nan"} {
 					if val == v {
 						return nil
@@ -61,8 +71,8 @@ func checkTypeValue(columnType string, val interface{}) error {
 				}
 			}
 			// Allow string values for long columns
-			if _, is_str := val.(string); !(columnType == longType && is_str) {
-				return fmt.Errorf("expected to convert a value to float64, but couldn't: %v", val)
+			if _, is_str := val.(string); !((columnType == longType || columnType == bigIntType) && is_str) {
+				return fmt.Errorf("expected to convert a value to long, but couldn't: %v", val)
 			}
 		}
 		return nil
@@ -215,7 +225,7 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 			return int64(unpacked), nil
 		}
 		return strconv.ParseInt(val.(string) /*base*/, 10 /*bitSize*/, 64)
-	case floatType:
+	case floatType, realType:
 		v, err := parseFloatValue(val)
 		return float32(v), err
 	case doubleType, doublePrecisionType:
@@ -286,11 +296,6 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 	return parseSingleValue(columnType, val)
 }
 
-// driverValueType returns the reflect.Type of the driver.Value
-func driverValueType() reflect.Type {
-	return reflect.TypeOf((*driver.Value)(nil)).Elem()
-}
-
 type fireboltType struct {
 	goType     reflect.Type
 	dbName     string
@@ -330,7 +335,7 @@ func parsePrimitiveType(columnType string) (fireboltType, error) {
 		primitiveType = reflect.TypeOf(int32(0))
 	case longType, bigIntType:
 		primitiveType = reflect.TypeOf(int64(0))
-	case floatType:
+	case floatType, realType:
 		primitiveType = reflect.TypeOf(float32(0))
 	case doubleType, doublePrecisionType:
 		primitiveType = reflect.TypeOf(float64(0))
@@ -375,7 +380,7 @@ func parseType(columnType string) (fireboltType, error) {
 		return res, err
 
 	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, suffix) {
-		return makeFireboltType(reflect.MapOf(reflect.TypeOf(""), driverValueType()), columnType, -1), nil
+		return makeFireboltType(reflect.TypeOf(map[string]interface{}{}), columnType, -1), nil
 	} else if strings.HasSuffix(columnType, nullableSuffix) {
 		res, err := parseType(columnType[0 : len(columnType)-len(nullableSuffix)])
 		res.isNullable = true
