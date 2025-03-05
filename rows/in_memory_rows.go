@@ -14,21 +14,10 @@ import (
 )
 
 type InMemoryRows struct {
+	ColumnReader
 	queryResponses    []types.QueryResponse
 	cursorPosition    int
 	resultSetPosition int
-}
-
-// Columns returns a list of Meta names in response
-func (r *InMemoryRows) Columns() []string {
-	numColumns := len(r.queryResponses[r.resultSetPosition].Meta)
-	result := make([]string, 0, numColumns)
-
-	for _, column := range r.queryResponses[r.resultSetPosition].Meta {
-		result = append(result, column.Name)
-	}
-
-	return result
 }
 
 // Close makes the rows unusable
@@ -69,8 +58,7 @@ func (r *InMemoryRows) NextResultSet() error {
 
 	r.cursorPosition = 0
 	r.resultSetPosition += 1
-
-	return nil
+	return r.setColumns(r.queryResponses[r.resultSetPosition].Meta)
 }
 
 // AppendResponse appends the response to the InMemoryRows, parsing the response content
@@ -85,7 +73,7 @@ func (r *InMemoryRows) ProcessAndAppendResponse(response *client.Response) error
 		return errors.ConstructNestedError("error during reading response content", err)
 	}
 	if err := json.Unmarshal(content, &errorResponse); err == nil {
-		if errorResponse.Errors != nil {
+		if len(errorResponse.Errors) > 0 {
 			return errors.NewStructuredError(errorResponse.Errors)
 		}
 	}
@@ -101,5 +89,9 @@ func (r *InMemoryRows) ProcessAndAppendResponse(response *client.Response) error
 	}
 
 	r.queryResponses = append(r.queryResponses, queryResponse)
+	if r.columns == nil {
+		return r.setColumns(r.queryResponses[r.resultSetPosition].Meta)
+	}
+
 	return nil
 }

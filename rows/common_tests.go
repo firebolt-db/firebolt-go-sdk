@@ -167,7 +167,7 @@ func testRowsNextStructError(t *testing.T, rowsFactory func(isMultiStatement boo
 		panic(err)
 	}
 
-	rows := &InMemoryRows{[]types.QueryResponse{response}, 0, 0}
+	rows := &InMemoryRows{ColumnReader{}, []types.QueryResponse{response}, 0, 0}
 	var dest = make([]driver.Value, 1)
 	if err := rows.Next(dest); err == nil {
 		t.Errorf("Next should return an error")
@@ -187,7 +187,7 @@ func testRowsNextStructWithNestedSpaces(t *testing.T, rowsFactory func(isMultiSt
 		panic(err)
 	}
 
-	rows := &InMemoryRows{[]types.QueryResponse{response}, 0, 0}
+	rows := &InMemoryRows{ColumnReader{}, []types.QueryResponse{response}, 0, 0}
 	var dest = make([]driver.Value, 1)
 	if err := rows.Next(dest); err != nil {
 		t.Errorf(nextErrorMessage, err)
