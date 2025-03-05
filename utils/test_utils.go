@@ -2,11 +2,16 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"database/sql/driver"
+	"runtime"
 	"runtime/debug"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 
 	"github.com/shopspring/decimal"
 )
@@ -88,4 +93,21 @@ func GetAuthResponse(expiry int) []byte {
    "token_type": "Bearer"
 }`
 	return []byte(response)
+}
+
+func getCallerFunctionName() string {
+	caller, _, _, ok := runtime.Caller(2)
+	if !ok {
+		panic("Failed to get caller function name")
+	}
+	strs := strings.Split(runtime.FuncForPC(caller).Name(), ".")
+	return strs[len(strs)-1]
+}
+
+// RunInMemoryAndStream runs a test case with both in memory result and streamed result
+func RunInMemoryAndStream(t *testing.T, testCase func(t *testing.T, ctx context.Context)) {
+	ctx := context.Background()
+	testName := getCallerFunctionName()
+	t.Run(testName+"InMemory", func(t *testing.T) { testCase(t, ctx) })
+	t.Run(testName+"Streaming", func(t *testing.T) { testCase(t, contextUtils.WithStreaming(ctx)) })
 }

@@ -14,105 +14,14 @@ import (
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
-
 	"github.com/shopspring/decimal"
 )
 
 const nextErrorMessage = "Next returned an error: %s"
 
-func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
-	resultJson := []string{
-		`{
-        "query":{"query_id":"16FF2A0300ECA753"},
-        "meta":[
-        	{"name":"int_col","type":"int null"},
-        	{"name":"bigint_col","type":"long"},
-        	{"name":"float_col","type":"float"},
-        	{"name":"double_col","type":"double"},
-        	{"name":"text_col","type":"text"},
-        	{"name":"date_col","type":"date"},
-        	{"name":"timestamp_col","type":"timestamp"},
-        	{"name":"pgdate_col","type":"pgdate"},
-        	{"name":"timestampntz_col","type":"timestampntz"},
-        	{"name":"timestamptz_col","type":"timestamptz"},
-        	{"name":"legacy_bool_col","type":"int"},
-        	{"name":"array_col","type":"array(int)"},
-        	{"name":"nested_array_col","type":"array(array(text))"},
-        	{"name":"new_bool_col","type":"boolean"},
-        	{"name":"decimal_col","type":"Decimal(38, 30) null"},
-        	{"name":"decimal_array_col","type":"array(Decimal(38, 30) null)"},
-        	{"name":"bytea_col","type":"bytea null"},
-        	{"name":"geography_col","type":"geography null"},
-            {"name":"struct_col","type":"struct(a int, s struct(a array(int), b text))"}
-        ],
-        "data":[
-        	[null,1,0.312321,123213.321321,"text", "2080-12-31","1989-04-15 01:02:03","0002-01-01","1989-04-15 01:02:03.123456","1989-04-15 02:02:03.123456+00",1,[1,2,3],[[]],true, 123.12345678, [123.12345678], "\\x616263313233", "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F", {"a":1,"s":{"a":[1,2,3],"b":"text"}}],
-        	[2,"37237366456",0.312321,123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1989-04-15 01:02:03.1234+05:30",1,[1,2,3],[[]],true, -123.12345678, [-123.12345678, 0.0], "\\x6162630A0AE3858D20E3858E5C", null, {"a": 2, "s": null}],
-        	[3,null,"inf",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123458","1989-04-15 01:02:03+01",1,[5,2,3,2],[["TEST","TEST1"],["TEST3"]],false, 0.0, [0.0], null, null, null],
-        	[2,1,"-inf",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1111-01-05 17:04:42.123456+05:53:28",1,[1,2,3],[[]],false, 123456781234567812345678.123456781234567812345678, [123456781234567812345678.12345678123456781234567812345678], null, null, null],
-    	    [2,1,"-nan",123213.321321,"text","1970-01-01","1970-01-01 00:00:00","0001-01-01","1989-04-15 01:02:03.123457","1989-04-15 02:02:03.123456-01",1,[1,2,3],[[]],null, null, [null], null, null, null, null]
-        ],
-        "rows":5,
-        "statistics":{
-        	"elapsed":0.001797702,
-        	"rows_read":3,
-        	"bytes_read":293,
-        	"time_before_execution":0.001251613,
-        	"time_to_execute":0.000544098,
-        	"scanned_bytes_cache":2003,
-            "scanned_bytes_storage":0
-        }
-    }`,
-
-		`{
-        "query":{"query_id":"16FF2A0300ECA753"},
-        "meta":[{"name":"int_col","type":"int null"}],
-        "data":[[3], [null]],
-        "rows":2,
-        "statistics":{
-        	"elapsed":0.001797702,
-        	"rows_read":2,
-        	"bytes_read":293,
-        	"time_before_execution":0.001251613,
-        	"time_to_execute":0.000544098,
-        	"scanned_bytes_cache":2003,
-            "scanned_bytes_storage":0
-        }
-    }`,
-	}
-
-	var responses []types.QueryResponse
-	for i := 0; i < 2; i += 1 {
-		if i != 0 && !isMultiStatement {
-			break
-		}
-		var response types.QueryResponse
-		if err := json.Unmarshal([]byte(resultJson[i]), &response); err != nil {
-			panic(err)
-		} else {
-			responses = append(responses, response)
-		}
-	}
-
-	return &InMemoryRows{responses, 0, 0}
-}
-
-func mockRowsSingleValue(value interface{}, columnType string) driver.RowsNextResultSet {
-	response := types.QueryResponse{
-		Query:      map[string]string{"query_id": "16FF2A0300ECA753"},
-		Meta:       []types.Column{{Name: "single_col", Type: columnType}},
-		Data:       [][]interface{}{{value}},
-		Rows:       1,
-		Errors:     []types.ErrorDetails{},
-		Statistics: map[string]interface{}{},
-	}
-
-	return &InMemoryRows{[]types.QueryResponse{response}, 0, 0}
-}
-
-// TestRowsColumns checks, that correct column names are returned
-func TestRowsColumns(t *testing.T) {
-	rows := mockRows(false)
+// testRowsColumns checks, that correct column names are returned
+func testRowsColumns(t *testing.T, rowsFactory func(isMultiStatement bool) driver.RowsNextResultSet) {
+	rows := rowsFactory(false)
 
 	columnNames := []string{"int_col", "bigint_col", "float_col", "double_col", "text_col", "date_col", "timestamp_col", "pgdate_col", "timestampntz_col", "timestamptz_col", "legacy_bool_col", "array_col", "nested_array_col", "new_bool_col", "decimal_col", "decimal_array_col", "bytea_col", "geography_col", "struct_col"}
 	if !reflect.DeepEqual(rows.Columns(), columnNames) {
@@ -120,9 +29,9 @@ func TestRowsColumns(t *testing.T) {
 	}
 }
 
-// TestRowsClose checks Close method, and inability to use rows afterward
-func TestRowsClose(t *testing.T) {
-	rows := mockRows(false)
+// testRowsClose checks Close method, and inability to use rows afterward
+func testRowsClose(t *testing.T, rowsFactory func(isMultiStatement bool) driver.RowsNextResultSet) {
+	rows := rowsFactory(false)
 	if rows.Close() != nil {
 		t.Errorf("Closing rows was not successful")
 	}
@@ -133,9 +42,9 @@ func TestRowsClose(t *testing.T) {
 	}
 }
 
-// TestRowsNext check Next method
-func TestRowsNext(t *testing.T) {
-	rows := mockRows(false)
+// testRowsNext check Next method
+func testRowsNext(t *testing.T, rowsFactory func(isMultiStatement bool) driver.RowsNextResultSet) {
+	rows := rowsFactory(false)
 	var dest = make([]driver.Value, 19)
 
 	// First row
@@ -219,9 +128,9 @@ func TestRowsNext(t *testing.T) {
 	utils.AssertEqual(rows.NextResultSet(), io.EOF, t, "Next result set didn't return false at the end")
 }
 
-// TestRowsNextSet check rows with multiple statements
-func TestRowsNextSet(t *testing.T) {
-	rows := mockRows(true)
+// testRowsNextSet check rows with multiple statements
+func testRowsNextSet(t *testing.T, rowsFactory func(isMultiStatement bool) driver.RowsNextResultSet) {
+	rows := rowsFactory(true)
 
 	// check next result set functions
 	utils.AssertEqual(rows.HasNextResultSet(), true, t, "HasNextResultSet returned false, but shouldn't")
@@ -245,7 +154,7 @@ func TestRowsNextSet(t *testing.T) {
 	utils.AssertEqual(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
 }
 
-func TestRowsNextStructError(t *testing.T) {
+func testRowsNextStructError(t *testing.T, rowsFactory func(isMultiStatement bool) driver.RowsNextResultSet) {
 	rowsJson := `{
         "query":{"query_id":"16FF2A0300ECA753"},
         "meta":[{"name":"struct_col","type":"struct(a int, s struct(b timestamp))"}],
@@ -265,7 +174,7 @@ func TestRowsNextStructError(t *testing.T) {
 	}
 }
 
-func TestRowsNextStructWithNestedSpaces(t *testing.T) {
+func testRowsNextStructWithNestedSpaces(t *testing.T, rowsFactory func(isMultiStatement bool) driver.RowsNextResultSet) {
 	rowsJson := `{
         "query":{"query_id":"16FF2A0300ECA753"},
         "meta":[{"name":"struct_col","type":"struct(` + "`a b`" + ` int, s struct(` + "`c d`" + ` timestamp))"}],
@@ -292,10 +201,10 @@ func TestRowsNextStructWithNestedSpaces(t *testing.T) {
 	}
 }
 
-func TestRowsQuotedLong(t *testing.T) {
+func testRowsQuotedLong(t *testing.T, rowsFactorySingleValue func(interface{}, string) driver.RowsNextResultSet) {
 	intRaw := "-9223372036854775808"
 	intValue, _ := strconv.ParseInt(intRaw, 10, 64)
-	rows := mockRowsSingleValue(intRaw, "long")
+	rows := rowsFactorySingleValue(intRaw, "long")
 	var dest = make([]driver.Value, 1)
 	if err := rows.Next(dest); err != nil {
 		t.Errorf(nextErrorMessage, err)
@@ -303,7 +212,7 @@ func TestRowsQuotedLong(t *testing.T) {
 	utils.AssertEqual(dest[0], intValue, t, "results are not equal for long")
 }
 
-func TestRowsDecimalType(t *testing.T) {
+func testRowsDecimalType(t *testing.T, rowsFactorySingleValue func(interface{}, string) driver.RowsNextResultSet) {
 	floatValue := 123456789.123456789
 	stringValue := "1234567890123456789012345678901234567890"
 	stringDecimalValue, _ := decimal.NewFromString(stringValue)
@@ -313,7 +222,7 @@ func TestRowsDecimalType(t *testing.T) {
 		{stringValue, stringDecimalValue},
 	}
 	for _, c := range cases {
-		rows := mockRowsSingleValue(c[0], "Decimal(10, 35)")
+		rows := rowsFactorySingleValue(c[0], "Decimal(10, 35)")
 		var dest = make([]driver.Value, 1)
 		if err := rows.Next(dest); err != nil {
 			t.Errorf(nextErrorMessage, err)

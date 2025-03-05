@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
-	"time"
 
-	"github.com/firebolt-db/firebolt-go-sdk/rows"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
@@ -117,44 +115,6 @@ func TestGetEngineUrlByDatabase(t *testing.T) {
 	}
 	if _, err = clientMock.getEngineUrlByDatabase(context.TODO(), databaseMock, "not_existing_account"); err == nil {
 		t.Errorf("getEngineUrlByDatabase didn't return an error with not existing account")
-	}
-}
-
-// TestQuery tests simple query
-func TestQuery(t *testing.T) {
-	queryResponse, err := clientMock.Query(context.TODO(), engineUrlMock, "SELECT 1", map[string]string{"database": databaseMock}, ConnectionControl{})
-	if err != nil {
-		t.Errorf("Query returned an error: %v", err)
-	}
-	if queryResponse.Rows != 1 {
-		t.Errorf("Query response has an invalid number of rows %d != %d", queryResponse.Rows, 1)
-	}
-
-	if queryResponse.Data[0][0].(float64) != 1 {
-		t.Errorf("queryResponse data is not correct")
-	}
-}
-
-// TestQuery with set statements
-func TestQuerySetStatements(t *testing.T) {
-	query := "SELECT '2024-01-01 00:00:00'::timestamptz"
-	resp, err := clientMock.Query(
-		context.TODO(),
-		engineUrlMock,
-		query,
-		map[string]string{"time_zone": "America/New_York", "database": databaseMock},
-		ConnectionControl{},
-	)
-	if err != nil {
-		t.Errorf("Query returned an error: %v", err)
-	}
-
-	date, err := rows.ParseTimestampTz(resp.Data[0][0].(string))
-	if err != nil {
-		t.Errorf("Error parsing date: %v", err)
-	}
-	if date.(time.Time).UTC().Hour() != 5 {
-		t.Errorf("Invalid date returned: %s", date)
 	}
 }
 

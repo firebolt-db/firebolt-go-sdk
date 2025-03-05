@@ -2,8 +2,6 @@ package client
 
 import (
 	"context"
-
-	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 // MockClient rudimentary mocks Client and tracks the parameters passed to Query
@@ -20,7 +18,7 @@ func MakeMockClientWithError(errorToRaise error) *MockClient {
 	return &MockClient{errorToRaise: errorToRaise}
 }
 
-func (m *MockClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control ConnectionControl) (*types.QueryResponse, error) {
+func (m *MockClient) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control ConnectionControl) (*Response, error) {
 	m.ParametersCalled = append(m.ParametersCalled, parameters)
 	return nil, m.errorToRaise
 }
@@ -28,4 +26,9 @@ func (m *MockClient) Query(ctx context.Context, engineUrl, query string, paramet
 func (m *MockClient) GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error) {
 	// Implement to satisfy Client interface
 	return "", nil, nil
+}
+
+func (m *MockClient) IsNewVersion() bool {
+	// It's only used now to determine if we can do streaming, so we can return true
+	return true
 }

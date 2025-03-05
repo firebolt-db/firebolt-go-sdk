@@ -2,7 +2,12 @@ package rows
 
 import (
 	"database/sql/driver"
+	"encoding/json"
+	errorUtils "errors"
 	"io"
+
+	"github.com/firebolt-db/firebolt-go-sdk/client"
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
 
 	"github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
@@ -68,6 +73,33 @@ func (r *InMemoryRows) NextResultSet() error {
 	return nil
 }
 
-func (r *InMemoryRows) AppendResponse(response types.QueryResponse) {
-	r.queryResponses = append(r.queryResponses, response)
+// AppendResponse appends the response to the InMemoryRows, parsing the response content
+// and checking for errors in the response body
+func (r *InMemoryRows) ProcessAndAppendResponse(response *client.Response) error {
+	// Check for error in the Response body, despite the status code 200
+	errorResponse := struct {
+		Errors []types.ErrorDetails `json:"errors"`
+	}{}
+	content, err := response.Content()
+	if err != nil {
+		return errors.ConstructNestedError("error during reading response content", err)
+	}
+	if err := json.Unmarshal(content, &errorResponse); err == nil {
+		if errorResponse.Errors != nil {
+			return errors.NewStructuredError(errorResponse.Errors)
+		}
+	}
+
+	// Unmarshal the response content
+	var queryResponse types.QueryResponse
+	// Response could be empty, which doesn't mean it is an error
+	if len(content) != 0 {
+		if err = json.Unmarshal(content, &queryResponse); err != nil {
+			return errors.ConstructNestedError("wrong response", errorUtils.New(string(content)))
+		}
+		logging.Infolog.Printf("Query was successful")
+	}
+
+	r.queryResponses = append(r.queryResponses, queryResponse)
+	return nil
 }

@@ -33,12 +33,17 @@ const (
 	byteaType   = "bytea"
 
 	geographyType = "geography"
+
+	// Alternative names for the same types
+	integerType         = "integer"
+	bigIntType          = "bigint"
+	doublePrecisionType = "double precision"
 )
 
 // checkTypeValue checks that val type could be changed to columnType
 func checkTypeValue(columnType string, val interface{}) error {
 	switch columnType {
-	case intType, longType, floatType, doubleType:
+	case intType, integerType, longType, bigIntType, floatType, doubleType, doublePrecisionType:
 		if _, ok := val.(float64); !ok {
 			if columnType == floatType || columnType == doubleType {
 				for _, v := range []string{"inf", "-inf", "nan", "-nan"} {
@@ -194,9 +199,9 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 	}
 
 	switch columnType {
-	case intType:
+	case intType, integerType:
 		return int32(val.(float64)), nil
-	case longType:
+	case longType, bigIntType:
 		// long values as passed as strings by system engine
 		if unpacked, ok := val.(float64); ok {
 			return int64(unpacked), nil
@@ -205,7 +210,7 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 	case floatType:
 		v, err := parseFloatValue(val)
 		return float32(v), err
-	case doubleType:
+	case doubleType, doublePrecisionType:
 		return parseFloatValue(val)
 	case textType, geographyType:
 		return val.(string), nil
@@ -253,6 +258,7 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		nullableSuffix = " null"
 		arrayPrefix    = "array("
 		decimalPrefix  = "Decimal("
+		numericPrefix  = "numeric("
 		structPrefix   = "struct("
 		suffix         = ")"
 	)
@@ -270,7 +276,7 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 			res[i], _ = parseValue(columnType[len(arrayPrefix):len(columnType)-len(suffix)], s.Index(i).Interface())
 		}
 		return res, nil
-	} else if strings.HasPrefix(columnType, decimalPrefix) && strings.HasSuffix(columnType, suffix) {
+	} else if (strings.HasPrefix(columnType, decimalPrefix) || strings.HasPrefix(columnType, numericPrefix)) && strings.HasSuffix(columnType, suffix) {
 		return parseDecimalValue(val)
 	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, suffix) {
 		return parseStruct(columnType[len(structPrefix):len(columnType)-len(suffix)], val)

@@ -90,6 +90,49 @@ func TestConnectionUseDatabase(t *testing.T) {
 	}
 }
 
+func TestConnectionUppercaseNames(t *testing.T) {
+	systemConnection, err := sql.Open("firebolt", dsnSystemEngineMock)
+	if err != nil {
+		t.Errorf("opening a system connection failed unexpectedly %v", err)
+		t.FailNow()
+	}
+
+	engineName := engineNameMock + "_UPPERCASE"
+	databaseName := databaseMock + "_UPPERCASE"
+
+	_, err = systemConnection.Exec(fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName))
+	if err != nil {
+		t.Errorf("creating a database failed unexpectedly %v", err)
+		t.FailNow()
+	}
+	defer systemConnection.Exec(fmt.Sprintf("DROP DATABASE \"%s\"", databaseName))
+	_, err = systemConnection.Exec(fmt.Sprintf("CREATE ENGINE \"%s\"", engineName))
+	if err != nil {
+		t.Errorf("creating an engine failed unexpectedly %v", err)
+		t.FailNow()
+	}
+	defer systemConnection.Exec(fmt.Sprintf("DROP ENGINE \"%s\"", engineName))
+	// defers run in reverse order so we stop the engine before dropping it
+	defer systemConnection.Exec(fmt.Sprintf("STOP ENGINE \"%s\"", engineName))
+
+	dsnUppercase := fmt.Sprintf(
+		"firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s",
+		databaseName, accountName, engineName, clientIdMock, clientSecretMock,
+	)
+
+	conn, err := sql.Open("firebolt", dsnUppercase)
+	if err != nil {
+		t.Errorf("opening a connection failed unexpectedly")
+		t.FailNow()
+	}
+
+	_, err = conn.Exec("SELECT 1")
+	if err != nil {
+		t.Errorf("query failed with %v", err)
+		t.FailNow()
+	}
+}
+
 func TestConnectionUseDatabaseEngine(t *testing.T) {
 
 	const createTableSQL = "CREATE TABLE IF NOT EXISTS test_use (id INT)"
@@ -147,49 +190,6 @@ func TestConnectionUseDatabaseEngine(t *testing.T) {
 	_, err = conn.Exec(insertSQL2)
 	if err == nil {
 		t.Errorf("insert worked on a system engine, while it shouldn't")
-		t.FailNow()
-	}
-}
-
-func TestConnectionUppercaseNames(t *testing.T) {
-	systemConnection, err := sql.Open("firebolt", dsnSystemEngineMock)
-	if err != nil {
-		t.Errorf("opening a system connection failed unexpectedly %v", err)
-		t.FailNow()
-	}
-
-	engineName := engineNameMock + "_UPPERCASE"
-	databaseName := databaseMock + "_UPPERCASE"
-
-	_, err = systemConnection.Exec(fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName))
-	if err != nil {
-		t.Errorf("creating a database failed unexpectedly %v", err)
-		t.FailNow()
-	}
-	defer systemConnection.Exec(fmt.Sprintf("DROP DATABASE \"%s\"", databaseName))
-	_, err = systemConnection.Exec(fmt.Sprintf("CREATE ENGINE \"%s\"", engineName))
-	if err != nil {
-		t.Errorf("creating an engine failed unexpectedly %v", err)
-		t.FailNow()
-	}
-	defer systemConnection.Exec(fmt.Sprintf("DROP ENGINE \"%s\"", engineName))
-	// defers run in reverse order so we stop the engine before dropping it
-	defer systemConnection.Exec(fmt.Sprintf("STOP ENGINE \"%s\"", engineName))
-
-	dsnUppercase := fmt.Sprintf(
-		"firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s",
-		databaseName, accountName, engineName, clientIdMock, clientSecretMock,
-	)
-
-	conn, err := sql.Open("firebolt", dsnUppercase)
-	if err != nil {
-		t.Errorf("opening a connection failed unexpectedly")
-		t.FailNow()
-	}
-
-	_, err = conn.Exec("SELECT 1")
-	if err != nil {
-		t.Errorf("query failed with %v", err)
 		t.FailNow()
 	}
 }

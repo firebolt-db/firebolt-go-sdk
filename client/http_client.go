@@ -9,16 +9,50 @@ import (
 	"net/http"
 	"strings"
 
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
+
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
-	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 type Response struct {
-	data       []byte
+	body       io.ReadCloser
+	content    []byte
 	statusCode int
 	headers    http.Header
 	err        error
+}
+
+func MakeResponse(body io.ReadCloser, statusCode int, headers http.Header, err error) *Response {
+	response := &Response{body, nil, statusCode, headers, err}
+
+	if response.err == nil && !(statusCode >= 200 && statusCode < 300) {
+		if err := checkErrorResponse(response); err != nil {
+			response.err = errorUtils.ConstructNestedError("request returned an error", err)
+		} else if statusCode == 500 {
+			response.err = errors.New(string(response.content))
+		} else {
+			response.err = errorUtils.ConstructNestedError("request returned non ok status code", errors.New(string(response.content)))
+		}
+	}
+	return response
+}
+
+func (r *Response) Body() io.ReadCloser {
+	return r.body
+}
+
+func (r *Response) Content() ([]byte, error) {
+	var err error
+	if r.content == nil {
+		if r.body == nil {
+			r.content = []byte{}
+		} else {
+			defer r.body.Close()
+			r.content, err = io.ReadAll(r.body)
+		}
+	}
+	return r.content, err
 }
 
 // Collect arguments for request function
@@ -33,11 +67,9 @@ type requestParameters struct {
 	contentType string
 }
 
-type ContextKey string
-
-// checkErrorResponse, checks whether error response is returned instead of a desired Response.
-func checkErrorResponse(response []byte) error {
-	// ErrorResponse definition of any response with some error
+// checkErrorResponse, checks whether error Response is returned instead of a desired Response.
+func checkErrorResponse(response *Response) error {
+	// ErrorResponse definition of any Response with some error
 	type ErrorResponse struct {
 		Error   string        `json:"error"`
 		Code    int           `json:"code"`
@@ -45,10 +77,15 @@ func checkErrorResponse(response []byte) error {
 		Details []interface{} `json:"details"`
 	}
 
+	content, err := response.Content()
+	if err != nil {
+		return errorUtils.ConstructNestedError("error during reading response from the server", err)
+	}
+
 	var errorResponse ErrorResponse
 
-	if err := json.Unmarshal(response, &errorResponse); err == nil && errorResponse.Code != 0 {
-		// return error only if error response was
+	if err := json.Unmarshal(content, &errorResponse); err == nil && errorResponse.Code != 0 {
+		// return error only if error Response was
 		// unmarshalled correctly and error code is not zero
 		return errors.New(errorResponse.Message)
 	}
@@ -56,7 +93,7 @@ func checkErrorResponse(response []byte) error {
 }
 
 func extractAdditionalHeaders(ctx context.Context) map[string]string {
-	additionalHeaders, ok := ctx.Value(ContextKey("additionalHeaders")).(map[string]string)
+	additionalHeaders, ok := contextUtils.GetAdditionalHeaders(ctx)
 	if ok {
 		// only take headers that start with Firebolt- prefix
 		filteredHeaders := make(map[string]string)
@@ -70,11 +107,11 @@ func extractAdditionalHeaders(ctx context.Context) map[string]string {
 	return map[string]string{}
 }
 
-// request sends a request using "POST" or "GET" method on a specified url
+// DoHttpRequest sends a request using "POST" or "GET" method on a specified url
 // additionally it passes the parameters and a bodyStr as a payload
 // if accessToken is passed, it is used for authorization
-// returns response and an error
-func DoHttpRequest(reqParams requestParameters) Response {
+// returns Response struct
+func DoHttpRequest(reqParams requestParameters) *Response {
 	req, _ := http.NewRequestWithContext(reqParams.ctx, reqParams.method, MakeCanonicalUrl(reqParams.url), strings.NewReader(reqParams.bodyStr))
 
 	// adding sdk usage tracking
@@ -107,17 +144,11 @@ func DoHttpRequest(reqParams requestParameters) Response {
 	resp, err := client.Do(req)
 	if err != nil {
 		logging.Infolog.Println(err)
-		return Response{nil, 0, nil, errorUtils.ConstructNestedError("error during a request execution", err)}
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error during a request execution", err))
 	}
 
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		logging.Infolog.Println(err)
-		return Response{nil, 0, nil, errorUtils.ConstructNestedError("error during reading a request Response", err)}
-	}
-	// Error might be in the response body, despite the status code 200
+	/*defer resp.Body.Close()
+	// Error might be in the Response body, despite the status code 200
 	errorResponse := struct {
 		Errors []types.ErrorDetails `json:"errors"`
 	}{}
@@ -125,20 +156,8 @@ func DoHttpRequest(reqParams requestParameters) Response {
 		if errorResponse.Errors != nil {
 			return Response{nil, resp.StatusCode, nil, errorUtils.NewStructuredError(errorResponse.Errors)}
 		}
-	}
-
-	if !(resp.StatusCode >= 200 && resp.StatusCode < 300) {
-		if err = checkErrorResponse(body); err != nil {
-			return Response{nil, resp.StatusCode, nil, errorUtils.ConstructNestedError("request returned an error", err)}
-		}
-		if resp.StatusCode == 500 {
-			// this is a database error
-			return Response{nil, resp.StatusCode, nil, fmt.Errorf("%s", string(body))}
-		}
-		return Response{nil, resp.StatusCode, nil, fmt.Errorf("request returned non ok status code: %d, %s", resp.StatusCode, string(body))}
-	}
-
-	return Response{body, resp.StatusCode, resp.Header, nil}
+	}*/
+	return MakeResponse(resp.Body, resp.StatusCode, resp.Header, nil)
 }
 
 // MakeCanonicalUrl checks whether url starts with https:// and if not prepends it
