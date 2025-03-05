@@ -54,18 +54,6 @@ func (r *StreamRows) reader() *bufio.Reader {
 	return r.rowReader
 }
 
-// Columns returns a list of Meta names in response
-func (r *StreamRows) Columns() []string {
-	numColumns := len(r.columns)
-	result := make([]string, 0, numColumns)
-
-	for _, column := range r.columns {
-		result = append(result, column.Name)
-	}
-
-	return result
-}
-
 // Close makes the rows unusable
 func (r *StreamRows) Close() error {
 	for i := r.resultSetPosition; i < len(r.responses); i++ {
@@ -134,7 +122,7 @@ func (r *StreamRows) Next(dest []driver.Value) error {
 
 	for i, column := range r.columns {
 		var err error
-		if dest[i], err = parseValue(column.Type, r.dataBuffer[r.dataBufferCursor][i]); err != nil {
+		if dest[i], err = parseValue(column.fbType.dbName, r.dataBuffer[r.dataBufferCursor][i]); err != nil {
 			return errorUtils.ConstructNestedError("error during fetching Next result", err)
 		}
 	}
@@ -149,8 +137,7 @@ func (r *StreamRows) HasNextResultSet() bool {
 
 func (r *StreamRows) fetchColumns() error {
 	if startRecord, err := r.readJsonLine(); err == io.EOF {
-		r.columns = []types.Column{}
-		return nil
+		return r.setColumns([]types.Column{})
 	} else if err != nil {
 		return errorUtils.ConstructNestedError("Error reading JSON line:", err)
 	} else if startRecord.MessageType != types.MessageTypeStart {
@@ -158,9 +145,8 @@ func (r *StreamRows) fetchColumns() error {
 	} else if startRecord.ResultColumns == nil {
 		return fmt.Errorf("no columns metadata returned from the server")
 	} else {
-		r.columns = *startRecord.ResultColumns
+		return r.setColumns(*startRecord.ResultColumns)
 	}
-	return nil
 }
 
 // NextResultSet advances to the next result set, if it is available, otherwise returns io.EOF

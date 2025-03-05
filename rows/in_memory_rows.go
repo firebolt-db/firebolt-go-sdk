@@ -58,9 +58,7 @@ func (r *InMemoryRows) NextResultSet() error {
 
 	r.cursorPosition = 0
 	r.resultSetPosition += 1
-	r.columns = r.queryResponses[r.resultSetPosition].Meta
-
-	return nil
+	return r.setColumns(r.queryResponses[r.resultSetPosition].Meta)
 }
 
 // AppendResponse appends the response to the InMemoryRows, parsing the response content
@@ -92,7 +90,7 @@ func (r *InMemoryRows) ProcessAndAppendResponse(response *client.Response) error
 
 	r.queryResponses = append(r.queryResponses, queryResponse)
 	if r.columns == nil {
-		r.columns = r.queryResponses[r.resultSetPosition].Meta
+		return r.setColumns(r.queryResponses[r.resultSetPosition].Meta)
 	}
 
 	return nil
