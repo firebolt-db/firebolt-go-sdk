@@ -57,9 +57,12 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 	}
 
 	rows := rows.InMemoryRows{}
-	rows.ProcessAndAppendResponse(resp)
+	if err := rows.ProcessAndAppendResponse(resp); err != nil {
+		t.Errorf("failed to process response: %v", err)
+		t.FailNow()
+	}
 
-	var values []driver.Value
+	var values []driver.Value = make([]driver.Value, len(rows.Columns()))
 
 	if err := rows.Next(values); err != nil {
 		t.Errorf("failed to get result: %v", err)
@@ -67,5 +70,5 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 	}
 
 	utils.AssertEqual(len(values), 1, t, "returned more that one value")
-	utils.AssertEqual(values[0], 1, t, "result is not 1")
+	utils.AssertEqual(values[0], int32(1), t, "result is not 1")
 }
