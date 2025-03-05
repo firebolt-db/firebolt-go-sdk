@@ -183,6 +183,7 @@ func (r *StreamRows) NextResultSet() error {
 	return r.fetchColumns()
 }
 
+// AppendResponse appends a response to the list of row streams
 func (r *StreamRows) AppendResponse(response *client.Response) error {
 	r.responses = append(r.responses, response)
 	if r.columns == nil {
