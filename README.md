@@ -20,8 +20,8 @@ All information for the connection should be specified using the DSN string. The
 firebolt://[/database]?account_name=account_name&client_id=client_id&client_secret=client_secret[&engine=engine]
 ```
 
-- **client_id** - credentials client id.
-- **client_secret** - credentials client secret.
+- **client_id** - client id of the [service account](https://docs.firebolt.io/sql_reference/information-schema/service-accounts.html).
+- **client_secret** - client secret of the [service account](https://docs.firebolt.io/sql_reference/information-schema/service-accounts.html).
 - **account_name** - the name of Firebolt account to log in to.
 - **database** - (optional) the name of the database to connect to.
 - **engine** - (optional) the name of the engine to run SQL on.
