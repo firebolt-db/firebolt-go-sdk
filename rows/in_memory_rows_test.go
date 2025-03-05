@@ -1,9 +1,14 @@
 package rows
 
 import (
+	"bytes"
 	"database/sql/driver"
 	"encoding/json"
+	"io"
+	"log"
 	"testing"
+
+	"github.com/firebolt-db/firebolt-go-sdk/client"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
@@ -69,24 +74,19 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
     }`,
 	}
 
-	var responses []types.QueryResponse
+	rows := &InMemoryRows{}
 	for i := 0; i < 2; i += 1 {
 		if i != 0 && !isMultiStatement {
 			break
 		}
-		var response types.QueryResponse
-		if err := json.Unmarshal([]byte(resultJson[i]), &response); err != nil {
-			panic(err)
-		} else {
-			responses = append(responses, response)
-		}
+		must(rows.AppendResponse(client.MakeResponse(io.NopCloser(bytes.NewReader([]byte(resultJson[i]))), 200, nil, nil)))
 	}
 
-	return &InMemoryRows{responses, 0, 0}
+	return rows
 }
 
 func mockRowsSingleValue(value interface{}, columnType string) driver.RowsNextResultSet {
-	response := types.QueryResponse{
+	record := types.QueryResponse{
 		Query:      map[string]string{"query_id": "16FF2A0300ECA753"},
 		Meta:       []types.Column{{Name: "single_col", Type: columnType}},
 		Data:       [][]interface{}{{value}},
@@ -95,7 +95,16 @@ func mockRowsSingleValue(value interface{}, columnType string) driver.RowsNextRe
 		Statistics: map[string]interface{}{},
 	}
 
-	return &InMemoryRows{[]types.QueryResponse{response}, 0, 0}
+	rows := &InMemoryRows{}
+	jsonData, err := json.Marshal(record)
+	if err != nil {
+		log.Fatalf("Error marshaling JSON: %v", err)
+	}
+	reader := io.NopCloser(bytes.NewReader(jsonData))
+	must(rows.AppendResponse(client.MakeResponse(reader, 200, nil, nil)))
+	// Convert them to json lines
+
+	return rows
 }
 
 // testRowsColumns checks, that correct column names are returned

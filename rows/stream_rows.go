@@ -14,10 +14,10 @@ import (
 )
 
 type StreamRows struct {
+	ColumnReader
 	responses         []*client.Response
 	resultSetPosition int
 	// current row
-	columns          []types.Column
 	rowReader        *bufio.Reader
 	dataBuffer       [][]interface{}
 	dataBufferCursor int
