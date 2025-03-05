@@ -75,7 +75,7 @@ func (r *InMemoryRows) NextResultSet() error {
 
 // AppendResponse appends the response to the InMemoryRows, parsing the response content
 // and checking for errors in the response body
-func (r *InMemoryRows) AppendResponse(response *client.Response) error {
+func (r *InMemoryRows) ProcessAndAppendResponse(response *client.Response) error {
 	// Check for error in the Response body, despite the status code 200
 	errorResponse := struct {
 		Errors []types.ErrorDetails `json:"errors"`

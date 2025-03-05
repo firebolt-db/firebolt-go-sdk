@@ -82,7 +82,7 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 		if isSetStatement, err := processSetStatement(ctx, c, query); isSetStatement {
 			if err != nil {
 				return rowsInst, errorUtils.ConstructNestedError("statement recognized as an invalid set statement", err)
-			} else if err = rowsInst.AppendResponse(client.MakeResponse(nil, 200, nil, nil)); err != nil {
+			} else if err = rowsInst.ProcessAndAppendResponse(client.MakeResponse(nil, 200, nil, nil)); err != nil {
 				return rowsInst, errorUtils.ConstructNestedError("error during query execution", err)
 			}
 		} else {
@@ -92,7 +92,7 @@ func (c *fireboltConnection) queryContextInternal(ctx context.Context, query str
 				ResetParameters:  c.resetParameters,
 			}); err != nil {
 				return rowsInst, errorUtils.ConstructNestedError("error during query execution", err)
-			} else if err = rowsInst.AppendResponse(response); err != nil {
+			} else if err = rowsInst.ProcessAndAppendResponse(response); err != nil {
 				return rowsInst, errorUtils.ConstructNestedError("error during query execution", err)
 			}
 		}

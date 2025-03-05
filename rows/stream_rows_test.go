@@ -30,7 +30,7 @@ func mockStreamRows(isMultiStatement bool) driver.RowsNextResultSet {
 			break
 		}
 		reader := io.NopCloser(bytes.NewReader(resultJson))
-		must(rows.AppendResponse(client.MakeResponse(reader, 200, nil, nil)))
+		must(rows.ProcessAndAppendResponse(client.MakeResponse(reader, 200, nil, nil)))
 	}
 
 	return rows
@@ -73,7 +73,7 @@ func mockStreamRowsSingleValue(value interface{}, columnType string) driver.Rows
 		responseBody.WriteString(string(jsonData) + "\n")
 	}
 	reader := io.NopCloser(bytes.NewReader([]byte(responseBody.String())))
-	must(rows.AppendResponse(client.MakeResponse(reader, 200, nil, nil)))
+	must(rows.ProcessAndAppendResponse(client.MakeResponse(reader, 200, nil, nil)))
 	// Convert them to json lines
 
 	return rows
@@ -124,7 +124,7 @@ func TestStreamRowsError(t *testing.T) {
 		log.Fatalf("Error reading file: %v", err)
 	}
 	reader := io.NopCloser(bytes.NewReader(resultJson))
-	must(rows.AppendResponse(client.MakeResponse(reader, 200, nil, nil)))
+	must(rows.ProcessAndAppendResponse(client.MakeResponse(reader, 200, nil, nil)))
 
 	dest := make([]driver.Value, 1)
 

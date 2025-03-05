@@ -8,5 +8,5 @@ import (
 
 type ExtendableRows interface {
 	driver.Rows
-	AppendResponse(response *client.Response) error
+	ProcessAndAppendResponse(response *client.Response) error
 }

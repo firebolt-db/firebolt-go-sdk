@@ -57,7 +57,7 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 	}
 
 	rows := rows.InMemoryRows{}
-	rows.AppendResponse(resp)
+	rows.ProcessAndAppendResponse(resp)
 
 	var values []driver.Value
 
