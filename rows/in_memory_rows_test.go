@@ -79,7 +79,7 @@ func mockRows(isMultiStatement bool) driver.RowsNextResultSet {
 		if i != 0 && !isMultiStatement {
 			break
 		}
-		must(rows.AppendResponse(client.MakeResponse(io.NopCloser(bytes.NewReader([]byte(resultJson[i]))), 200, nil, nil)))
+		must(rows.ProcessAndAppendResponse(client.MakeResponse(io.NopCloser(bytes.NewReader([]byte(resultJson[i]))), 200, nil, nil)))
 	}
 
 	return rows
@@ -101,7 +101,7 @@ func mockRowsSingleValue(value interface{}, columnType string) driver.RowsNextRe
 		log.Fatalf("Error marshaling JSON: %v", err)
 	}
 	reader := io.NopCloser(bytes.NewReader(jsonData))
-	must(rows.AppendResponse(client.MakeResponse(reader, 200, nil, nil)))
+	must(rows.ProcessAndAppendResponse(client.MakeResponse(reader, 200, nil, nil)))
 	// Convert them to json lines
 
 	return rows
