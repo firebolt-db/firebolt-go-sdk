@@ -71,7 +71,7 @@ func checkTypeValue(columnType string, val interface{}) error {
 				}
 			}
 			// Allow string values for long columns
-			if _, is_str := val.(string); !((columnType == longType || columnType == bigIntType) && is_str) {
+			if _, isStr := val.(string); !((columnType == longType || columnType == bigIntType) && isStr) {
 				return fmt.Errorf("expected to convert a value to long, but couldn't: %v", val)
 			}
 		}

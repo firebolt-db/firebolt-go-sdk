@@ -222,7 +222,7 @@ func testColumns() []types.Column {
 	return columns
 }
 
-func TestColumnReader_Columns(t *testing.T) {
+func TestColumnReaderColumns(t *testing.T) {
 	c := &ColumnReader{}
 	must(c.setColumns(testColumns()))
 
@@ -233,7 +233,7 @@ func TestColumnReader_Columns(t *testing.T) {
 	}
 }
 
-func TestColumnReader_ColumnTypeScanType(t *testing.T) {
+func TestColumnReaderColumnTypeScanType(t *testing.T) {
 	c := &ColumnReader{}
 	must(c.setColumns(testColumns()))
 
@@ -244,7 +244,7 @@ func TestColumnReader_ColumnTypeScanType(t *testing.T) {
 	}
 }
 
-func TestColumnReader_ColumnTypeDatabaseTypeName(t *testing.T) {
+func TestColumnReaderColumnTypeDatabaseTypeName(t *testing.T) {
 	c := &ColumnReader{}
 	must(c.setColumns(testColumns()))
 
@@ -255,7 +255,7 @@ func TestColumnReader_ColumnTypeDatabaseTypeName(t *testing.T) {
 	}
 }
 
-func TestColumnReader_ColumnTypeNullable(t *testing.T) {
+func TestColumnReaderColumnTypeNullable(t *testing.T) {
 	c := &ColumnReader{}
 	must(c.setColumns(testColumns()))
 
@@ -266,7 +266,7 @@ func TestColumnReader_ColumnTypeNullable(t *testing.T) {
 	}
 }
 
-func TestColumnReader_ColumnTypeLength(t *testing.T) {
+func TestColumnReaderColumnTypeLength(t *testing.T) {
 	c := &ColumnReader{}
 	must(c.setColumns(testColumns()))
 
@@ -283,7 +283,7 @@ func TestColumnReader_ColumnTypeLength(t *testing.T) {
 	}
 }
 
-func TestColumnReader_ColumnTypePrecisionScale(t *testing.T) {
+func TestColumnReaderColumnTypePrecisionScale(t *testing.T) {
 	c := &ColumnReader{}
 	must(c.setColumns(testColumns()))
 
