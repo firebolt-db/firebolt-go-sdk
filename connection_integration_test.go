@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 
 	"github.com/shopspring/decimal"
@@ -399,4 +400,66 @@ func TestConnectionQuotedDecimal(t *testing.T) {
 	if !expected.Equal(dest.(decimal.Decimal)) {
 		t.Errorf("Quoted decimal check failed Expected: %s Got: %s", expected, dest)
 	}
+}
+
+func TestResponseMetadata(t *testing.T) {
+	const selectAllTypesSQL = `
+       select 1                                                  as col_int,
+       30000000000                                               as col_long,
+       1.23::FLOAT4                                              as col_float,
+       1.23456789012                                             as col_double,
+       'text'                                                    as col_text,
+       '2021-03-28'::date                                        as col_date,
+       '2019-07-31 01:01:01'::timestamp                          as col_timestamp,
+       '1111-01-05 17:04:42.123456'::timestamptz                 as col_timestamptz,
+       true                                                      as col_boolean,
+       [1,2,3,4]                                                 as col_array,
+       '1231232.123459999990457054844258706536'::decimal(38, 30) as col_decimal,
+       'abc123'::bytea                                           as col_bytea,
+       'point(1 2)'::geography                                   as col_geography,
+       null                                                      as col_nullable;`
+
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		expectedColumnTypes := getExpectedColumnTypes(contextUtils.IsStreaming(ctx))
+
+		conn, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Errorf(OPEN_CONNECTION_ERROR_MSG)
+			t.FailNow()
+		}
+
+		rows, err := conn.QueryContext(ctx, selectAllTypesSQL)
+		if err != nil {
+			t.Errorf(STATEMENT_ERROR_MSG, err)
+			t.FailNow()
+		}
+
+		if !rows.Next() {
+			t.Errorf("Next() call returned false with error: %v", rows.Err())
+			t.FailNow()
+		}
+
+		types, err := rows.ColumnTypes()
+		if err != nil {
+			t.Errorf("ColumnTypes returned an error, but shouldn't")
+			t.FailNow()
+		}
+
+		for i, ct := range types {
+			utils.AssertEqual(ct.Name(), expectedColumnTypes[i].Name, t, fmt.Sprintf("column name is not equal for column %s", ct.Name()))
+			utils.AssertEqual(ct.DatabaseTypeName(), expectedColumnTypes[i].DatabaseTypeName, t, fmt.Sprintf("database type name is not equal for column %s", ct.Name()))
+			utils.AssertEqual(ct.ScanType(), expectedColumnTypes[i].ScanType, t, fmt.Sprintf("scan type is not equal for column %s", ct.Name()))
+			nullable, ok := ct.Nullable()
+			utils.AssertEqual(ok, expectedColumnTypes[i].HasNullable, t, fmt.Sprintf("nullable ok is not equal for column %s", ct.Name()))
+			utils.AssertEqual(nullable, expectedColumnTypes[i].Nullable, t, fmt.Sprintf("nullable is not equal for column %s", ct.Name()))
+			length, ok := ct.Length()
+			utils.AssertEqual(ok, expectedColumnTypes[i].HasLength, t, fmt.Sprintf("length ok is not equal for column %s", ct.Name()))
+			utils.AssertEqual(length, expectedColumnTypes[i].Length, t, fmt.Sprintf("length is not equal for column %s", ct.Name()))
+			precision, scale, ok := ct.DecimalSize()
+			utils.AssertEqual(ok, expectedColumnTypes[i].HasPrecisionScale, t, fmt.Sprintf("precision scale ok is not equal for column %s", ct.Name()))
+			utils.AssertEqual(precision, expectedColumnTypes[i].Precision, t, fmt.Sprintf("precision is not equal for column %s", ct.Name()))
+			utils.AssertEqual(scale, expectedColumnTypes[i].Scale, t, fmt.Sprintf("scale is not equal for column %s", ct.Name()))
+		}
+
+	})
 }
