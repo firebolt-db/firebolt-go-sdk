@@ -413,7 +413,6 @@ func TestConnectionQueryByteaType(t *testing.T) {
 
 func TestLongQuery(t *testing.T) {
 	var maxValue = longTestValue
-	return
 
 	finished_in := make(chan time.Duration, 1)
 	go func() {
