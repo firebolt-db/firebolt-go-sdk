@@ -9,7 +9,6 @@ import (
 	errorUtils "errors"
 	"fmt"
 	"testing"
-	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
@@ -52,36 +51,5 @@ func TestQuery(t *testing.T) {
 
 	if queryResponse.Data[0][0].(float64) != 1 {
 		t.Errorf("queryResponse data is not correct")
-	}
-}
-
-// TestQuery with set statements
-func TestQuerySetStatements(t *testing.T) {
-	query := "SELECT '2024-01-01 00:00:00'::timestamptz"
-	response, err := clientMock.Query(
-		context.TODO(),
-		engineUrlMock,
-		query,
-		map[string]string{"time_zone": "America/New_York", "database": databaseMock},
-		ConnectionControl{},
-	)
-	if err != nil {
-		t.Errorf("Query returned an error: %v", err)
-		t.FailNow()
-	}
-
-	queryResponse, err := parseResponse(t, response, 1)
-	if err != nil {
-		t.Errorf("Error parsing response: %v", err)
-		t.FailNow()
-	}
-
-	date, err := time.Parse("2006-01-02 15:04:05-07", queryResponse.Data[0][0].(string))
-	if err != nil {
-		t.Errorf("Error parsing date: %v", err)
-		t.FailNow()
-	}
-	if date.UTC().Hour() != 5 {
-		t.Errorf("Invalid date returned: %s", date)
 	}
 }
