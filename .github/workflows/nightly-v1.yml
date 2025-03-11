@@ -56,7 +56,7 @@ jobs:
           SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STAGING }}
           LONG_TEST_VALUE: ${{ vars.LONG_TEST_VALUE }}
         run: |
-          go test .  -timeout=30m -v -coverprofile cover.out --tags=integration_v0
+          go test ./...  -timeout=30m -v -coverprofile cover.out --tags=integration_v0
 
       - name: Extract coverage percent
         id: coverage

@@ -50,7 +50,7 @@ jobs:
           CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
           LONG_TEST_VALUE: ${{ vars.LONG_TEST_VALUE }}
         run: |
-          go test . -timeout=30m -v -coverprofile cover.out --tags=integration
+          go test ./... -timeout=30m -v -coverprofile cover.out --tags=integration
 
       - name: Print coverage percent
         id: coverage

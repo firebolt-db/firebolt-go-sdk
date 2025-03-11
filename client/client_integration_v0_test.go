@@ -144,6 +144,7 @@ func TestQuerySetStatements(t *testing.T) {
 		context.TODO(),
 		engineUrlMock,
 		query,
+		// We use time_zone parameter, in comparison to v1 timezone
 		map[string]string{"time_zone": "America/New_York", "database": databaseMock},
 		ConnectionControl{},
 	)
