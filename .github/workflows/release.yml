@@ -67,7 +67,7 @@ jobs:
     - name: Version bump
       run: |
         # Bump version = <number> in version file
-        sed -i "s/sdkVersion string = .*/sdkVersion string = \"${{ steps.tag_generation.outputs.new_version }}\"/g" version/version.go
+        sed -i "s/SdkVersion string = .*/SdkVersion string = \"${{ steps.tag_generation.outputs.new_version }}\"/g" version/version.go
         git add version/version.go
         git commit -m "Automatic version bump to ${{ steps.tag_generation.outputs.new_tag }}"
         git push origin main
