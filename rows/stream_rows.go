@@ -122,7 +122,7 @@ func (r *StreamRows) Next(dest []driver.Value) error {
 
 	for i, column := range r.columns {
 		var err error
-		if dest[i], err = parseValue(column.fbType.dbName, r.dataBuffer[r.dataBufferCursor][i]); err != nil {
+		if dest[i], err = parseValue(column.fbType.dbType, r.dataBuffer[r.dataBufferCursor][i]); err != nil {
 			return errorUtils.ConstructNestedError("error during fetching Next result", err)
 		}
 	}

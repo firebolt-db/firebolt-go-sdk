@@ -48,7 +48,7 @@ func (r *ColumnReader) ColumnTypeScanType(index int) reflect.Type {
 }
 
 func (r *ColumnReader) ColumnTypeDatabaseTypeName(index int) string {
-	return r.columns[index].fbType.dbName
+	return r.columns[index].fbType.dbType
 }
 
 func (r *ColumnReader) ColumnTypeNullable(index int) (nullable, ok bool) {
@@ -62,9 +62,15 @@ func (r *ColumnReader) ColumnTypeLength(index int) (length int64, ok bool) {
 	return 0, false
 }
 
-func (r *ColumnReader) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
-	if r.columns[index].fbType.precision > 0 && r.columns[index].fbType.scale > 0 {
-		return r.columns[index].fbType.precision, r.columns[index].fbType.scale, true
+// max returns the maximum of two int64 values. Go only has integer max starting from Go 1.21
+func max(a, b int64) int64 {
+	if a > b {
+		return a
 	}
-	return 0, 0, false
+	return b
+}
+
+func (r *ColumnReader) ColumnTypePrecisionScale(index int) (precision, scale int64, ok bool) {
+	hasPrecisionScale := r.columns[index].fbType.precision > 0 || r.columns[index].fbType.scale > 0
+	return max(0, r.columns[index].fbType.precision), max(0, r.columns[index].fbType.scale), hasPrecisionScale
 }

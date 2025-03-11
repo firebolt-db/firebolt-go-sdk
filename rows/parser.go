@@ -41,12 +41,12 @@ const (
 	doublePrecisionType = "double precision"
 
 	// Prefixes and suffixes for complex types
-	nullableSuffix = " null"
-	arrayPrefix    = "array("
-	decimalPrefix  = "Decimal("
-	numericPrefix  = "numeric("
-	structPrefix   = "struct("
-	suffix         = ")"
+	nullableSuffix    = " null"
+	arrayPrefix       = "array("
+	decimalPrefix     = "Decimal("
+	numericPrefix     = "numeric("
+	structPrefix      = "struct("
+	complexTypeSuffix = ")"
 )
 
 // isFloatingPointPrimitiveType checks if the columnType is a floating point type
@@ -277,18 +277,18 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		return nil, nil
 	}
 
-	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, suffix) {
+	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		s := reflect.ValueOf(val)
 		res := make([]driver.Value, s.Len())
 
 		for i := 0; i < s.Len(); i++ {
-			res[i], _ = parseValue(columnType[len(arrayPrefix):len(columnType)-len(suffix)], s.Index(i).Interface())
+			res[i], _ = parseValue(columnType[len(arrayPrefix):len(columnType)-len(complexTypeSuffix)], s.Index(i).Interface())
 		}
 		return res, nil
-	} else if (strings.HasPrefix(columnType, decimalPrefix) || strings.HasPrefix(columnType, numericPrefix)) && strings.HasSuffix(columnType, suffix) {
+	} else if (strings.HasPrefix(columnType, decimalPrefix) || strings.HasPrefix(columnType, numericPrefix)) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		return parseDecimalValue(val)
-	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, suffix) {
-		return parseStruct(columnType[len(structPrefix):len(columnType)-len(suffix)], val)
+	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
+		return parseStruct(columnType[len(structPrefix):len(columnType)-len(complexTypeSuffix)], val)
 	} else if strings.HasSuffix(columnType, nullableSuffix) {
 		return parseValue(columnType[0:len(columnType)-len(nullableSuffix)], val)
 	}
@@ -298,7 +298,7 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 
 type fireboltType struct {
 	goType     reflect.Type
-	dbName     string
+	dbType     string
 	isNullable bool
 	length     int64
 	precision  int64
@@ -306,7 +306,7 @@ type fireboltType struct {
 }
 
 func makeFireboltType(goType reflect.Type, dbName string, length int64) fireboltType {
-	return fireboltType{goType: goType, dbName: dbName, isNullable: false, length: length, precision: -1, scale: -1}
+	return fireboltType{goType: goType, dbType: dbName, isNullable: false, length: length, precision: -1, scale: -1}
 }
 
 func parseDecimalPrecisionScale(precisionScale string) (int64, int64, error) {
@@ -361,25 +361,25 @@ func parsePrimitiveType(columnType string) (fireboltType, error) {
 // parseType parses the type of the column into the reflect.Type object
 func parseType(columnType string) (fireboltType, error) {
 
-	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, suffix) {
-		innerType, err := parseType(columnType[len(arrayPrefix) : len(columnType)-len(suffix)])
+	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
+		innerType, err := parseType(columnType[len(arrayPrefix) : len(columnType)-len(complexTypeSuffix)])
 		if err != nil {
 			return makeFireboltType(reflect.TypeOf(nil), columnType, -1), err
 		}
 		return makeFireboltType(reflect.SliceOf(innerType.goType), columnType, math.MaxInt64), nil
-	} else if (strings.HasPrefix(columnType, decimalPrefix) || strings.HasPrefix(columnType, numericPrefix)) && strings.HasSuffix(columnType, suffix) {
+	} else if (strings.HasPrefix(columnType, decimalPrefix) || strings.HasPrefix(columnType, numericPrefix)) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		res := makeFireboltType(reflect.TypeOf(decimal.Decimal{}), columnType, -1)
 		var err error
 		var precisionScale string
 		if strings.HasPrefix(columnType, decimalPrefix) {
-			precisionScale = columnType[len(decimalPrefix) : len(columnType)-len(suffix)]
+			precisionScale = columnType[len(decimalPrefix) : len(columnType)-len(complexTypeSuffix)]
 		} else {
-			precisionScale = columnType[len(numericPrefix) : len(columnType)-len(suffix)]
+			precisionScale = columnType[len(numericPrefix) : len(columnType)-len(complexTypeSuffix)]
 		}
 		res.precision, res.scale, err = parseDecimalPrecisionScale(precisionScale)
 		return res, err
 
-	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, suffix) {
+	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		return makeFireboltType(reflect.TypeOf(map[string]interface{}{}), columnType, -1), nil
 	} else if strings.HasSuffix(columnType, nullableSuffix) {
 		res, err := parseType(columnType[0 : len(columnType)-len(nullableSuffix)])
