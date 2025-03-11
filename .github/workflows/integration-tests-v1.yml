@@ -50,4 +50,4 @@ jobs:
           SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.SERVICE_SECRET_STG }}
           LONG_TEST_VALUE: ${{ vars.LONG_TEST_VALUE }}
         run: |
-          go test . -timeout=30m -v --tags=integration_v0
+          go test ./... -timeout=30m -v --tags=integration_v0
