@@ -21,29 +21,74 @@ func WithDatabaseName(databaseName string) driverOption {
 	}
 }
 
-// WithClientParams defines client parameters for the driver
-func WithClientParams(accountID string, token string, userAgent string) driverOption {
+// WithAccountID defines account ID for the driver
+func WithAccountID(accountID string) driverOption {
 	return func(d *FireboltDriver) {
 		if d.cachedParams == nil {
 			d.cachedParams = map[string]string{}
 		}
-		// Put account_id in cachedParams for it to work both with engines v1 and v2
 		if accountID != "" {
 			d.cachedParams["account_id"] = accountID
 		}
+	}
+}
 
-		cl := &client.ClientImpl{
-			ConnectedToSystemEngine: true,
+// WithToken defines token for the driver
+func WithToken(token string) driverOption {
+	return func(d *FireboltDriver) {
+		if d.client != nil {
+			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
+				clientImpl.AccessTokenGetter = func() (string, error) {
+					return token, nil
+				}
+			} else if clientImplV0, ok := d.client.(*client.ClientImplV0); ok {
+				clientImplV0.AccessTokenGetter = func() (string, error) {
+					return token, nil
+				}
+			}
+		} else {
+			cl := &client.ClientImpl{
+				ConnectedToSystemEngine: true,
+				BaseClient: client.BaseClient{
+					AccessTokenGetter: func() (string, error) {
+						return token, nil
+					},
+				},
+			}
+			cl.ParameterGetter = cl.GetQueryParams
+			d.client = cl
 		}
+	}
+}
 
-		cl.UserAgent = userAgent
-
-		cl.ParameterGetter = cl.GetQueryParams
-		cl.AccessTokenGetter = func() (string, error) {
-			return token, nil
+// WithUserAgent defines user agent for the driver
+func WithUserAgent(userAgent string) driverOption {
+	return func(d *FireboltDriver) {
+		if d.client != nil {
+			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
+				clientImpl.UserAgent = userAgent
+			} else if clientImplV0, ok := d.client.(*client.ClientImplV0); ok {
+				clientImplV0.UserAgent = userAgent
+			}
+		} else {
+			cl := &client.ClientImpl{
+				ConnectedToSystemEngine: true,
+				BaseClient: client.BaseClient{
+					UserAgent: userAgent,
+				},
+			}
+			cl.ParameterGetter = cl.GetQueryParams
+			d.client = cl
 		}
+	}
+}
 
-		d.client = cl
+// WithClientParams defines client parameters for the driver
+func WithClientParams(accountID string, token string, userAgent string) driverOption {
+	return func(d *FireboltDriver) {
+		WithAccountID(accountID)(d)
+		WithToken(token)(d)
+		WithUserAgent(userAgent)(d)
 	}
 }
 
