@@ -57,7 +57,8 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 
 func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRows {
 	isStreaming := contextUtils.IsStreaming(ctx)
-	if isStreaming && c.client.IsNewVersion() {
+	_, isNewVersion := c.client.(*client.ClientImpl)
+	if isStreaming && isNewVersion {
 		return &rows.StreamRows{}
 	}
 	return &rows.InMemoryRows{}
