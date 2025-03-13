@@ -33,54 +33,40 @@ func WithAccountID(accountID string) driverOption {
 	}
 }
 
-// WithToken defines token for the driver
-func WithToken(token string) driverOption {
+func withClientOption(setter func(baseClient *client.BaseClient)) driverOption {
 	return func(d *FireboltDriver) {
 		if d.client != nil {
 			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
-				clientImpl.AccessTokenGetter = func() (string, error) {
-					return token, nil
-				}
+				setter(&clientImpl.BaseClient)
 			} else if clientImplV0, ok := d.client.(*client.ClientImplV0); ok {
-				clientImplV0.AccessTokenGetter = func() (string, error) {
-					return token, nil
-				}
+				setter(&clientImplV0.BaseClient)
 			}
 		} else {
 			cl := &client.ClientImpl{
 				ConnectedToSystemEngine: true,
-				BaseClient: client.BaseClient{
-					AccessTokenGetter: func() (string, error) {
-						return token, nil
-					},
-				},
+				BaseClient:              client.BaseClient{},
 			}
 			cl.ParameterGetter = cl.GetQueryParams
+			setter(&cl.BaseClient)
 			d.client = cl
 		}
 	}
 }
 
+// WithToken defines token for the driver
+func WithToken(token string) driverOption {
+	return withClientOption(func(baseClient *client.BaseClient) {
+		baseClient.AccessTokenGetter = func() (string, error) {
+			return token, nil
+		}
+	})
+}
+
 // WithUserAgent defines user agent for the driver
 func WithUserAgent(userAgent string) driverOption {
-	return func(d *FireboltDriver) {
-		if d.client != nil {
-			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
-				clientImpl.UserAgent = userAgent
-			} else if clientImplV0, ok := d.client.(*client.ClientImplV0); ok {
-				clientImplV0.UserAgent = userAgent
-			}
-		} else {
-			cl := &client.ClientImpl{
-				ConnectedToSystemEngine: true,
-				BaseClient: client.BaseClient{
-					UserAgent: userAgent,
-				},
-			}
-			cl.ParameterGetter = cl.GetQueryParams
-			d.client = cl
-		}
-	}
+	return withClientOption(func(baseClient *client.BaseClient) {
+		baseClient.UserAgent = userAgent
+	})
 }
 
 // WithClientParams defines client parameters for the driver
