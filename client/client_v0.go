@@ -25,7 +25,7 @@ func MakeClientV0(settings *types.FireboltSettings, apiEndpoint string) (*Client
 			ClientSecret: settings.ClientSecret,
 			ApiEndpoint:  apiEndpoint,
 			UserAgent:    ConstructUserAgentString(),
-			newVersion:   settings.NewVersion,
+			newVersion:   false,
 		},
 	}
 	client.ParameterGetter = client.getQueryParams

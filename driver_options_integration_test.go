@@ -72,3 +72,63 @@ func TestFireboltConnectorWithOptions(t *testing.T) {
 	utils.AssertEqual(len(values), 1, t, "returned more that one value")
 	utils.AssertEqual(values[0], int32(1), t, "result is not 1")
 }
+
+func TestFireboltConnectorWithASeparatedOptions(t *testing.T) {
+	cl, err := client.ClientFactory(&types.FireboltSettings{
+		ClientID:     clientIdMock,
+		ClientSecret: clientSecretMock,
+		AccountName:  accountName,
+		EngineName:   engineNameMock,
+		Database:     databaseMock,
+		NewVersion:   true,
+	}, client.GetHostNameURL())
+	if err != nil {
+		t.Errorf("failed to authenticate with client id %s: %v", clientIdMock, err)
+		t.FailNow()
+	}
+	token, err := cl.(*client.ClientImpl).AccessTokenGetter()
+	if err != nil {
+		t.Errorf("failed to get access token: %v", err)
+		t.FailNow()
+	}
+
+	userAgent := "test user agent"
+
+	engineUrl, engineParameters, err := cl.GetConnectionParameters(context.TODO(), engineNameMock, databaseMock)
+	if err != nil {
+		t.Errorf("failed to get system engine url: %v", err)
+		t.FailNow()
+	}
+
+	accountID, _ := engineParameters["account_id"]
+
+	conn := FireboltConnectorWithOptions(
+		WithEngineUrl(engineUrl),
+		WithDatabaseName(databaseMock),
+		WithAccountID(accountID),
+		WithToken(token),
+		WithUserAgent(userAgent),
+	)
+
+	resp, err := conn.client.Query(context.Background(), conn.engineUrl, "SELECT 1", nil, client.ConnectionControl{})
+	if err != nil {
+		t.Errorf("failed unexpectedly with: %v", err)
+		t.FailNow()
+	}
+
+	rows := rows.InMemoryRows{}
+	if err := rows.ProcessAndAppendResponse(resp); err != nil {
+		t.Errorf("failed to process response: %v", err)
+		t.FailNow()
+	}
+
+	var values []driver.Value = make([]driver.Value, len(rows.Columns()))
+
+	if err := rows.Next(values); err != nil {
+		t.Errorf("failed to get result: %v", err)
+		t.FailNow()
+	}
+
+	utils.AssertEqual(len(values), 1, t, "returned more that one value")
+	utils.AssertEqual(values[0], int32(1), t, "result is not 1")
+}

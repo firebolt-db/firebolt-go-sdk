@@ -21,29 +21,60 @@ func WithDatabaseName(databaseName string) driverOption {
 	}
 }
 
-// WithClientParams defines client parameters for the driver
-func WithClientParams(accountID string, token string, userAgent string) driverOption {
+// WithAccountID defines account ID for the driver
+func WithAccountID(accountID string) driverOption {
 	return func(d *FireboltDriver) {
 		if d.cachedParams == nil {
 			d.cachedParams = map[string]string{}
 		}
-		// Put account_id in cachedParams for it to work both with engines v1 and v2
 		if accountID != "" {
 			d.cachedParams["account_id"] = accountID
 		}
+	}
+}
 
-		cl := &client.ClientImpl{
-			ConnectedToSystemEngine: true,
+func withClientOption(setter func(baseClient *client.BaseClient)) driverOption {
+	return func(d *FireboltDriver) {
+		if d.client != nil {
+			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
+				setter(&clientImpl.BaseClient)
+			} else if clientImplV0, ok := d.client.(*client.ClientImplV0); ok {
+				setter(&clientImplV0.BaseClient)
+			}
+		} else {
+			cl := &client.ClientImpl{
+				ConnectedToSystemEngine: true,
+				BaseClient:              client.BaseClient{},
+			}
+			cl.ParameterGetter = cl.GetQueryParams
+			setter(&cl.BaseClient)
+			d.client = cl
 		}
+	}
+}
 
-		cl.UserAgent = userAgent
-
-		cl.ParameterGetter = cl.GetQueryParams
-		cl.AccessTokenGetter = func() (string, error) {
+// WithToken defines token for the driver
+func WithToken(token string) driverOption {
+	return withClientOption(func(baseClient *client.BaseClient) {
+		baseClient.AccessTokenGetter = func() (string, error) {
 			return token, nil
 		}
+	})
+}
 
-		d.client = cl
+// WithUserAgent defines user agent for the driver
+func WithUserAgent(userAgent string) driverOption {
+	return withClientOption(func(baseClient *client.BaseClient) {
+		baseClient.UserAgent = userAgent
+	})
+}
+
+// WithClientParams defines client parameters for the driver
+func WithClientParams(accountID string, token string, userAgent string) driverOption {
+	return func(d *FireboltDriver) {
+		WithAccountID(accountID)(d)
+		WithToken(token)(d)
+		WithUserAgent(userAgent)(d)
 	}
 }
 
