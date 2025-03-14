@@ -52,7 +52,6 @@ func MakeClient(settings *types.FireboltSettings, apiEndpoint string) (*ClientIm
 			ClientSecret: settings.ClientSecret,
 			ApiEndpoint:  apiEndpoint,
 			UserAgent:    ConstructUserAgentString(),
-			newVersion:   true,
 		},
 		AccountName: settings.AccountName,
 	}
