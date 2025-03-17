@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/errors"
-	"github.com/shopspring/decimal"
 )
 
 const (
@@ -248,27 +247,6 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 	return nil, fmt.Errorf("type not known: %s", columnType)
 }
 
-func parseDecimalValue(val interface{}) (driver.Value, error) {
-	var decimalValue decimal.Decimal
-	var err error
-	switch val := val.(type) {
-	case string:
-		decimalValue, err = decimal.NewFromString(val)
-	case float32:
-		decimalValue = decimal.NewFromFloat(float64(val))
-	case float64:
-		decimalValue = decimal.NewFromFloat(val)
-	default:
-		return nil, fmt.Errorf("unable to parse decimal value: %v", val)
-	}
-
-	if err != nil {
-		return nil, fmt.Errorf("unable to parse decimal value: %v", val)
-	} else {
-		return decimalValue, nil
-	}
-}
-
 // parseValue treating the val according to the column type and casts it to one of the go native types:
 // uint8, uint32, uint64, int32, int64, float32, float64, string, Time or []driver.Value for arrays
 func parseValue(columnType string, val interface{}) (driver.Value, error) {
@@ -286,7 +264,10 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		}
 		return res, nil
 	} else if (strings.HasPrefix(columnType, decimalPrefix) || strings.HasPrefix(columnType, numericPrefix)) && strings.HasSuffix(columnType, complexTypeSuffix) {
-		return parseDecimalValue(val)
+		// Store decimals in FireboltNullDecimal, so that they are decomposable for scanning
+		res := FireboltNullDecimal{}
+		err := res.Scan(val)
+		return res, err
 	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		return parseStruct(columnType[len(structPrefix):len(columnType)-len(complexTypeSuffix)], val)
 	} else if strings.HasSuffix(columnType, nullableSuffix) {
@@ -294,98 +275,4 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 	}
 
 	return parseSingleValue(columnType, val)
-}
-
-type fireboltType struct {
-	goType     reflect.Type
-	dbType     string
-	isNullable bool
-	length     int64
-	precision  int64
-	scale      int64
-}
-
-func makeFireboltType(goType reflect.Type, dbName string, length int64) fireboltType {
-	return fireboltType{goType: goType, dbType: dbName, isNullable: false, length: length, precision: -1, scale: -1}
-}
-
-func parseDecimalPrecisionScale(precisionScale string) (int64, int64, error) {
-	parts := strings.Split(precisionScale, ",")
-	if len(parts) != 2 {
-		return -1, -1, fmt.Errorf("invalid decimal precision/scale: %s", precisionScale)
-	}
-	precision, err := strconv.ParseInt(strings.TrimSpace(parts[0]), 10, 64)
-	if err != nil {
-		return -1, -1, fmt.Errorf("invalid decimal precision: %s", parts[0])
-	}
-	scale, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 64)
-	if err != nil {
-		return -1, -1, fmt.Errorf("invalid decimal scale: %s", parts[1])
-	}
-	return precision, scale, nil
-}
-
-// parsePrimitiveType parses the primitive type of the column into the reflect.Type object
-func parsePrimitiveType(columnType string) (fireboltType, error) {
-	var err error
-	var primitiveType reflect.Type
-	var length int64 = -1
-	switch columnType {
-	case intType, integerType:
-		primitiveType = reflect.TypeOf(int32(0))
-	case longType, bigIntType:
-		primitiveType = reflect.TypeOf(int64(0))
-	case floatType, realType:
-		primitiveType = reflect.TypeOf(float32(0))
-	case doubleType, doublePrecisionType:
-		primitiveType = reflect.TypeOf(float64(0))
-	case textType:
-		primitiveType = reflect.TypeOf("")
-		length = math.MaxInt64
-	case geographyType:
-		primitiveType = reflect.TypeOf("")
-	case dateType, pgDateType, timestampType, timestampNtzType, timestampTzType:
-		primitiveType = reflect.TypeOf(time.Time{})
-	case byteaType:
-		primitiveType = reflect.TypeOf([]byte{})
-		length = math.MaxInt64
-	case booleanType:
-		primitiveType = reflect.TypeOf(false)
-	default:
-		err = fmt.Errorf("unknown column type: %s", columnType)
-		primitiveType = reflect.TypeOf(nil)
-	}
-	return makeFireboltType(primitiveType, columnType, length), err
-}
-
-// parseType parses the type of the column into the reflect.Type object
-func parseType(columnType string) (fireboltType, error) {
-
-	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
-		innerType, err := parseType(columnType[len(arrayPrefix) : len(columnType)-len(complexTypeSuffix)])
-		if err != nil {
-			return makeFireboltType(reflect.TypeOf(nil), columnType, -1), err
-		}
-		return makeFireboltType(reflect.SliceOf(innerType.goType), columnType, math.MaxInt64), nil
-	} else if (strings.HasPrefix(columnType, decimalPrefix) || strings.HasPrefix(columnType, numericPrefix)) && strings.HasSuffix(columnType, complexTypeSuffix) {
-		res := makeFireboltType(reflect.TypeOf(decimal.Decimal{}), columnType, -1)
-		var err error
-		var precisionScale string
-		if strings.HasPrefix(columnType, decimalPrefix) {
-			precisionScale = columnType[len(decimalPrefix) : len(columnType)-len(complexTypeSuffix)]
-		} else {
-			precisionScale = columnType[len(numericPrefix) : len(columnType)-len(complexTypeSuffix)]
-		}
-		res.precision, res.scale, err = parseDecimalPrecisionScale(precisionScale)
-		return res, err
-
-	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
-		return makeFireboltType(reflect.TypeOf(map[string]interface{}{}), columnType, -1), nil
-	} else if strings.HasSuffix(columnType, nullableSuffix) {
-		res, err := parseType(columnType[0 : len(columnType)-len(nullableSuffix)])
-		res.isNullable = true
-		return res, err
-
-	}
-	return parsePrimitiveType(columnType)
 }

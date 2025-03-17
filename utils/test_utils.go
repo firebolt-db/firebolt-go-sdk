@@ -24,7 +24,7 @@ func AssertEqual(testVal interface{}, expectedVal interface{}, t *testing.T, err
 	} else if arr, ok := expectedVal.([]driver.Value); ok {
 		assertArrays(testVal.([]driver.Value), arr, t, err)
 	} else if d, ok := expectedVal.(decimal.Decimal); ok {
-		assertDecimal(testVal.(decimal.Decimal), d, t, err)
+		assertDecimal(testVal, d, t, err)
 	} else if b, ok := expectedVal.([]byte); ok {
 		assertByte(testVal.([]byte), b, t, err)
 	} else if date, ok := expectedVal.(time.Time); ok {
@@ -71,8 +71,30 @@ func assertByte(testVal []byte, expectedVal []byte, t *testing.T, err string) {
 	}
 }
 
-func assertDecimal(testVal decimal.Decimal, expectedVal decimal.Decimal, t *testing.T, err string) {
-	if !testVal.Equal(expectedVal) {
+type decimalEqualer interface {
+	Equal(decimal.Decimal) bool
+}
+
+type decimalGetter interface {
+	GetDecimal() *decimal.Decimal
+}
+
+func assertDecimal(testVal interface{}, expectedVal decimal.Decimal, t *testing.T, err string) {
+	var decimalTestVal decimalEqualer
+	if eq, ok := testVal.(decimalEqualer); ok {
+		decimalTestVal = eq
+	} else if dg, ok := testVal.(decimalGetter); ok {
+		dp := dg.GetDecimal()
+		if dp == nil {
+			t.Errorf(err+assertErrorMessage, expectedVal, testVal)
+			return
+		}
+		decimalTestVal = *dp
+	} else {
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
+		return
+	}
+	if !decimalTestVal.Equal(expectedVal) {
 		t.Log(string(debug.Stack()))
 		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}

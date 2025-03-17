@@ -1,13 +1,13 @@
 package rows
 
 import (
+	"database/sql"
 	"math"
 	"reflect"
 	"testing"
 	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
-	"github.com/shopspring/decimal"
 )
 
 type columnReaderTestCase struct {
@@ -35,7 +35,7 @@ var testCases = []columnReaderTestCase{
 	{
 		column:             types.Column{Name: "col_int_null", Type: "int null"},
 		expectedName:       "col_int_null",
-		expectedType:       reflect.TypeOf(int32(0)),
+		expectedType:       reflect.TypeOf(sql.NullInt32{}),
 		expectedDBTypeName: "int",
 		expectedNullable:   true,
 		expectedLength:     -1,
@@ -155,7 +155,7 @@ var testCases = []columnReaderTestCase{
 	{
 		column:             types.Column{Name: "col_array", Type: "array(int)"},
 		expectedName:       "col_array",
-		expectedType:       reflect.TypeOf([]int32{}),
+		expectedType:       reflect.TypeOf(FireboltArray{}),
 		expectedDBTypeName: "array(int)",
 		expectedNullable:   false,
 		expectedLength:     math.MaxInt,
@@ -165,7 +165,7 @@ var testCases = []columnReaderTestCase{
 	{
 		column:             types.Column{Name: "col_decimal", Type: "Decimal(14, 22)"},
 		expectedName:       "col_decimal",
-		expectedType:       reflect.TypeOf(decimal.Decimal{}),
+		expectedType:       reflect.TypeOf(FireboltDecimal{}),
 		expectedDBTypeName: "Decimal(14, 22)",
 		expectedNullable:   false,
 		expectedLength:     -1,
@@ -175,7 +175,7 @@ var testCases = []columnReaderTestCase{
 	{
 		column:             types.Column{Name: "col_numeric", Type: "numeric(17, 8) null"},
 		expectedName:       "col_numeric",
-		expectedType:       reflect.TypeOf(decimal.Decimal{}),
+		expectedType:       reflect.TypeOf(FireboltNullDecimal{}),
 		expectedDBTypeName: "numeric(17, 8)",
 		expectedNullable:   true,
 		expectedLength:     -1,
