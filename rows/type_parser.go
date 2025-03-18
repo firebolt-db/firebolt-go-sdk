@@ -134,7 +134,13 @@ func parseTypeWithNullability(columnType string, isNullable bool) (fireboltType,
 		return res, err
 
 	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
-		return makeFireboltType(reflect.TypeOf(map[string]interface{}{}), columnType, -1, isNullable), nil
+		var structType reflect.Type
+		if isNullable {
+			structType = reflect.TypeOf(FireboltNullStruct{})
+		} else {
+			structType = reflect.TypeOf(FireboltNullStruct{})
+		}
+		return makeFireboltType(structType, columnType, -1, isNullable), nil
 	}
 	if isNullable {
 		return parseNullablePrimitiveType(columnType)

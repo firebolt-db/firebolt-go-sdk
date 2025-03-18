@@ -35,5 +35,6 @@ func (fna *FireboltNullArray) Scan(src interface{}) error {
 		fna.IsValid = false
 		return nil
 	}
+	fna.IsValid = true
 	return fna.Value.Scan(src)
 }

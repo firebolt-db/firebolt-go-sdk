@@ -205,7 +205,7 @@ var testCases = []columnReaderTestCase{
 	{
 		column:             types.Column{Name: "col_struct", Type: "struct(a int null, s struct(a array(int) null, b text null) null) null"},
 		expectedName:       "col_struct",
-		expectedType:       reflect.TypeOf(map[string]interface{}{}),
+		expectedType:       reflect.TypeOf(FireboltNullStruct{}),
 		expectedDBTypeName: "struct(a int null, s struct(a array(int) null, b text null) null)",
 		expectedNullable:   true,
 		expectedLength:     -1,
