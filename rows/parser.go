@@ -255,6 +255,8 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		return nil, nil
 	}
 
+	isNullableType := strings.HasSuffix(columnType, nullableSuffix)
+
 	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		s := reflect.ValueOf(val)
 		res := make([]driver.Value, s.Len())
@@ -265,9 +267,13 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		return res, nil
 	} else if (strings.HasPrefix(columnType, decimalPrefix) || strings.HasPrefix(columnType, numericPrefix)) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		// Store decimals in FireboltNullDecimal, so that they are decomposable for scanning
-		res := FireboltNullDecimal{}
-		err := res.Scan(val)
-		return res, err
+		if isNullableType {
+			res := FireboltNullDecimal{}
+			return res, res.Scan(val)
+		} else {
+			res := FireboltDecimal{}
+			return res, res.Scan(val)
+		}
 	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		return parseStruct(columnType[len(structPrefix):len(columnType)-len(complexTypeSuffix)], val)
 	} else if strings.HasSuffix(columnType, nullableSuffix) {

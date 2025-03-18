@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/firebolt-db/firebolt-go-sdk/rows"
+
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 
@@ -387,19 +389,19 @@ func TestConnectionQuotedDecimal(t *testing.T) {
 
 	sql := "SELECT 12345678901234567890123456789.123456789::decimal(38, 9)"
 
-	rows, err := conn.QueryContext(context.TODO(), sql)
+	res, err := conn.QueryContext(context.TODO(), sql)
 	if err != nil {
 		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest driver.Value
 
-	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
-	if err = rows.Scan(&dest); err != nil {
+	utils.AssertEqual(res.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	if err = res.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	expected, _ := decimal.NewFromString("12345678901234567890123456789.123456789")
-	if !expected.Equal(dest.(decimal.Decimal)) {
+	if !expected.Equal(dest.(rows.FireboltDecimal).Decimal) {
 		t.Errorf("Quoted decimal check failed Expected: %s Got: %s", expected, dest)
 	}
 }
@@ -420,48 +422,52 @@ type columnType struct {
 func getExpectedColumnTypes(isStreaming bool) []columnType {
 	res := []columnType{
 		{"col_int", "int", reflect.TypeOf(int32(0)), true, false, false, 0, false, 0, 0},
+		{"col_int_null", "int", reflect.TypeOf(sql.NullInt32{}), true, true, false, 0, false, 0, 0},
 		{"col_long", "long", reflect.TypeOf(int64(0)), true, false, false, 0, false, 0, 0},
+		{"col_long_null", "long", reflect.TypeOf(sql.NullInt64{}), true, true, false, 0, false, 0, 0},
 		{"col_float", "float", reflect.TypeOf(float32(0)), true, false, false, 0, false, 0, 0},
+		{"col_float_null", "float", reflect.TypeOf(sql.NullFloat64{}), true, true, false, 0, false, 0, 0},
 		{"col_double", "double", reflect.TypeOf(float64(0)), true, false, false, 0, false, 0, 0},
+		{"col_double_null", "double", reflect.TypeOf(sql.NullFloat64{}), true, true, false, 0, false, 0, 0},
 		{"col_text", "text", reflect.TypeOf(""), true, false, true, math.MaxInt64, false, 0, 0},
+		{"col_text_null", "text", reflect.TypeOf(sql.NullString{}), true, true, true, math.MaxInt64, false, 0, 0},
 		{"col_date", "date", reflect.TypeOf(time.Time{}), true, false, false, 0, false, 0, 0},
+		{"col_date_null", "date", reflect.TypeOf(sql.NullTime{}), true, true, false, 0, false, 0, 0},
 		{"col_timestamp", "timestamp", reflect.TypeOf(time.Time{}), true, false, false, 0, false, 0, 0},
+		{"col_timestamp_null", "timestamp", reflect.TypeOf(sql.NullTime{}), true, true, false, 0, false, 0, 0},
 		{"col_timestamptz", "timestamptz", reflect.TypeOf(time.Time{}), true, false, false, 0, false, 0, 0},
+		{"col_timestamptz_null", "timestamptz", reflect.TypeOf(sql.NullTime{}), true, true, false, 0, false, 0, 0},
 		{"col_boolean", "boolean", reflect.TypeOf(true), true, false, false, 0, false, 0, 0},
-		{"col_array", "array(int)", reflect.TypeOf([]int32{}), true, false, true, math.MaxInt64, false, 0, 0},
-		{"col_decimal", "Decimal(38, 30)", reflect.TypeOf(decimal.Decimal{}), true, false, false, 0, true, 38, 30},
+		{"col_boolean_null", "boolean", reflect.TypeOf(sql.NullBool{}), true, true, false, 0, false, 0, 0},
+		{"col_array", "array(int)", reflect.TypeOf(rows.FireboltArray{}), true, false, true, math.MaxInt64, false, 0, 0},
+		{"col_array_null", "array(int)", reflect.TypeOf(rows.FireboltNullArray{}), true, true, true, math.MaxInt64, false, 0, 0},
+		{"col_decimal", "Decimal(38, 30)", reflect.TypeOf(rows.FireboltDecimal{}), true, false, false, 0, true, 38, 30},
+		{"col_decimal_null", "Decimal(38, 30)", reflect.TypeOf(rows.FireboltNullDecimal{}), true, true, false, 0, true, 38, 30},
 		{"col_bytea", "bytea", reflect.TypeOf([]byte{}), true, false, true, math.MaxInt64, false, 0, 0},
+		{"col_bytea_null", "bytea", reflect.TypeOf(sql.Null[[]byte]{}), true, true, true, math.MaxInt64, false, 0, 0},
 		{"col_geography", "geography", reflect.TypeOf(""), true, false, false, 0, false, 0, 0},
-		{"col_nullable", "text", reflect.TypeOf(""), true, true, true, math.MaxInt64, false, 0, 0},
+		{"col_geography_null", "geography", reflect.TypeOf(sql.NullString{}), true, true, false, 0, false, 0, 0},
 	}
 	// Some types are returned by different alias from database when streaming
 	if isStreaming {
 		res[0].DatabaseTypeName = "integer"
-		res[1].DatabaseTypeName = "bigint"
-		res[2].DatabaseTypeName = "real"
-		res[3].DatabaseTypeName = "double precision"
-		res[9].DatabaseTypeName = "array(integer)"
-		res[10].DatabaseTypeName = "numeric(38, 30)"
+		res[1].DatabaseTypeName = "integer"
+		res[2].DatabaseTypeName = "bigint"
+		res[3].DatabaseTypeName = "bigint"
+		res[4].DatabaseTypeName = "real"
+		res[5].DatabaseTypeName = "real"
+		res[6].DatabaseTypeName = "double precision"
+		res[7].DatabaseTypeName = "double precision"
+		res[18].DatabaseTypeName = "array(integer)"
+		res[19].DatabaseTypeName = "array(integer)"
+		res[20].DatabaseTypeName = "numeric(38, 30)"
+		res[21].DatabaseTypeName = "numeric(38, 30)"
 	}
 	return res
 }
 
 func TestResponseMetadata(t *testing.T) {
-	const selectAllTypesSQL = `
-       select 1                                                  as col_int,
-       30000000000                                               as col_long,
-       1.23::FLOAT4                                              as col_float,
-       1.23456789012                                             as col_double,
-       'text'                                                    as col_text,
-       '2021-03-28'::date                                        as col_date,
-       '2019-07-31 01:01:01'::timestamp                          as col_timestamp,
-       '1111-01-05 17:04:42.123456'::timestamptz                 as col_timestamptz,
-       true                                                      as col_boolean,
-       [1,2,3,4]                                                 as col_array,
-       '1231232.123459999990457054844258706536'::decimal(38, 30) as col_decimal,
-       'abc123'::bytea                                           as col_bytea,
-       'point(1 2)'::geography                                   as col_geography,
-       null                                                      as col_nullable;`
+	selectAllTypesSQL := utils.GetQueryFromFile("fixtures/all_types_query.sql")
 
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
 		expectedColumnTypes := getExpectedColumnTypes(contextUtils.IsStreaming(ctx))

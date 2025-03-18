@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/shopspring/decimal"
+	"github.com/firebolt-db/firebolt-go-sdk/rows"
 
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
@@ -131,38 +131,37 @@ type columnType struct {
 func getExpectedColumnTypes() []columnType {
 	res := []columnType{
 		{"col_int", "int", reflect.TypeOf(int32(0)), true, false, false, 0, false, 0, 0},
+		{"col_int_null", "int", reflect.TypeOf(sql.NullInt32{}), true, true, false, 0, false, 0, 0},
 		{"col_long", "long", reflect.TypeOf(int64(0)), true, false, false, 0, false, 0, 0},
+		{"col_long_null", "long", reflect.TypeOf(sql.NullInt64{}), true, true, false, 0, false, 0, 0},
 		{"col_float", "float", reflect.TypeOf(float32(0)), true, false, false, 0, false, 0, 0},
+		{"col_float_null", "float", reflect.TypeOf(sql.NullFloat64{}), true, true, false, 0, false, 0, 0},
 		{"col_double", "double", reflect.TypeOf(float64(0)), true, false, false, 0, false, 0, 0},
+		{"col_double_null", "double", reflect.TypeOf(sql.NullFloat64{}), true, true, false, 0, false, 0, 0},
 		{"col_text", "text", reflect.TypeOf(""), true, false, true, math.MaxInt64, false, 0, 0},
+		{"col_text_null", "text", reflect.TypeOf(sql.NullString{}), true, true, true, math.MaxInt64, false, 0, 0},
 		{"col_date", "date", reflect.TypeOf(time.Time{}), true, false, false, 0, false, 0, 0},
+		{"col_date_null", "date", reflect.TypeOf(sql.NullTime{}), true, true, false, 0, false, 0, 0},
 		{"col_timestamp", "timestamp", reflect.TypeOf(time.Time{}), true, false, false, 0, false, 0, 0},
+		{"col_timestamp_null", "timestamp", reflect.TypeOf(sql.NullTime{}), true, true, false, 0, false, 0, 0},
 		{"col_timestamptz", "timestamptz", reflect.TypeOf(time.Time{}), true, false, false, 0, false, 0, 0},
+		{"col_timestamptz_null", "timestamptz", reflect.TypeOf(sql.NullTime{}), true, true, false, 0, false, 0, 0},
 		{"col_boolean", "boolean", reflect.TypeOf(true), true, false, false, 0, false, 0, 0},
-		{"col_array", "array(int)", reflect.TypeOf([]int32{}), true, false, true, math.MaxInt64, false, 0, 0},
-		{"col_decimal", "Decimal(38, 30)", reflect.TypeOf(decimal.Decimal{}), true, false, false, 0, true, 38, 30},
+		{"col_boolean_null", "boolean", reflect.TypeOf(sql.NullBool{}), true, true, false, 0, false, 0, 0},
+		{"col_array", "array(int)", reflect.TypeOf(rows.FireboltArray{}), true, false, true, math.MaxInt64, false, 0, 0},
+		{"col_array_null", "array(int)", reflect.TypeOf(rows.FireboltNullArray{}), true, true, true, math.MaxInt64, false, 0, 0},
+		{"col_decimal", "Decimal(38, 30)", reflect.TypeOf(rows.FireboltDecimal{}), true, false, false, 0, true, 38, 30},
+		{"col_decimal_null", "Decimal(38, 30)", reflect.TypeOf(rows.FireboltNullDecimal{}), true, true, false, 0, true, 38, 30},
 		{"col_bytea", "bytea", reflect.TypeOf([]byte{}), true, false, true, math.MaxInt64, false, 0, 0},
-		{"col_nullable", "text", reflect.TypeOf(""), true, true, true, math.MaxInt64, false, 0, 0},
+		{"col_bytea_null", "bytea", reflect.TypeOf(sql.Null[[]byte]{}), true, true, true, math.MaxInt64, false, 0, 0},
 	}
 	return res
 }
 
 // TestResponseMetadata is the same as for V2 but without new types (like geography)
 func TestResponseMetadata(t *testing.T) {
-	const selectAllTypesSQL = `
-       select 1                                                  as col_int,
-       30000000000                                               as col_long,
-       1.23::FLOAT4                                              as col_float,
-       1.23456789012                                             as col_double,
-       'text'                                                    as col_text,
-       '2021-03-28'::date                                        as col_date,
-       '2019-07-31 01:01:01'::timestamp                          as col_timestamp,
-       '1111-01-05 17:04:42.123456'::timestamptz                 as col_timestamptz,
-       true                                                      as col_boolean,
-       [1,2,3,4]                                                 as col_array,
-       '1231232.123459999990457054844258706536'::decimal(38, 30) as col_decimal,
-       'abc123'::bytea                                           as col_bytea,
-       null                                                      as col_nullable;`
+	// load selectAllTypesSQL from file
+	selectAllTypesSQL := utils.GetQueryFromFile("fixtures/all_types_query_v0.sql")
 
 	ctx := context.Background()
 	expectedColumnTypes := getExpectedColumnTypes()

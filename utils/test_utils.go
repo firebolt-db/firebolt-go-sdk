@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
+	"os"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -132,4 +133,12 @@ func RunInMemoryAndStream(t *testing.T, testCase func(t *testing.T, ctx context.
 	testName := getCallerFunctionName()
 	t.Run(testName+"InMemory", func(t *testing.T) { testCase(t, ctx) })
 	t.Run(testName+"Streaming", func(t *testing.T) { testCase(t, contextUtils.WithStreaming(ctx)) })
+}
+
+func GetQueryFromFile(fileName string) string {
+	query, err := os.ReadFile(fileName)
+	if err != nil {
+		panic(err)
+	}
+	return string(query)
 }
