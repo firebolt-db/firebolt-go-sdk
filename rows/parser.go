@@ -269,10 +269,10 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 		// Store decimals in FireboltNullDecimal, so that they are decomposable for scanning
 		if isNullableType {
 			res := FireboltNullDecimal{}
-			return res, res.Scan(val)
+			return &res, res.Scan(val)
 		} else {
 			res := FireboltDecimal{}
-			return res, res.Scan(val)
+			return &res, res.Scan(val)
 		}
 	} else if strings.HasPrefix(columnType, structPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		return parseStruct(columnType[len(structPrefix):len(columnType)-len(complexTypeSuffix)], val)

@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"fmt"
 	"math"
 	"reflect"
 	"runtime/debug"
@@ -115,19 +114,6 @@ func TestConnectionPreparedStatementV0(t *testing.T) {
 	}
 }
 
-type columnType struct {
-	Name              string
-	DatabaseTypeName  string
-	ScanType          reflect.Type
-	HasNullable       bool
-	Nullable          bool
-	HasLength         bool
-	Length            int64
-	HasPrecisionScale bool
-	Precision         int64
-	Scale             int64
-}
-
 func getExpectedColumnTypes() []columnType {
 	res := []columnType{
 		{"col_int", "int", reflect.TypeOf(int32(0)), true, false, false, 0, false, 0, 0},
@@ -158,50 +144,12 @@ func getExpectedColumnTypes() []columnType {
 	return res
 }
 
-// TestResponseMetadata is the same as for V2 but without new types (like geography)
+const allTypesSQLPath = "fixtures/all_types_query.sql"
+
 func TestResponseMetadata(t *testing.T) {
-	// load selectAllTypesSQL from file
-	selectAllTypesSQL := utils.GetQueryFromFile("fixtures/all_types_query_v0.sql")
+	testResponseMetadata(t, allTypesSQLPath, func(ctx context.Context) []columnType { return getExpectedColumnTypes() })
+}
 
-	ctx := context.Background()
-	expectedColumnTypes := getExpectedColumnTypes()
-
-	conn, err := sql.Open("firebolt", dsnMock)
-	if err != nil {
-		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
-		t.FailNow()
-	}
-
-	rows, err := conn.QueryContext(ctx, selectAllTypesSQL)
-	if err != nil {
-		t.Errorf(STATEMENT_ERROR_MSG, err)
-		t.FailNow()
-	}
-
-	if !rows.Next() {
-		t.Errorf("Next() call returned false with error: %v", rows.Err())
-		t.FailNow()
-	}
-
-	types, err := rows.ColumnTypes()
-	if err != nil {
-		t.Errorf("ColumnTypes returned an error, but shouldn't")
-		t.FailNow()
-	}
-
-	for i, ct := range types {
-		utils.AssertEqual(ct.Name(), expectedColumnTypes[i].Name, t, fmt.Sprintf("column name is not equal for column %s", ct.Name()))
-		utils.AssertEqual(ct.DatabaseTypeName(), expectedColumnTypes[i].DatabaseTypeName, t, fmt.Sprintf("database type name is not equal for column %s", ct.Name()))
-		utils.AssertEqual(ct.ScanType(), expectedColumnTypes[i].ScanType, t, fmt.Sprintf("scan type is not equal for column %s", ct.Name()))
-		nullable, ok := ct.Nullable()
-		utils.AssertEqual(ok, expectedColumnTypes[i].HasNullable, t, fmt.Sprintf("nullable ok is not equal for column %s", ct.Name()))
-		utils.AssertEqual(nullable, expectedColumnTypes[i].Nullable, t, fmt.Sprintf("nullable is not equal for column %s", ct.Name()))
-		length, ok := ct.Length()
-		utils.AssertEqual(ok, expectedColumnTypes[i].HasLength, t, fmt.Sprintf("length ok is not equal for column %s", ct.Name()))
-		utils.AssertEqual(length, expectedColumnTypes[i].Length, t, fmt.Sprintf("length is not equal for column %s", ct.Name()))
-		precision, scale, ok := ct.DecimalSize()
-		utils.AssertEqual(ok, expectedColumnTypes[i].HasPrecisionScale, t, fmt.Sprintf("precision scale ok is not equal for column %s", ct.Name()))
-		utils.AssertEqual(precision, expectedColumnTypes[i].Precision, t, fmt.Sprintf("precision is not equal for column %s", ct.Name()))
-		utils.AssertEqual(scale, expectedColumnTypes[i].Scale, t, fmt.Sprintf("scale is not equal for column %s", ct.Name()))
-	}
+func TestTypesScannable(t *testing.T) {
+	testTypesScannable(t, allTypesSQLPath)
 }
