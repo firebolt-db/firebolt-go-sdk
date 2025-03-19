@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
+	"os"
+	"reflect"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -19,12 +21,17 @@ import (
 const assertErrorMessage = "Expected: %v Got: %v"
 
 func AssertEqual(testVal interface{}, expectedVal interface{}, t *testing.T, err string) {
-	if m, ok := expectedVal.(map[string]driver.Value); ok {
+	if expectedVal == nil {
+		if testVal != nil {
+			t.Log(string(debug.Stack()))
+			t.Errorf(err+assertErrorMessage, expectedVal, testVal)
+		}
+	} else if m, ok := expectedVal.(map[string]driver.Value); ok {
 		assertMaps(testVal.(map[string]driver.Value), m, t, err)
-	} else if arr, ok := expectedVal.([]driver.Value); ok {
-		assertArrays(testVal.([]driver.Value), arr, t, err)
+	} else if reflect.TypeOf(expectedVal).Kind() == reflect.Slice {
+		assertArrays(testVal, expectedVal, t, err)
 	} else if d, ok := expectedVal.(decimal.Decimal); ok {
-		assertDecimal(testVal.(decimal.Decimal), d, t, err)
+		assertDecimal(testVal, d, t, err)
 	} else if b, ok := expectedVal.([]byte); ok {
 		assertByte(testVal.([]byte), b, t, err)
 	} else if date, ok := expectedVal.(time.Time); ok {
@@ -35,14 +42,20 @@ func AssertEqual(testVal interface{}, expectedVal interface{}, t *testing.T, err
 	}
 }
 
-func assertArrays(testVal []driver.Value, expectedVal []driver.Value, t *testing.T, err string) {
+func assertArrays(testVal any, expectedVal any, t *testing.T, err string) {
 	// manually
-	if len(testVal) != len(expectedVal) {
+	testValType := reflect.ValueOf(testVal)
+	expectedValType := reflect.ValueOf(expectedVal)
+	if testValType.Kind() != reflect.Slice || expectedValType.Kind() != reflect.Slice {
 		t.Log(string(debug.Stack()))
 		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}
-	for i, value := range expectedVal {
-		AssertEqual(testVal[i], value, t, err)
+	if testValType.Len() != expectedValType.Len() {
+		t.Log(string(debug.Stack()))
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
+	}
+	for i := 0; i < testValType.Len(); i++ {
+		AssertEqual(testValType.Index(i).Interface(), expectedValType.Index(i).Interface(), t, err)
 	}
 }
 
@@ -71,8 +84,30 @@ func assertByte(testVal []byte, expectedVal []byte, t *testing.T, err string) {
 	}
 }
 
-func assertDecimal(testVal decimal.Decimal, expectedVal decimal.Decimal, t *testing.T, err string) {
-	if !testVal.Equal(expectedVal) {
+type decimalEqualer interface {
+	Equal(decimal.Decimal) bool
+}
+
+type decimalGetter interface {
+	GetDecimal() *decimal.Decimal
+}
+
+func assertDecimal(testVal interface{}, expectedVal decimal.Decimal, t *testing.T, err string) {
+	var decimalTestVal decimalEqualer
+	if eq, ok := testVal.(decimalEqualer); ok {
+		decimalTestVal = eq
+	} else if dg, ok := testVal.(decimalGetter); ok {
+		dp := dg.GetDecimal()
+		if dp == nil {
+			t.Errorf(err+assertErrorMessage, expectedVal, testVal)
+			return
+		}
+		decimalTestVal = *dp
+	} else {
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
+		return
+	}
+	if !decimalTestVal.Equal(expectedVal) {
 		t.Log(string(debug.Stack()))
 		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}
@@ -110,4 +145,12 @@ func RunInMemoryAndStream(t *testing.T, testCase func(t *testing.T, ctx context.
 	testName := getCallerFunctionName()
 	t.Run(testName+"InMemory", func(t *testing.T) { testCase(t, ctx) })
 	t.Run(testName+"Streaming", func(t *testing.T) { testCase(t, contextUtils.WithStreaming(ctx)) })
+}
+
+func GetQueryFromFile(fileName string) string {
+	query, err := os.ReadFile(fileName)
+	if err != nil {
+		panic(err)
+	}
+	return string(query)
 }
