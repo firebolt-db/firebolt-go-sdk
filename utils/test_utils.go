@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"os"
+	"reflect"
 	"runtime"
 	"runtime/debug"
 	"strconv"
@@ -20,10 +21,15 @@ import (
 const assertErrorMessage = "Expected: %v Got: %v"
 
 func AssertEqual(testVal interface{}, expectedVal interface{}, t *testing.T, err string) {
-	if m, ok := expectedVal.(map[string]driver.Value); ok {
+	if expectedVal == nil {
+		if testVal != nil {
+			t.Log(string(debug.Stack()))
+			t.Errorf(err+assertErrorMessage, expectedVal, testVal)
+		}
+	} else if m, ok := expectedVal.(map[string]driver.Value); ok {
 		assertMaps(testVal.(map[string]driver.Value), m, t, err)
-	} else if arr, ok := expectedVal.([]driver.Value); ok {
-		assertArrays(testVal.([]driver.Value), arr, t, err)
+	} else if reflect.TypeOf(expectedVal).Kind() == reflect.Slice {
+		assertArrays(testVal, expectedVal, t, err)
 	} else if d, ok := expectedVal.(decimal.Decimal); ok {
 		assertDecimal(testVal, d, t, err)
 	} else if b, ok := expectedVal.([]byte); ok {
@@ -36,14 +42,20 @@ func AssertEqual(testVal interface{}, expectedVal interface{}, t *testing.T, err
 	}
 }
 
-func assertArrays(testVal []driver.Value, expectedVal []driver.Value, t *testing.T, err string) {
+func assertArrays(testVal any, expectedVal any, t *testing.T, err string) {
 	// manually
-	if len(testVal) != len(expectedVal) {
+	testValType := reflect.ValueOf(testVal)
+	expectedValType := reflect.ValueOf(expectedVal)
+	if testValType.Kind() != reflect.Slice || expectedValType.Kind() != reflect.Slice {
 		t.Log(string(debug.Stack()))
 		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}
-	for i, value := range expectedVal {
-		AssertEqual(testVal[i], value, t, err)
+	if testValType.Len() != expectedValType.Len() {
+		t.Log(string(debug.Stack()))
+		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
+	}
+	for i := 0; i < testValType.Len(); i++ {
+		AssertEqual(testValType.Index(i).Interface(), expectedValType.Index(i).Interface(), t, err)
 	}
 }
 

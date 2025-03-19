@@ -58,12 +58,12 @@ func TestFireboltNullStructScan(t *testing.T) {
 		t.Fatalf("Error scanning struct: %v", err)
 	}
 	for key, val := range value {
-		utils.AssertEqual(fs.Value[key], val, t, "Struct values do not match")
+		utils.AssertEqual(fs.Struct[key], val, t, "Struct values do not match")
 	}
-	utils.AssertEqual(fs.IsValid, true, t, "Struct is invalid")
+	utils.AssertEqual(fs.Valid, true, t, "Struct is invalid")
 
 	if err := fs.Scan(nil); err != nil {
 		t.Fatalf("Error scanning nil struct: %v", err)
 	}
-	utils.AssertEqual(fs.IsValid, false, t, "Struct is not invalid")
+	utils.AssertEqual(fs.Valid, false, t, "Struct is not invalid")
 }

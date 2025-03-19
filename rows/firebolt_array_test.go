@@ -42,11 +42,11 @@ func TestFireboltNullableArrayScan(t *testing.T) {
 		t.Fatalf("Error scanning array: %v", err)
 	}
 	for i, val := range value {
-		utils.AssertEqual(array.Value[i], val, t, "Array values do not match")
+		utils.AssertEqual(array.Array[i], val, t, "Array values do not match")
 	}
 
 	if err := array.Scan(nil); err != nil {
 		t.Fatalf("Error scanning nil array: %v", err)
 	}
-	utils.AssertEqual(array.IsValid, false, t, "Array is not invalid")
+	utils.AssertEqual(array.Valid, false, t, "Array is not invalid")
 }

@@ -25,16 +25,16 @@ func (fa *FireboltArray) Scan(src interface{}) error {
 }
 
 type FireboltNullArray struct {
-	Value   FireboltArray
-	IsValid bool
+	Array FireboltArray
+	Valid bool
 }
 
 // Scan implements the sql.Scanner interface.
 func (fna *FireboltNullArray) Scan(src interface{}) error {
 	if src == nil {
-		fna.IsValid = false
+		fna.Valid = false
 		return nil
 	}
-	fna.IsValid = true
-	return fna.Value.Scan(src)
+	fna.Valid = true
+	return fna.Array.Scan(src)
 }

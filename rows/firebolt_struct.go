@@ -24,15 +24,15 @@ func (fs *FireboltStruct) Scan(src interface{}) error {
 }
 
 type FireboltNullStruct struct {
-	Value   FireboltStruct
-	IsValid bool
+	Struct FireboltStruct
+	Valid  bool
 }
 
 func (fns *FireboltNullStruct) Scan(src interface{}) error {
 	if src == nil {
-		fns.IsValid = false
+		fns.Valid = false
 		return nil
 	}
-	fns.IsValid = true
-	return fns.Value.Scan(src)
+	fns.Valid = true
+	return fns.Struct.Scan(src)
 }
