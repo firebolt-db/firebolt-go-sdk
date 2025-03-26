@@ -351,13 +351,13 @@ func TestSelectBytea(t *testing.T) {
 		defer cleanup()
 
 		utils.AssertEqual(colTypes[0].ScanType(), reflect.TypeOf([]byte{}), t, "invalid scan type returned for bytea")
-		utils.AssertEqual(colTypes[1].ScanType(), reflect.TypeOf(sql.Null[[]byte]{}), t, "invalid scan type returned for nullable bytea")
-		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.Null[[]byte]{}), t, "invalid scan type returned for nullable bytea")
+		utils.AssertEqual(colTypes[1].ScanType(), reflect.TypeOf(rows.NullBytes{}), t, "invalid scan type returned for nullable bytea")
+		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(rows.NullBytes{}), t, "invalid scan type returned for nullable bytea")
 
 		utils.AssertEqual(*(ba.(*[]byte)), []byte("a"), t, "invalid value returned for bytea")
-		utils.AssertEqual(ba_null_not_null.(*sql.Null[[]byte]).Valid, true, t, "invalid value returned for nullable bytea")
-		utils.AssertEqual(ba_null_not_null.(*sql.Null[[]byte]).V, []byte("b"), t, "invalid value returned for nullable bytea")
-		utils.AssertEqual(ba_null_null.(*sql.Null[[]byte]).Valid, false, t, "invalid value returned for nullable bytea")
+		utils.AssertEqual(ba_null_not_null.(*rows.NullBytes).Valid, true, t, "invalid value returned for nullable bytea")
+		utils.AssertEqual(ba_null_not_null.(*rows.NullBytes).Bytes, []byte("b"), t, "invalid value returned for nullable bytea")
+		utils.AssertEqual(ba_null_null.(*rows.NullBytes).Valid, false, t, "invalid value returned for nullable bytea")
 	})
 }
 

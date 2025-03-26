@@ -139,7 +139,7 @@ func getExpectedColumnTypes() []columnType {
 		{"col_decimal", "Decimal(38, 30)", reflect.TypeOf(rows.FireboltDecimal{}), true, false, false, 0, true, 38, 30},
 		{"col_decimal_null", "Decimal(38, 30)", reflect.TypeOf(rows.FireboltNullDecimal{}), true, true, false, 0, true, 38, 30},
 		{"col_bytea", "bytea", reflect.TypeOf([]byte{}), true, false, true, math.MaxInt64, false, 0, 0},
-		{"col_bytea_null", "bytea", reflect.TypeOf(sql.Null[[]byte]{}), true, true, true, math.MaxInt64, false, 0, 0},
+		{"col_bytea_null", "bytea", reflect.TypeOf(rows.NullBytes{}), true, true, true, math.MaxInt64, false, 0, 0},
 	}
 	return res
 }
