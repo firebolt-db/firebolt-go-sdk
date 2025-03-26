@@ -92,7 +92,7 @@ func parseNullablePrimitiveType(columnType string) (fireboltType, error) {
 	case dateType, pgDateType, timestampType, timestampNtzType, timestampTzType:
 		primitiveType = reflect.TypeOf(sql.NullTime{})
 	case byteaType:
-		primitiveType = reflect.TypeOf(sql.Null[[]byte]{})
+		primitiveType = reflect.TypeOf(NullBytes{})
 		length = math.MaxInt64
 	case booleanType:
 		primitiveType = reflect.TypeOf(sql.NullBool{})

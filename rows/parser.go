@@ -239,7 +239,7 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 		trimmedString := strings.TrimPrefix(val.(string), "\\x")
 		decoded, err := hex.DecodeString(trimmedString)
 		if err != nil {
-			return nil, fmt.Errorf("Unable to parse to hex value: %v", val)
+			return nil, fmt.Errorf("unable to parse to hex value: %v", val)
 		}
 		return decoded, nil
 	}
