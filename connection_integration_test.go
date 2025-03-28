@@ -325,6 +325,7 @@ func TestConnectionQueryGeographyType(t *testing.T) {
 func queryStruct(t *testing.T) *sql.Rows {
 	setupSQL := []string{
 		"SET advanced_mode=1",
+		"SET enable_struct=true",
 		"SET enable_create_table_v2=true",
 		"SET enable_struct_syntax=true",
 		"SET prevent_create_on_information_schema=true",

@@ -144,7 +144,7 @@ func getExpectedColumnTypes() []columnType {
 	return res
 }
 
-const allTypesSQLPath = "fixtures/all_types_query.sql"
+const allTypesSQLPath = "fixtures/all_types_query_v0.sql"
 
 func TestResponseMetadata(t *testing.T) {
 	testResponseMetadata(t, allTypesSQLPath, func(ctx context.Context) []columnType { return getExpectedColumnTypes() })
