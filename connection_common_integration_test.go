@@ -26,6 +26,7 @@ const NEXT_STATEMENT_ERROR_MSG = "Next() call returned false"
 const SCAN_STATEMENT_ERROR_MSG = "firebolt rows Scan() call failed with %v"
 const VALUES_ARE_NOT_EQUAL_ERROR_MSG = "values are not equal: %v and %v\n"
 const RESULTS_ARE_NOT_EQUAL_ERROR_MSG = "results are not equal "
+const NEXT_CALL_ERROR = "Next() call returned false with error: %v"
 
 var longTestValue int = 350000000000 // default value
 
@@ -458,7 +459,7 @@ func TestStreamMultipleDataBlocks(t *testing.T) {
 
 	for i := 0; i <= rowCount; i++ {
 		if !rows.Next() {
-			t.Errorf("Next() call returned false with error: %v", rows.Err())
+			t.Errorf(NEXT_CALL_ERROR, rows.Err())
 			t.FailNow()
 		}
 		err = rows.Scan(&dest)
@@ -472,4 +473,97 @@ func TestStreamMultipleDataBlocks(t *testing.T) {
 		t.Errorf("Next() call returned true, but it should return false")
 	}
 
+}
+
+type columnType struct {
+	Name              string
+	DatabaseTypeName  string
+	ScanType          reflect.Type
+	HasNullable       bool
+	Nullable          bool
+	HasLength         bool
+	Length            int64
+	HasPrecisionScale bool
+	Precision         int64
+	Scale             int64
+}
+
+func queryAllTypes(t *testing.T, ctx context.Context, filePath string) *sql.Rows {
+	selectAllTypesSQL := utils.GetQueryFromFile(filePath)
+
+	conn, err := sql.Open("firebolt", dsnMock)
+	if err != nil {
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
+		t.FailNow()
+	}
+
+	rows, err := conn.QueryContext(ctx, selectAllTypesSQL)
+	if err != nil {
+		t.Errorf(STATEMENT_ERROR_MSG, err)
+		t.FailNow()
+	}
+	return rows
+}
+
+func testResponseMetadata(t *testing.T, allTypesSQLPath string, expectedColumnTypesGetter func(ctx context.Context) []columnType) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		rows := queryAllTypes(t, ctx, allTypesSQLPath)
+		expectedColumnTypes := expectedColumnTypesGetter(ctx)
+
+		if !rows.Next() {
+			t.Errorf(NEXT_CALL_ERROR, rows.Err())
+			t.FailNow()
+		}
+
+		types, err := rows.ColumnTypes()
+		if err != nil {
+			t.Errorf("ColumnTypes returned an error, but shouldn't")
+			t.FailNow()
+		}
+
+		for i, ct := range types {
+			utils.AssertEqual(ct.Name(), expectedColumnTypes[i].Name, t, fmt.Sprintf("column name is not equal for column %s", ct.Name()))
+			utils.AssertEqual(ct.DatabaseTypeName(), expectedColumnTypes[i].DatabaseTypeName, t, fmt.Sprintf("database type name is not equal for column %s", ct.Name()))
+			utils.AssertEqual(ct.ScanType(), expectedColumnTypes[i].ScanType, t, fmt.Sprintf("scan type is not equal for column %s", ct.Name()))
+			nullable, ok := ct.Nullable()
+			utils.AssertEqual(ok, expectedColumnTypes[i].HasNullable, t, fmt.Sprintf("nullable ok is not equal for column %s", ct.Name()))
+			utils.AssertEqual(nullable, expectedColumnTypes[i].Nullable, t, fmt.Sprintf("nullable is not equal for column %s", ct.Name()))
+			length, ok := ct.Length()
+			utils.AssertEqual(ok, expectedColumnTypes[i].HasLength, t, fmt.Sprintf("length ok is not equal for column %s", ct.Name()))
+			utils.AssertEqual(length, expectedColumnTypes[i].Length, t, fmt.Sprintf("length is not equal for column %s", ct.Name()))
+			precision, scale, ok := ct.DecimalSize()
+			utils.AssertEqual(ok, expectedColumnTypes[i].HasPrecisionScale, t, fmt.Sprintf("precision scale ok is not equal for column %s", ct.Name()))
+			utils.AssertEqual(precision, expectedColumnTypes[i].Precision, t, fmt.Sprintf("precision is not equal for column %s", ct.Name()))
+			utils.AssertEqual(scale, expectedColumnTypes[i].Scale, t, fmt.Sprintf("scale is not equal for column %s", ct.Name()))
+		}
+
+	})
+}
+
+func testTypesScannable(t *testing.T, allTypesSQLPath string) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		rows := queryAllTypes(t, ctx, allTypesSQLPath)
+
+		if !rows.Next() {
+			t.Errorf(NEXT_CALL_ERROR, rows.Err())
+			t.FailNow()
+		}
+
+		types, err := rows.ColumnTypes()
+		if err != nil {
+			t.Errorf("ColumnTypes returned an error, but shouldn't")
+			t.FailNow()
+		}
+
+		dest := make([]interface{}, len(types))
+
+		for i := range types {
+			dest[i] = reflect.New(types[i].ScanType()).Interface()
+		}
+
+		if err = rows.Scan(dest...); err != nil {
+			t.Errorf("Scanning all types failed with %v", err)
+			t.FailNow()
+		}
+	})
 }

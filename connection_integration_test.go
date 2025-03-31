@@ -14,6 +14,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/firebolt-db/firebolt-go-sdk/rows"
+
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 
@@ -320,9 +322,10 @@ func TestConnectionQueryGeographyType(t *testing.T) {
 	}
 }
 
-func TestConnectionQueryStructType(t *testing.T) {
+func queryStruct(t *testing.T) *sql.Rows {
 	setupSQL := []string{
 		"SET advanced_mode=1",
+		"SET enable_struct=true",
 		"SET enable_create_table_v2=true",
 		"SET enable_struct_syntax=true",
 		"SET prevent_create_on_information_schema=true",
@@ -360,11 +363,16 @@ func TestConnectionQueryStructType(t *testing.T) {
 		t.Errorf(STATEMENT_ERROR_MSG, err)
 		t.FailNow()
 	}
+	return rows
+}
+
+func TestConnectionQueryStructType(t *testing.T) {
+	rows := queryStruct(t)
 
 	var dest map[string]driver.Value
 
 	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
-	if err = rows.Scan(&dest); err != nil {
+	if err := rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 
@@ -378,6 +386,32 @@ func TestConnectionQueryStructType(t *testing.T) {
 
 }
 
+func TestConnectionStructTypeScannable(t *testing.T) {
+	rows := queryStruct(t)
+
+	colTypes, err := rows.ColumnTypes()
+	if err != nil {
+		t.Errorf("ColumnTypes failed with %v", err)
+		t.FailNow()
+	}
+
+	dest := reflect.New(colTypes[0].ScanType()).Interface()
+
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	if err := rows.Scan(&dest); err != nil {
+		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
+	}
+
+	utils.AssertEqual(dest, map[string]driver.Value{
+		"id": int32(1),
+		"s": map[string]driver.Value{
+			"a": []driver.Value{int32(1), int32(2)},
+			"b": time.Date(2019, 7, 31, 1, 1, 1, 0, time.UTC),
+		},
+	}, t, "struct type was scanned incorrectly")
+
+}
+
 func TestConnectionQuotedDecimal(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
@@ -387,123 +421,76 @@ func TestConnectionQuotedDecimal(t *testing.T) {
 
 	sql := "SELECT 12345678901234567890123456789.123456789::decimal(38, 9)"
 
-	rows, err := conn.QueryContext(context.TODO(), sql)
+	res, err := conn.QueryContext(context.TODO(), sql)
 	if err != nil {
 		t.Errorf(STATEMENT_ERROR_MSG, err)
 	}
 
 	var dest driver.Value
 
-	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
-	if err = rows.Scan(&dest); err != nil {
+	utils.AssertEqual(res.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	if err = res.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 	}
 	expected, _ := decimal.NewFromString("12345678901234567890123456789.123456789")
-	if !expected.Equal(dest.(decimal.Decimal)) {
+	if !expected.Equal(dest.(*rows.FireboltDecimal).Decimal) {
 		t.Errorf("Quoted decimal check failed Expected: %s Got: %s", expected, dest)
 	}
-}
-
-type columnType struct {
-	Name              string
-	DatabaseTypeName  string
-	ScanType          reflect.Type
-	HasNullable       bool
-	Nullable          bool
-	HasLength         bool
-	Length            int64
-	HasPrecisionScale bool
-	Precision         int64
-	Scale             int64
 }
 
 func getExpectedColumnTypes(isStreaming bool) []columnType {
 	res := []columnType{
 		{"col_int", "int", reflect.TypeOf(int32(0)), true, false, false, 0, false, 0, 0},
+		{"col_int_null", "int", reflect.TypeOf(sql.NullInt32{}), true, true, false, 0, false, 0, 0},
 		{"col_long", "long", reflect.TypeOf(int64(0)), true, false, false, 0, false, 0, 0},
+		{"col_long_null", "long", reflect.TypeOf(sql.NullInt64{}), true, true, false, 0, false, 0, 0},
 		{"col_float", "float", reflect.TypeOf(float32(0)), true, false, false, 0, false, 0, 0},
+		{"col_float_null", "float", reflect.TypeOf(sql.NullFloat64{}), true, true, false, 0, false, 0, 0},
 		{"col_double", "double", reflect.TypeOf(float64(0)), true, false, false, 0, false, 0, 0},
+		{"col_double_null", "double", reflect.TypeOf(sql.NullFloat64{}), true, true, false, 0, false, 0, 0},
 		{"col_text", "text", reflect.TypeOf(""), true, false, true, math.MaxInt64, false, 0, 0},
+		{"col_text_null", "text", reflect.TypeOf(sql.NullString{}), true, true, true, math.MaxInt64, false, 0, 0},
 		{"col_date", "date", reflect.TypeOf(time.Time{}), true, false, false, 0, false, 0, 0},
+		{"col_date_null", "date", reflect.TypeOf(sql.NullTime{}), true, true, false, 0, false, 0, 0},
 		{"col_timestamp", "timestamp", reflect.TypeOf(time.Time{}), true, false, false, 0, false, 0, 0},
+		{"col_timestamp_null", "timestamp", reflect.TypeOf(sql.NullTime{}), true, true, false, 0, false, 0, 0},
 		{"col_timestamptz", "timestamptz", reflect.TypeOf(time.Time{}), true, false, false, 0, false, 0, 0},
+		{"col_timestamptz_null", "timestamptz", reflect.TypeOf(sql.NullTime{}), true, true, false, 0, false, 0, 0},
 		{"col_boolean", "boolean", reflect.TypeOf(true), true, false, false, 0, false, 0, 0},
-		{"col_array", "array(int)", reflect.TypeOf([]int32{}), true, false, true, math.MaxInt64, false, 0, 0},
-		{"col_decimal", "Decimal(38, 30)", reflect.TypeOf(decimal.Decimal{}), true, false, false, 0, true, 38, 30},
+		{"col_boolean_null", "boolean", reflect.TypeOf(sql.NullBool{}), true, true, false, 0, false, 0, 0},
+		{"col_array", "array(int)", reflect.TypeOf(rows.FireboltArray{}), true, false, true, math.MaxInt64, false, 0, 0},
+		{"col_array_null", "array(int)", reflect.TypeOf(rows.FireboltNullArray{}), true, true, true, math.MaxInt64, false, 0, 0},
+		{"col_decimal", "Decimal(38, 30)", reflect.TypeOf(rows.FireboltDecimal{}), true, false, false, 0, true, 38, 30},
+		{"col_decimal_null", "Decimal(38, 30)", reflect.TypeOf(rows.FireboltNullDecimal{}), true, true, false, 0, true, 38, 30},
 		{"col_bytea", "bytea", reflect.TypeOf([]byte{}), true, false, true, math.MaxInt64, false, 0, 0},
+		{"col_bytea_null", "bytea", reflect.TypeOf(rows.NullBytes{}), true, true, true, math.MaxInt64, false, 0, 0},
 		{"col_geography", "geography", reflect.TypeOf(""), true, false, false, 0, false, 0, 0},
-		{"col_nullable", "text", reflect.TypeOf(""), true, true, true, math.MaxInt64, false, 0, 0},
+		{"col_geography_null", "geography", reflect.TypeOf(sql.NullString{}), true, true, false, 0, false, 0, 0},
 	}
 	// Some types are returned by different alias from database when streaming
 	if isStreaming {
 		res[0].DatabaseTypeName = "integer"
-		res[1].DatabaseTypeName = "bigint"
-		res[2].DatabaseTypeName = "real"
-		res[3].DatabaseTypeName = "double precision"
-		res[9].DatabaseTypeName = "array(integer)"
-		res[10].DatabaseTypeName = "numeric(38, 30)"
+		res[1].DatabaseTypeName = "integer"
+		res[2].DatabaseTypeName = "bigint"
+		res[3].DatabaseTypeName = "bigint"
+		res[4].DatabaseTypeName = "real"
+		res[5].DatabaseTypeName = "real"
+		res[6].DatabaseTypeName = "double precision"
+		res[7].DatabaseTypeName = "double precision"
+		res[18].DatabaseTypeName = "array(integer)"
+		res[19].DatabaseTypeName = "array(integer)"
+		res[20].DatabaseTypeName = "numeric(38, 30)"
+		res[21].DatabaseTypeName = "numeric(38, 30)"
 	}
 	return res
 }
 
+const allTypesSQLPath = "fixtures/all_types_query.sql"
+
 func TestResponseMetadata(t *testing.T) {
-	const selectAllTypesSQL = `
-       select 1                                                  as col_int,
-       30000000000                                               as col_long,
-       1.23::FLOAT4                                              as col_float,
-       1.23456789012                                             as col_double,
-       'text'                                                    as col_text,
-       '2021-03-28'::date                                        as col_date,
-       '2019-07-31 01:01:01'::timestamp                          as col_timestamp,
-       '1111-01-05 17:04:42.123456'::timestamptz                 as col_timestamptz,
-       true                                                      as col_boolean,
-       [1,2,3,4]                                                 as col_array,
-       '1231232.123459999990457054844258706536'::decimal(38, 30) as col_decimal,
-       'abc123'::bytea                                           as col_bytea,
-       'point(1 2)'::geography                                   as col_geography,
-       null                                                      as col_nullable;`
+	testResponseMetadata(t, allTypesSQLPath, func(ctx context.Context) []columnType { return getExpectedColumnTypes(contextUtils.IsStreaming(ctx)) })
+}
 
-	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		expectedColumnTypes := getExpectedColumnTypes(contextUtils.IsStreaming(ctx))
-
-		conn, err := sql.Open("firebolt", dsnMock)
-		if err != nil {
-			t.Errorf(OPEN_CONNECTION_ERROR_MSG)
-			t.FailNow()
-		}
-
-		rows, err := conn.QueryContext(ctx, selectAllTypesSQL)
-		if err != nil {
-			t.Errorf(STATEMENT_ERROR_MSG, err)
-			t.FailNow()
-		}
-
-		if !rows.Next() {
-			t.Errorf("Next() call returned false with error: %v", rows.Err())
-			t.FailNow()
-		}
-
-		types, err := rows.ColumnTypes()
-		if err != nil {
-			t.Errorf("ColumnTypes returned an error, but shouldn't")
-			t.FailNow()
-		}
-
-		for i, ct := range types {
-			utils.AssertEqual(ct.Name(), expectedColumnTypes[i].Name, t, fmt.Sprintf("column name is not equal for column %s", ct.Name()))
-			utils.AssertEqual(ct.DatabaseTypeName(), expectedColumnTypes[i].DatabaseTypeName, t, fmt.Sprintf("database type name is not equal for column %s", ct.Name()))
-			utils.AssertEqual(ct.ScanType(), expectedColumnTypes[i].ScanType, t, fmt.Sprintf("scan type is not equal for column %s", ct.Name()))
-			nullable, ok := ct.Nullable()
-			utils.AssertEqual(ok, expectedColumnTypes[i].HasNullable, t, fmt.Sprintf("nullable ok is not equal for column %s", ct.Name()))
-			utils.AssertEqual(nullable, expectedColumnTypes[i].Nullable, t, fmt.Sprintf("nullable is not equal for column %s", ct.Name()))
-			length, ok := ct.Length()
-			utils.AssertEqual(ok, expectedColumnTypes[i].HasLength, t, fmt.Sprintf("length ok is not equal for column %s", ct.Name()))
-			utils.AssertEqual(length, expectedColumnTypes[i].Length, t, fmt.Sprintf("length is not equal for column %s", ct.Name()))
-			precision, scale, ok := ct.DecimalSize()
-			utils.AssertEqual(ok, expectedColumnTypes[i].HasPrecisionScale, t, fmt.Sprintf("precision scale ok is not equal for column %s", ct.Name()))
-			utils.AssertEqual(precision, expectedColumnTypes[i].Precision, t, fmt.Sprintf("precision is not equal for column %s", ct.Name()))
-			utils.AssertEqual(scale, expectedColumnTypes[i].Scale, t, fmt.Sprintf("scale is not equal for column %s", ct.Name()))
-		}
-
-	})
+func TestTypesScannable(t *testing.T) {
+	testTypesScannable(t, allTypesSQLPath)
 }

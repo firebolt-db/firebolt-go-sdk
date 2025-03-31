@@ -48,6 +48,6 @@ jobs:
           ACCOUNT_NAME: "firebolt"
           SERVICE_ACCOUNT_CLIENT_ID: ${{ secrets.SERVICE_ID_STG }}
           SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.SERVICE_SECRET_STG }}
-          LONG_TEST_VALUE: ${{ vars.LONG_TEST_VALUE }}
+          LONG_TEST_VALUE: ${{ vars.LONG_TEST_VALUE_V0 }}
         run: |
           go test ./... -timeout=30m -v --tags=integration_v0
