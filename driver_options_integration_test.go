@@ -208,7 +208,7 @@ func TestFireboltConnectorWithOptionsInvalidToken(t *testing.T) {
 		t.Errorf("expected to fail with invalid token")
 		t.FailNow()
 	}
-	if !errors.Is(err, errorUtils.UnauthorizedError) {
+	if !errors.Is(err, errorUtils.AuthorizationError) {
 		t.Errorf("expected to fail with unauthorized error, got: %v", err)
 	}
 }

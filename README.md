@@ -149,11 +149,11 @@ func main() {
 	}()
 
 	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
+		var data string
+		if err := rows.Scan(&data); err != nil {
 			log.Fatalf("error during scan: %v", err)
 		}
-		log.Print(id)
+		log.Print(data)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -165,6 +165,83 @@ func main() {
 #### Errors in streaming
 If you enable streaming the result, the query execution might finish successfully, but the actual error might be returned during the iteration over the rows.
 
+### Error handling
+The SDK provides specific error types that can be checked using Go's `errors.Is()` function. Here's how to handle different types of errors:
+
+```go
+package main
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"log"
+
+	_ "github.com/firebolt-db/firebolt-go-sdk"
+	fireboltErrors "github.com/firebolt-db/firebolt-go-sdk/errors"
+)
+
+func main() {
+	// set your Firebolt credentials to construct a dsn string
+	clientId := ""
+	clientSecret := ""
+	accountName := ""
+	databaseName := ""
+	engineName := ""
+
+	// Example 1: Invalid DSN format (using account-name instead of account_name)
+	invalidDSN := fmt.Sprintf("firebolt:///%s?account-name=%s&client_id=%s&client_secret=%s&engine=%s",
+		databaseName, accountName, clientId, clientSecret, engineName)
+	db, err := sql.Open("firebolt", invalidDSN)
+	if err != nil {
+		if errors.Is(err, fireboltErrors.DSNParseError) {
+			log.Println("Invalid DSN format, please update your DSN and try again")
+		} else {
+			log.Fatalf("Unexpected error type: %v", err)
+		}
+	}
+
+	// Example 2: Invalid credentials
+	invalidCredsDSN := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
+		databaseName, accountName, "invalid", "invalid", engineName)
+	db, err = sql.Open("firebolt", invalidCredsDSN)
+	if err != nil {
+		if errors.Is(err, fireboltErrors.AuthenticationError) {
+			log.Println("Authentication error. Please check your credentials and try again")
+		} else {
+			log.Fatalf("Unexpected error type: %v", err)
+		}
+	}
+
+	// Example 3: Invalid SQL query
+	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
+		databaseName, accountName, clientId, clientSecret, engineName)
+	db, err = sql.Open("firebolt", dsn)
+	if err != nil {
+		log.Fatalf("Failed to open connection: %v", err)
+	}
+	defer db.Close()
+
+	// Try to execute an invalid SQL query
+	_, err = db.Query("SELECT * FROM non_existent_table")
+	if err != nil {
+		if errors.Is(err, fireboltErrors.QueryExecutionError) {
+			log.Printf("Error during query execution. Please fix your SQL query and try again")
+		} else {
+			log.Fatalf("Unexpected error type: %v", err)
+		}
+	}
+}
+```
+
+The SDK provides the following error types:
+- `DSNParseError`: When the DSN string format is invalid
+- `AuthenticationError`: When credentials are invalid or authentication fails
+- `QueryExecutionError`: When a SQL query fails to execute
+- `AuthorizationError`: When the user doesn't have permission to perform an action
+- `SystemEngineResolutionError`: When there's an error getting the system engine URL
+
+Each error type can be checked using `errors.Is(err, errorType)`. This allows for specific error handling based on the type of error encountered.
 
 ### Limitations
 Although, all interfaces are available, not all of them are implemented or could be implemented:
