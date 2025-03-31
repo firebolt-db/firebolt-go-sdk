@@ -142,17 +142,6 @@ func TestDriverOpenConnection(t *testing.T) {
 	}
 }
 
-func runTestDriverExecStatement(t *testing.T, dsn string) {
-	db, err := sql.Open("firebolt", dsn)
-	if err != nil {
-		t.Errorf("failed unexpectedly")
-	}
-
-	if _, err = db.Exec("SELECT 1"); err != nil {
-		t.Errorf("connection is not established correctly")
-	}
-}
-
 // TestDriverOpenEngineUrl checks opening connector with a default engine
 func TestDriverOpenEngineUrl(t *testing.T) {
 	runTestDriverExecStatement(t, dsnEngineUrlMock)
@@ -166,4 +155,9 @@ func TestDriverOpenDefaultEngine(t *testing.T) {
 // TestDriverExecStatement checks exec with full dsn
 func TestDriverExecStatement(t *testing.T) {
 	runTestDriverExecStatement(t, dsnMock)
+}
+
+func TestDriverInvalidAuthError(t *testing.T) {
+	dsn := fmt.Sprintf("firebolt://%s:%s@%s/%s?account_name=%s", "invalid", "invalid", databaseMock, engineNameMock, accountNameMock)
+	runTestDriverInvalidAuthError(t, dsn)
 }
