@@ -58,10 +58,10 @@ func runSetupAndSelect(t *testing.T, ctx context.Context, setupQueries []string,
 	defer rows.Close()
 
 	val := reflect.New(colTypes[0].ScanType()).Interface()
-	val_null_not_null := reflect.New(colTypes[1].ScanType()).Interface()
-	val_null_null := reflect.New(colTypes[2].ScanType()).Interface()
+	valNullNotNull := reflect.New(colTypes[1].ScanType()).Interface()
+	valNullNull := reflect.New(colTypes[2].ScanType()).Interface()
 
-	if err := rows.Scan(val, val_null_not_null, val_null_null); err != nil {
+	if err := rows.Scan(val, valNullNotNull, valNullNull); err != nil {
 		t.Errorf(scanErrorMessage)
 		t.FailNow()
 	}
@@ -76,12 +76,12 @@ func runSetupAndSelect(t *testing.T, ctx context.Context, setupQueries []string,
 		conn.Close()
 	}
 
-	return val, val_null_not_null, val_null_null, colTypes, cleanup
+	return val, valNullNotNull, valNullNull, colTypes, cleanup
 }
 
 func TestSelectInt(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		i, i_null_not_null, i_null_null, colTypes, cleanup := runSetupAndSelect(
+		i, iNullNotNull, iNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_int (i INT NOT NULL, i_n INT NULL, i_nn INT NULL) PRIMARY INDEX i",
@@ -99,15 +99,15 @@ func TestSelectInt(t *testing.T) {
 
 		utils.AssertEqual(*(i.(*int32)), int32(1), t, "invalid value returned for int")
 		const errMsg = "invalid value returned for nullable int"
-		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Valid, true, t, errMsg)
-		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Int32, int32(2), t, errMsg)
-		utils.AssertEqual(i_null_null.(*sql.NullInt32).Valid, false, t, errMsg)
+		utils.AssertEqual(iNullNotNull.(*sql.NullInt32).Valid, true, t, errMsg)
+		utils.AssertEqual(iNullNotNull.(*sql.NullInt32).Int32, int32(2), t, errMsg)
+		utils.AssertEqual(iNullNull.(*sql.NullInt32).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectLong(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		l, l_null_not_null, l_null_null, colTypes, cleanup := runSetupAndSelect(
+		l, lNullNotNull, lNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_long (l LONG NOT NULL, l_n LONG NULL, l_nn LONG NULL) PRIMARY INDEX l",
@@ -125,15 +125,15 @@ func TestSelectLong(t *testing.T) {
 
 		utils.AssertEqual(*(l.(*int64)), int64(1), t, "invalid value returned for long")
 		const errMsg = "invalid value returned for nullable long"
-		utils.AssertEqual(l_null_not_null.(*sql.NullInt64).Valid, true, t, errMsg)
-		utils.AssertEqual(l_null_not_null.(*sql.NullInt64).Int64, int64(2), t, errMsg)
-		utils.AssertEqual(l_null_null.(*sql.NullInt64).Valid, false, t, errMsg)
+		utils.AssertEqual(lNullNotNull.(*sql.NullInt64).Valid, true, t, errMsg)
+		utils.AssertEqual(lNullNotNull.(*sql.NullInt64).Int64, int64(2), t, errMsg)
+		utils.AssertEqual(lNullNull.(*sql.NullInt64).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectFloat4(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		f, f_null_not_null, f_null_null, colTypes, cleanup := runSetupAndSelect(
+		f, fNullNotNull, fNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_float4 (f FLOAT4 NOT NULL, f_n FLOAT4 NULL, f_nn FLOAT4 NULL) PRIMARY INDEX f",
@@ -151,15 +151,15 @@ func TestSelectFloat4(t *testing.T) {
 
 		utils.AssertEqual(*(f.(*float32)), float32(1), t, "invalid value returned for float4")
 		const errMsg = "invalid value returned for nullable float4"
-		utils.AssertEqual(f_null_not_null.(*sql.NullFloat64).Valid, true, t, errMsg)
-		utils.AssertEqual(f_null_not_null.(*sql.NullFloat64).Float64, float64(2), t, errMsg)
-		utils.AssertEqual(f_null_null.(*sql.NullFloat64).Valid, false, t, errMsg)
+		utils.AssertEqual(fNullNotNull.(*sql.NullFloat64).Valid, true, t, errMsg)
+		utils.AssertEqual(fNullNotNull.(*sql.NullFloat64).Float64, float64(2), t, errMsg)
+		utils.AssertEqual(fNullNull.(*sql.NullFloat64).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectDouble(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		d, d_null_not_null, d_null_null, colTypes, cleanup := runSetupAndSelect(
+		d, dNullNotNull, dNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_double (d DOUBLE NOT NULL, d_n DOUBLE NULL, d_nn DOUBLE NULL) PRIMARY INDEX d",
@@ -177,15 +177,15 @@ func TestSelectDouble(t *testing.T) {
 
 		utils.AssertEqual(*(d.(*float64)), float64(1), t, "invalid value returned for double")
 		const errMsg = "invalid value returned for nullable double"
-		utils.AssertEqual(d_null_not_null.(*sql.NullFloat64).Valid, true, t, errMsg)
-		utils.AssertEqual(d_null_not_null.(*sql.NullFloat64).Float64, float64(2), t, errMsg)
-		utils.AssertEqual(d_null_null.(*sql.NullFloat64).Valid, false, t, errMsg)
+		utils.AssertEqual(dNullNotNull.(*sql.NullFloat64).Valid, true, t, errMsg)
+		utils.AssertEqual(dNullNotNull.(*sql.NullFloat64).Float64, float64(2), t, errMsg)
+		utils.AssertEqual(dNullNull.(*sql.NullFloat64).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectText(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		tt, tt_null_not_null, tt_null_null, colTypes, cleanup := runSetupAndSelect(
+		tt, ttNullNotNull, ttNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_text (t TEXT NOT NULL, t_n TEXT NULL, t_nn TEXT NULL) PRIMARY INDEX t",
@@ -203,15 +203,15 @@ func TestSelectText(t *testing.T) {
 
 		utils.AssertEqual(*(tt.(*string)), "a", t, "invalid value returned for text")
 		const errMsg = "invalid value returned for nullable text"
-		utils.AssertEqual(tt_null_not_null.(*sql.NullString).Valid, true, t, errMsg)
-		utils.AssertEqual(tt_null_not_null.(*sql.NullString).String, "b", t, errMsg)
-		utils.AssertEqual(tt_null_null.(*sql.NullString).Valid, false, t, errMsg)
+		utils.AssertEqual(ttNullNotNull.(*sql.NullString).Valid, true, t, errMsg)
+		utils.AssertEqual(ttNullNotNull.(*sql.NullString).String, "b", t, errMsg)
+		utils.AssertEqual(ttNullNull.(*sql.NullString).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectDate(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		d, d_null_not_null, d_null_null, colTypes, cleanup := runSetupAndSelect(
+		d, dNullNotNull, dNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_date (d DATE NOT NULL, d_n DATE NULL, d_nn DATE NULL) PRIMARY INDEX d",
@@ -229,15 +229,15 @@ func TestSelectDate(t *testing.T) {
 
 		utils.AssertEqual(*(d.(*time.Time)), time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC), t, "invalid value returned for date")
 		const errMsg = "invalid value returned for nullable date"
-		utils.AssertEqual(d_null_not_null.(*sql.NullTime).Valid, true, t, errMsg)
-		utils.AssertEqual(d_null_not_null.(*sql.NullTime).Time, time.Date(2021, 1, 2, 0, 0, 0, 0, time.UTC), t, errMsg)
-		utils.AssertEqual(d_null_null.(*sql.NullTime).Valid, false, t, errMsg)
+		utils.AssertEqual(dNullNotNull.(*sql.NullTime).Valid, true, t, errMsg)
+		utils.AssertEqual(dNullNotNull.(*sql.NullTime).Time, time.Date(2021, 1, 2, 0, 0, 0, 0, time.UTC), t, errMsg)
+		utils.AssertEqual(dNullNull.(*sql.NullTime).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectTimestamp(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		ts, ts_null_not_null, ts_null_null, colTypes, cleanup := runSetupAndSelect(
+		ts, tsNullNotNull, tsNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_timestamp (ts TIMESTAMP NOT NULL, ts_n TIMESTAMP NULL, ts_nn TIMESTAMP NULL) PRIMARY INDEX ts",
@@ -255,15 +255,15 @@ func TestSelectTimestamp(t *testing.T) {
 
 		utils.AssertEqual(*(ts.(*time.Time)), time.Date(2021, 1, 1, 10, 1, 0, 0, time.UTC), t, "invalid value returned for timestamp")
 		const errMsg = "invalid value returned for nullable timestamp"
-		utils.AssertEqual(ts_null_not_null.(*sql.NullTime).Valid, true, t, errMsg)
-		utils.AssertEqual(ts_null_not_null.(*sql.NullTime).Time, time.Date(2021, 1, 2, 10, 1, 0, 0, time.UTC), t, errMsg)
-		utils.AssertEqual(ts_null_null.(*sql.NullTime).Valid, false, t, errMsg)
+		utils.AssertEqual(tsNullNotNull.(*sql.NullTime).Valid, true, t, errMsg)
+		utils.AssertEqual(tsNullNotNull.(*sql.NullTime).Time, time.Date(2021, 1, 2, 10, 1, 0, 0, time.UTC), t, errMsg)
+		utils.AssertEqual(tsNullNull.(*sql.NullTime).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectTimestamptz(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		tstz, tstz_null_not_null, tstz_null_null, colTypes, cleanup := runSetupAndSelect(
+		tstz, tstzNullNotNull, tstzNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"SET time_zone=Europe/Berlin",
@@ -288,15 +288,15 @@ func TestSelectTimestamptz(t *testing.T) {
 
 		utils.AssertEqual(*(tstz.(*time.Time)), time.Date(2021, 1, 1, 10, 1, 0, 0, berlinTz), t, "invalid value returned for timestamptz")
 		const errMsg = "invalid value returned for nullable timestamptz"
-		utils.AssertEqual(tstz_null_not_null.(*sql.NullTime).Valid, true, t, errMsg)
-		utils.AssertEqual(tstz_null_not_null.(*sql.NullTime).Time, time.Date(2021, 1, 2, 10, 1, 0, 0, berlinTz), t, errMsg)
-		utils.AssertEqual(tstz_null_null.(*sql.NullTime).Valid, false, t, errMsg)
+		utils.AssertEqual(tstzNullNotNull.(*sql.NullTime).Valid, true, t, errMsg)
+		utils.AssertEqual(tstzNullNotNull.(*sql.NullTime).Time, time.Date(2021, 1, 2, 10, 1, 0, 0, berlinTz), t, errMsg)
+		utils.AssertEqual(tstzNullNull.(*sql.NullTime).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectBoolean(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		b, b_null_not_null, b_null_null, colTypes, cleanup := runSetupAndSelect(
+		b, bNullNotNull, bNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_boolean (b BOOLEAN NOT NULL, b_n BOOLEAN NULL, b_nn BOOLEAN NULL) PRIMARY INDEX b",
@@ -314,15 +314,15 @@ func TestSelectBoolean(t *testing.T) {
 
 		utils.AssertEqual(*(b.(*bool)), true, t, "invalid value returned for boolean")
 		const errMsg = "invalid value returned for nullable boolean"
-		utils.AssertEqual(b_null_not_null.(*sql.NullBool).Valid, true, t, errMsg)
-		utils.AssertEqual(b_null_not_null.(*sql.NullBool).Bool, false, t, errMsg)
-		utils.AssertEqual(b_null_null.(*sql.NullBool).Valid, false, t, errMsg)
+		utils.AssertEqual(bNullNotNull.(*sql.NullBool).Valid, true, t, errMsg)
+		utils.AssertEqual(bNullNotNull.(*sql.NullBool).Bool, false, t, errMsg)
+		utils.AssertEqual(bNullNull.(*sql.NullBool).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectDecimal(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		d, d_null_not_null, d_null_null, colTypes, cleanup := runSetupAndSelect(
+		d, dNullNotNull, dNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_decimal (d DECIMAL(38, 30) NOT NULL, d_n DECIMAL(38, 30) NULL, d_nn DECIMAL(38, 30) NULL) PRIMARY INDEX d",
@@ -340,15 +340,15 @@ func TestSelectDecimal(t *testing.T) {
 
 		utils.AssertEqual(d.(*rows.FireboltDecimal).Decimal, decimal.NewFromFloat(1.1), t, "invalid value returned for decimal")
 		const errMsg = "invalid value returned for nullable decimal"
-		utils.AssertEqual(d_null_not_null.(*rows.FireboltNullDecimal).Valid, true, t, errMsg)
-		utils.AssertEqual(d_null_not_null.(*rows.FireboltNullDecimal).Decimal, decimal.NewFromFloat(2.2), t, errMsg)
-		utils.AssertEqual(d_null_null.(*rows.FireboltNullDecimal).Valid, false, t, errMsg)
+		utils.AssertEqual(dNullNotNull.(*rows.FireboltNullDecimal).Valid, true, t, errMsg)
+		utils.AssertEqual(dNullNotNull.(*rows.FireboltNullDecimal).Decimal, decimal.NewFromFloat(2.2), t, errMsg)
+		utils.AssertEqual(dNullNull.(*rows.FireboltNullDecimal).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectBytea(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		ba, ba_null_not_null, ba_null_null, colTypes, cleanup := runSetupAndSelect(
+		ba, baNullNotNull, baNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_bytea (ba BYTEA NOT NULL, ba_n BYTEA NULL, ba_nn BYTEA NULL) PRIMARY INDEX ba",
@@ -366,15 +366,15 @@ func TestSelectBytea(t *testing.T) {
 
 		utils.AssertEqual(*(ba.(*[]byte)), []byte("a"), t, "invalid value returned for bytea")
 		const errMsg = "invalid value returned for nullable bytea"
-		utils.AssertEqual(ba_null_not_null.(*rows.NullBytes).Valid, true, t, errMsg)
-		utils.AssertEqual(ba_null_not_null.(*rows.NullBytes).Bytes, []byte("b"), t, errMsg)
-		utils.AssertEqual(ba_null_null.(*rows.NullBytes).Valid, false, t, errMsg)
+		utils.AssertEqual(baNullNotNull.(*rows.NullBytes).Valid, true, t, errMsg)
+		utils.AssertEqual(baNullNotNull.(*rows.NullBytes).Bytes, []byte("b"), t, errMsg)
+		utils.AssertEqual(baNullNull.(*rows.NullBytes).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectArrayInt(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		ai, ai_null_not_null, ai_null_null, colTypes, cleanup := runSetupAndSelect(
+		ai, aiNullNotNull, aiNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_array_int (ai ARRAY(INT) NOT NULL, ai_n ARRAY(INT) NULL, ai_nn ARRAY(INT) NULL) PRIMARY INDEX ai",
@@ -392,15 +392,15 @@ func TestSelectArrayInt(t *testing.T) {
 
 		utils.AssertEqual(*(ai.(*rows.FireboltArray)), []int32{1, 2}, t, "invalid value returned for array(int)")
 		const errMsg = "invalid value returned for nullable array(int)"
-		utils.AssertEqual(ai_null_not_null.(*rows.FireboltNullArray).Valid, true, t, errMsg)
-		utils.AssertEqual(ai_null_not_null.(*rows.FireboltNullArray).Array, []int32{3, 4}, t, errMsg)
-		utils.AssertEqual(ai_null_null.(*rows.FireboltNullArray).Valid, false, t, errMsg)
+		utils.AssertEqual(aiNullNotNull.(*rows.FireboltNullArray).Valid, true, t, errMsg)
+		utils.AssertEqual(aiNullNotNull.(*rows.FireboltNullArray).Array, []int32{3, 4}, t, errMsg)
+		utils.AssertEqual(aiNullNull.(*rows.FireboltNullArray).Valid, false, t, errMsg)
 	})
 }
 
 func TestSelectArrayArrayInt(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		aai, aai_null_not_null, aai_null_null, colTypes, cleanup := runSetupAndSelect(
+		aai, aaiNullNotNull, aaiNullNull, colTypes, cleanup := runSetupAndSelect(
 			t, ctx,
 			[]string{
 				"CREATE TABLE test_select_array_array_int (aai ARRAY(ARRAY(INT)) NOT NULL, aai_n ARRAY(ARRAY(INT)) NULL, aai_nn ARRAY(ARRAY(INT)) NULL) PRIMARY INDEX aai",
@@ -418,8 +418,8 @@ func TestSelectArrayArrayInt(t *testing.T) {
 
 		utils.AssertEqual(*(aai.(*rows.FireboltArray)), [][]int32{{1, 2}, {3, 4}}, t, "invalid value returned for array(array(int))")
 		const errMsg = "invalid value returned for nullable array(array(int))"
-		utils.AssertEqual(aai_null_not_null.(*rows.FireboltNullArray).Valid, true, t, errMsg)
-		utils.AssertEqual(aai_null_not_null.(*rows.FireboltNullArray).Array, [][]int32{{5, 6}, {7, 8}}, t, errMsg)
-		utils.AssertEqual(aai_null_null.(*rows.FireboltNullArray).Valid, false, t, errMsg)
+		utils.AssertEqual(aaiNullNotNull.(*rows.FireboltNullArray).Valid, true, t, errMsg)
+		utils.AssertEqual(aaiNullNotNull.(*rows.FireboltNullArray).Array, [][]int32{{5, 6}, {7, 8}}, t, errMsg)
+		utils.AssertEqual(aaiNullNull.(*rows.FireboltNullArray).Valid, false, t, errMsg)
 	})
 }
