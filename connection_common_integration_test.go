@@ -488,7 +488,7 @@ type columnType struct {
 }
 
 func queryAllTypes(t *testing.T, ctx context.Context, filePath string) *sql.Rows {
-	selectAllTypesSQL := utils.GetQueryFromFile("fixtures/all_types_query.sql")
+	selectAllTypesSQL := utils.GetQueryFromFile(filePath)
 
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
