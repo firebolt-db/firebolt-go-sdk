@@ -99,9 +99,9 @@ func TestSelectInt(t *testing.T) {
 
 		utils.AssertEqual(*(i.(*int32)), int32(1), t, "invalid value returned for int")
 		const errMsg = "invalid value returned for nullable int"
-		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Valid, true, t, err)
-		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Int32, int32(2), t, err)
-		utils.AssertEqual(i_null_null.(*sql.NullInt32).Valid, false, t, err)
+		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Valid, true, t, errMsg)
+		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Int32, int32(2), t, errMsg)
+		utils.AssertEqual(i_null_null.(*sql.NullInt32).Valid, false, t, errMsg)
 	})
 }
 
