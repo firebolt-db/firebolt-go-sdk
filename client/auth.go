@@ -58,7 +58,10 @@ func getAccessTokenUsernamePassword(username string, password string, apiEndpoin
 		}
 		logging.Infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
 		resp := DoHttpRequest(requestParameters{context.TODO(), "", "POST", apiEndpoint + loginUrl, userAgent, nil, body, contentType})
-		if resp.err != nil {
+		if resp.statusCode == 400 || resp.statusCode == 403 {
+			return "", errors.Wrap(errors.AuthenticationError, resp.err)
+		} else if resp.err != nil {
+			fmt.Printf("Status code: %d\n", resp.statusCode)
 			return "", errors.ConstructNestedError("authentication request failed", resp.err)
 		}
 
@@ -112,7 +115,9 @@ func getAccessTokenServiceAccount(clientId string, clientSecret string, apiEndpo
 		}
 		logging.Infolog.Printf("Start authentication into '%s' using '%s'", authEndpoint, loginUrl)
 		resp := DoHttpRequest(requestParameters{context.TODO(), "", "POST", authEndpoint + loginUrl, userAgent, nil, body, contentType})
-		if resp.err != nil {
+		if resp.statusCode == 401 {
+			return "", errors.Wrap(errors.AuthenticationError, resp.err)
+		} else if resp.err != nil {
 			return "", errors.ConstructNestedError("authentication request failed", resp.err)
 		}
 

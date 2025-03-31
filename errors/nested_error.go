@@ -30,7 +30,7 @@ func ConstructNestedError(message string, err error) error {
 	return &nestedError{message: message, err: err}
 }
 
-func WrapWithError(inner, wrapper error) error {
+func Wrap(wrapper, inner error) error {
 	if wrapper == nil {
 		return inner
 	}

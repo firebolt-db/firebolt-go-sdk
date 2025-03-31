@@ -23,7 +23,7 @@ func TestNestedErrorIs(t *testing.T) {
 	originalErr := errors.New("original error")
 	mediumErr := errors.New("medium error")
 	topError := errors.New("top error")
-	nestedErr := WrapWithError(WrapWithError(originalErr, mediumErr), topError)
+	nestedErr := Wrap(topError, Wrap(mediumErr, originalErr))
 
 	utils.AssertEqual(errors.Is(nestedErr, topError), true, t, "Top error should be found")
 	utils.AssertEqual(errors.Is(nestedErr, mediumErr), true, t, "Medium error should be found")

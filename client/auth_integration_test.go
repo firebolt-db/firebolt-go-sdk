@@ -4,7 +4,11 @@
 package client
 
 import (
+	"errors"
+	"fmt"
 	"testing"
+
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
@@ -18,38 +22,38 @@ func TestAuthHappyPath(t *testing.T) {
 
 // TestAuthWrongCredential checks that authentication with wrong credentials returns an error
 func TestAuthWrongCredential(t *testing.T) {
-	if _, err := ClientFactory(&types.FireboltSettings{
-		ClientID:     "TestAuthWrongCredential",
-		ClientSecret: "wrong_secret",
-		NewVersion:   true,
-	}, GetHostNameURL()); err == nil {
-		t.Errorf("Authentication with wrong credentials didn't return an error for service account authentication")
-	}
-
-	if _, err := ClientFactory(&types.FireboltSettings{
-		ClientID:     "TestAuthWrongCredential",
-		ClientSecret: "wrong_password",
-		NewVersion:   false,
-	}, GetHostNameURL()); err == nil {
-		t.Errorf("Authentication with wrong credentials didn't return an error for username/password authentication")
+	for _, newVersion := range []bool{true, false} {
+		t.Run(fmt.Sprintf("newVersion=%v", newVersion), func(t *testing.T) {
+			_, err := ClientFactory(&types.FireboltSettings{
+				ClientID:     "TestAuthWrongCredential",
+				ClientSecret: "wrong_secret",
+				NewVersion:   newVersion,
+			}, GetHostNameURL())
+			if err == nil {
+				t.Fatalf("Authentication with wrong secret didn't return an error for newVersion=%v", newVersion)
+			}
+			if !errors.Is(err, errorUtils.AuthenticationError) {
+				t.Fatalf("Expected error to be of type AuthenticationError, got %v", err)
+			}
+		})
 	}
 }
 
 // TestAuthEmptyCredential checks that authentication with empty password returns an error
 func TestAuthEmptyCredential(t *testing.T) {
-	if _, err := ClientFactory(&types.FireboltSettings{
-		ClientID:     "TestAuthEmptyCredential",
-		ClientSecret: "",
-		NewVersion:   true,
-	}, GetHostNameURL()); err == nil {
-		t.Errorf("Authentication with empty password didn't return an error for service account authentication")
-	}
-
-	if _, err := ClientFactory(&types.FireboltSettings{
-		ClientID:     "TestAuthEmptyCredential",
-		ClientSecret: "",
-		NewVersion:   false,
-	}, GetHostNameURL()); err == nil {
-		t.Errorf("Authentication with empty password didn't return an error for username/password authentication")
+	for _, newVersion := range []bool{true, false} {
+		t.Run(fmt.Sprintf("newVersion=%v", newVersion), func(t *testing.T) {
+			_, err := ClientFactory(&types.FireboltSettings{
+				ClientID:     "TestAuthEmptyCredential",
+				ClientSecret: "",
+				NewVersion:   newVersion,
+			}, GetHostNameURL())
+			if err == nil {
+				t.Fatalf("Authentication with empty secret didn't return an error for newVersion=%v", newVersion)
+			}
+			if !errors.Is(err, errorUtils.AuthenticationError) {
+				t.Fatalf("Expected error to be of type AuthenticationError, got %v", err)
+			}
+		})
 	}
 }
