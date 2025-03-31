@@ -202,9 +202,9 @@ func main() {
 	}
 
 	// Example 2: Invalid credentials
-	invalidCredsDSN := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
+	invalidCredentialsDSN := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
 		databaseName, accountName, "invalid", "invalid", engineName)
-	db, err = sql.Open("firebolt", invalidCredsDSN)
+	db, err = sql.Open("firebolt", invalidCredentialsDSN)
 	if err != nil {
 		if errors.Is(err, fireboltErrors.AuthenticationError) {
 			log.Println("Authentication error. Please check your credentials and try again")
@@ -212,8 +212,20 @@ func main() {
 			log.Fatalf("Unexpected error type: %v", err)
 		}
 	}
-
-	// Example 3: Invalid SQL query
+	
+	// Example 3: Invalid account name
+    invalidAccountDSN := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
+        databaseName, "invalid", clientId, clientSecret, engineName)
+    db, err = sql.Open("firebolt", invalidAccountDSN)
+	    if err != nil {
+        if errors.Is(err, fireboltErrors.InvalidAccountError) {
+            log.Println("Invalid account name. Please check your account name and try again")
+        } else {
+            log.Fatalf("Unexpected error type: %v", err)
+        }
+    }
+	
+	// Example 4: Invalid SQL query
 	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
 		databaseName, accountName, clientId, clientSecret, engineName)
 	db, err = sql.Open("firebolt", dsn)
@@ -235,11 +247,11 @@ func main() {
 ```
 
 The SDK provides the following error types:
-- `DSNParseError`: When the DSN string format is invalid
-- `AuthenticationError`: When credentials are invalid or authentication fails
-- `QueryExecutionError`: When a SQL query fails to execute
-- `AuthorizationError`: When the user doesn't have permission to perform an action
-- `SystemEngineResolutionError`: When there's an error getting the system engine URL
+- `DSNParseError`: Provided DSN string format is invalid
+- `AuthenticationError`: Authentication failure
+- `QueryExecutionError`: SQL query execution error
+- `AuthorizationError`:A user doesn't have permission to perform an action
+- `InvalidAccountError`: Provided account name is invalid or no permissions to access the account
 
 Each error type can be checked using `errors.Is(err, errorType)`. This allows for specific error handling based on the type of error encountered.
 

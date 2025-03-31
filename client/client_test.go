@@ -221,8 +221,8 @@ func TestGetSystemEngineURLReturnsErrorOn404(t *testing.T) {
 	if err == nil {
 		t.Errorf("Expected an error, got nil")
 	}
-	if !strings.HasPrefix(err.Error(), fmt.Sprintf("account '%s' does not exist", testAccountName)) {
-		t.Errorf("Expected error to start with \"account '%s' does not exist\", got \"%s\"", testAccountName, err.Error())
+	if !strings.HasPrefix(err.Error(), "provided account name does not exist") {
+		t.Errorf("Expected error to start with \"provided account name does not exist\", got \"%s\"", err.Error())
 	}
 }
 

@@ -26,10 +26,6 @@ type ClientImpl struct {
 	BaseClient
 }
 
-const accountError = `account '%s' does not exist in this organization or is not authorized.
-Please verify the account name and make sure your service account has the
-correct RBAC permissions and is linked to a user`
-
 func initialiseCaches() error {
 	var err error
 	if AccountCache == nil {
@@ -102,7 +98,7 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 
 	resp := c.requestWithAuthRetry(ctx, "GET", url, make(map[string]string), "")
 	if resp.statusCode == 404 {
-		return "", nil, fmt.Errorf(accountError, accountName)
+		return "", nil, errorUtils.InvalidAccountError
 	}
 	if resp.err != nil {
 		return "", nil, errorUtils.ConstructNestedError("error during system engine url http request", resp.err)
@@ -155,7 +151,7 @@ func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, da
 
 	engineURL, parameters, err := c.getSystemEngineURLAndParameters(context.Background(), c.AccountName, databaseName)
 	if err != nil {
-		return "", nil, errorUtils.Wrap(errorUtils.SystemEngineResolutionError, err)
+		return "", nil, errorUtils.ConstructNestedError("error during getting system engine url", err)
 	}
 	c.ConnectedToSystemEngine = true
 
