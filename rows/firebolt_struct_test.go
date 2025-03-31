@@ -6,6 +6,8 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
+const STRUCT_VALUES_DO_NOT_MATCH = "Struct values do not match"
+
 func TestFireboltStructScan(t *testing.T) {
 	value := map[string]interface{}{
 		"key1": 1,
@@ -16,7 +18,7 @@ func TestFireboltStructScan(t *testing.T) {
 		t.Fatalf("Error scanning struct: %v", err)
 	}
 	for key, val := range value {
-		utils.AssertEqual(fs[key], val, t, "Struct values do not match")
+		utils.AssertEqual(fs[key], val, t, STRUCT_VALUES_DO_NOT_MATCH)
 	}
 
 	if err := fs.Scan(nil); err == nil {
@@ -43,7 +45,7 @@ func TestFireboltStructScanNested(t *testing.T) {
 				utils.AssertEqual(nested[nestedKey], nestedVal, t, "Nested struct values do not match")
 			}
 		} else {
-			utils.AssertEqual(fs[key], val, t, "Struct values do not match")
+			utils.AssertEqual(fs[key], val, t, STRUCT_VALUES_DO_NOT_MATCH)
 		}
 	}
 }
@@ -58,7 +60,7 @@ func TestFireboltNullStructScan(t *testing.T) {
 		t.Fatalf("Error scanning struct: %v", err)
 	}
 	for key, val := range value {
-		utils.AssertEqual(fs.Struct[key], val, t, "Struct values do not match")
+		utils.AssertEqual(fs.Struct[key], val, t, STRUCT_VALUES_DO_NOT_MATCH)
 	}
 	utils.AssertEqual(fs.Valid, true, t, "Struct is invalid")
 

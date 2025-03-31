@@ -98,9 +98,10 @@ func TestSelectInt(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.NullInt32{}), t, "invalid scan type returned for nullable int")
 
 		utils.AssertEqual(*(i.(*int32)), int32(1), t, "invalid value returned for int")
-		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Valid, true, t, "invalid value returned for nullable int")
-		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Int32, int32(2), t, "invalid value returned for nullable int")
-		utils.AssertEqual(i_null_null.(*sql.NullInt32).Valid, false, t, "invalid value returned for nullable int")
+		const errMsg = "invalid value returned for nullable int"
+		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Valid, true, t, err)
+		utils.AssertEqual(i_null_not_null.(*sql.NullInt32).Int32, int32(2), t, err)
+		utils.AssertEqual(i_null_null.(*sql.NullInt32).Valid, false, t, err)
 	})
 }
 
@@ -123,9 +124,10 @@ func TestSelectLong(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.NullInt64{}), t, "invalid scan type returned for nullable long")
 
 		utils.AssertEqual(*(l.(*int64)), int64(1), t, "invalid value returned for long")
-		utils.AssertEqual(l_null_not_null.(*sql.NullInt64).Valid, true, t, "invalid value returned for nullable long")
-		utils.AssertEqual(l_null_not_null.(*sql.NullInt64).Int64, int64(2), t, "invalid value returned for nullable long")
-		utils.AssertEqual(l_null_null.(*sql.NullInt64).Valid, false, t, "invalid value returned for nullable long")
+		const errMsg = "invalid value returned for nullable long"
+		utils.AssertEqual(l_null_not_null.(*sql.NullInt64).Valid, true, t, errMsg)
+		utils.AssertEqual(l_null_not_null.(*sql.NullInt64).Int64, int64(2), t, errMsg)
+		utils.AssertEqual(l_null_null.(*sql.NullInt64).Valid, false, t, errMsg)
 	})
 }
 
@@ -148,9 +150,10 @@ func TestSelectFloat4(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.NullFloat64{}), t, "invalid scan type returned for nullable float4")
 
 		utils.AssertEqual(*(f.(*float32)), float32(1), t, "invalid value returned for float4")
-		utils.AssertEqual(f_null_not_null.(*sql.NullFloat64).Valid, true, t, "invalid value returned for nullable float4")
-		utils.AssertEqual(f_null_not_null.(*sql.NullFloat64).Float64, float64(2), t, "invalid value returned for nullable float4")
-		utils.AssertEqual(f_null_null.(*sql.NullFloat64).Valid, false, t, "invalid value returned for nullable float4")
+		const errMsg = "invalid value returned for nullable float4"
+		utils.AssertEqual(f_null_not_null.(*sql.NullFloat64).Valid, true, t, errMsg)
+		utils.AssertEqual(f_null_not_null.(*sql.NullFloat64).Float64, float64(2), t, errMsg)
+		utils.AssertEqual(f_null_null.(*sql.NullFloat64).Valid, false, t, errMsg)
 	})
 }
 
@@ -173,9 +176,10 @@ func TestSelectDouble(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.NullFloat64{}), t, "invalid scan type returned for nullable double")
 
 		utils.AssertEqual(*(d.(*float64)), float64(1), t, "invalid value returned for double")
-		utils.AssertEqual(d_null_not_null.(*sql.NullFloat64).Valid, true, t, "invalid value returned for nullable double")
-		utils.AssertEqual(d_null_not_null.(*sql.NullFloat64).Float64, float64(2), t, "invalid value returned for nullable double")
-		utils.AssertEqual(d_null_null.(*sql.NullFloat64).Valid, false, t, "invalid value returned for nullable double")
+		const errMsg = "invalid value returned for nullable double"
+		utils.AssertEqual(d_null_not_null.(*sql.NullFloat64).Valid, true, t, errMsg)
+		utils.AssertEqual(d_null_not_null.(*sql.NullFloat64).Float64, float64(2), t, errMsg)
+		utils.AssertEqual(d_null_null.(*sql.NullFloat64).Valid, false, t, errMsg)
 	})
 }
 
@@ -198,9 +202,10 @@ func TestSelectText(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.NullString{}), t, "invalid scan type returned for nullable text")
 
 		utils.AssertEqual(*(tt.(*string)), "a", t, "invalid value returned for text")
-		utils.AssertEqual(tt_null_not_null.(*sql.NullString).Valid, true, t, "invalid value returned for nullable text")
-		utils.AssertEqual(tt_null_not_null.(*sql.NullString).String, "b", t, "invalid value returned for nullable text")
-		utils.AssertEqual(tt_null_null.(*sql.NullString).Valid, false, t, "invalid value returned for nullable text")
+		const errMsg = "invalid value returned for nullable text"
+		utils.AssertEqual(tt_null_not_null.(*sql.NullString).Valid, true, t, errMsg)
+		utils.AssertEqual(tt_null_not_null.(*sql.NullString).String, "b", t, errMsg)
+		utils.AssertEqual(tt_null_null.(*sql.NullString).Valid, false, t, errMsg)
 	})
 }
 
@@ -223,9 +228,10 @@ func TestSelectDate(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.NullTime{}), t, "invalid scan type returned for nullable date")
 
 		utils.AssertEqual(*(d.(*time.Time)), time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC), t, "invalid value returned for date")
-		utils.AssertEqual(d_null_not_null.(*sql.NullTime).Valid, true, t, "invalid value returned for nullable date")
-		utils.AssertEqual(d_null_not_null.(*sql.NullTime).Time, time.Date(2021, 1, 2, 0, 0, 0, 0, time.UTC), t, "invalid value returned for nullable date")
-		utils.AssertEqual(d_null_null.(*sql.NullTime).Valid, false, t, "invalid value returned for nullable date")
+		const errMsg = "invalid value returned for nullable date"
+		utils.AssertEqual(d_null_not_null.(*sql.NullTime).Valid, true, t, errMsg)
+		utils.AssertEqual(d_null_not_null.(*sql.NullTime).Time, time.Date(2021, 1, 2, 0, 0, 0, 0, time.UTC), t, errMsg)
+		utils.AssertEqual(d_null_null.(*sql.NullTime).Valid, false, t, errMsg)
 	})
 }
 
@@ -248,9 +254,10 @@ func TestSelectTimestamp(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.NullTime{}), t, "invalid scan type returned for nullable timestamp")
 
 		utils.AssertEqual(*(ts.(*time.Time)), time.Date(2021, 1, 1, 10, 1, 0, 0, time.UTC), t, "invalid value returned for timestamp")
-		utils.AssertEqual(ts_null_not_null.(*sql.NullTime).Valid, true, t, "invalid value returned for nullable timestamp")
-		utils.AssertEqual(ts_null_not_null.(*sql.NullTime).Time, time.Date(2021, 1, 2, 10, 1, 0, 0, time.UTC), t, "invalid value returned for nullable timestamp")
-		utils.AssertEqual(ts_null_null.(*sql.NullTime).Valid, false, t, "invalid value returned for nullable timestamp")
+		const errMsg = "invalid value returned for nullable timestamp"
+		utils.AssertEqual(ts_null_not_null.(*sql.NullTime).Valid, true, t, errMsg)
+		utils.AssertEqual(ts_null_not_null.(*sql.NullTime).Time, time.Date(2021, 1, 2, 10, 1, 0, 0, time.UTC), t, errMsg)
+		utils.AssertEqual(ts_null_null.(*sql.NullTime).Valid, false, t, errMsg)
 	})
 }
 
@@ -280,9 +287,10 @@ func TestSelectTimestamptz(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.NullTime{}), t, "invalid scan type returned for nullable timestamptz")
 
 		utils.AssertEqual(*(tstz.(*time.Time)), time.Date(2021, 1, 1, 10, 1, 0, 0, berlinTz), t, "invalid value returned for timestamptz")
-		utils.AssertEqual(tstz_null_not_null.(*sql.NullTime).Valid, true, t, "invalid value returned for nullable timestamptz")
-		utils.AssertEqual(tstz_null_not_null.(*sql.NullTime).Time, time.Date(2021, 1, 2, 10, 1, 0, 0, berlinTz), t, "invalid value returned for nullable timestamptz")
-		utils.AssertEqual(tstz_null_null.(*sql.NullTime).Valid, false, t, "invalid value returned for nullable timestamptz")
+		const errMsg = "invalid value returned for nullable timestamptz"
+		utils.AssertEqual(tstz_null_not_null.(*sql.NullTime).Valid, true, t, errMsg)
+		utils.AssertEqual(tstz_null_not_null.(*sql.NullTime).Time, time.Date(2021, 1, 2, 10, 1, 0, 0, berlinTz), t, errMsg)
+		utils.AssertEqual(tstz_null_null.(*sql.NullTime).Valid, false, t, errMsg)
 	})
 }
 
@@ -305,9 +313,10 @@ func TestSelectBoolean(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(sql.NullBool{}), t, "invalid scan type returned for nullable boolean")
 
 		utils.AssertEqual(*(b.(*bool)), true, t, "invalid value returned for boolean")
-		utils.AssertEqual(b_null_not_null.(*sql.NullBool).Valid, true, t, "invalid value returned for nullable boolean")
-		utils.AssertEqual(b_null_not_null.(*sql.NullBool).Bool, false, t, "invalid value returned for nullable boolean")
-		utils.AssertEqual(b_null_null.(*sql.NullBool).Valid, false, t, "invalid value returned for nullable boolean")
+		const errMsg = "invalid value returned for nullable boolean"
+		utils.AssertEqual(b_null_not_null.(*sql.NullBool).Valid, true, t, errMsg)
+		utils.AssertEqual(b_null_not_null.(*sql.NullBool).Bool, false, t, errMsg)
+		utils.AssertEqual(b_null_null.(*sql.NullBool).Valid, false, t, errMsg)
 	})
 }
 
@@ -330,9 +339,10 @@ func TestSelectDecimal(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(rows.FireboltNullDecimal{}), t, "invalid scan type returned for nullable decimal")
 
 		utils.AssertEqual(d.(*rows.FireboltDecimal).Decimal, decimal.NewFromFloat(1.1), t, "invalid value returned for decimal")
-		utils.AssertEqual(d_null_not_null.(*rows.FireboltNullDecimal).Valid, true, t, "invalid value returned for nullable decimal")
-		utils.AssertEqual(d_null_not_null.(*rows.FireboltNullDecimal).Decimal, decimal.NewFromFloat(2.2), t, "invalid value returned for nullable decimal")
-		utils.AssertEqual(d_null_null.(*rows.FireboltNullDecimal).Valid, false, t, "invalid value returned for nullable decimal")
+		const errMsg = "invalid value returned for nullable decimal"
+		utils.AssertEqual(d_null_not_null.(*rows.FireboltNullDecimal).Valid, true, t, errMsg)
+		utils.AssertEqual(d_null_not_null.(*rows.FireboltNullDecimal).Decimal, decimal.NewFromFloat(2.2), t, errMsg)
+		utils.AssertEqual(d_null_null.(*rows.FireboltNullDecimal).Valid, false, t, errMsg)
 	})
 }
 
@@ -355,9 +365,10 @@ func TestSelectBytea(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(rows.NullBytes{}), t, "invalid scan type returned for nullable bytea")
 
 		utils.AssertEqual(*(ba.(*[]byte)), []byte("a"), t, "invalid value returned for bytea")
-		utils.AssertEqual(ba_null_not_null.(*rows.NullBytes).Valid, true, t, "invalid value returned for nullable bytea")
-		utils.AssertEqual(ba_null_not_null.(*rows.NullBytes).Bytes, []byte("b"), t, "invalid value returned for nullable bytea")
-		utils.AssertEqual(ba_null_null.(*rows.NullBytes).Valid, false, t, "invalid value returned for nullable bytea")
+		const errMsg = "invalid value returned for nullable bytea"
+		utils.AssertEqual(ba_null_not_null.(*rows.NullBytes).Valid, true, t, errMsg)
+		utils.AssertEqual(ba_null_not_null.(*rows.NullBytes).Bytes, []byte("b"), t, errMsg)
+		utils.AssertEqual(ba_null_null.(*rows.NullBytes).Valid, false, t, errMsg)
 	})
 }
 
@@ -380,9 +391,10 @@ func TestSelectArrayInt(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(rows.FireboltNullArray{}), t, "invalid scan type returned for nullable array(int)")
 
 		utils.AssertEqual(*(ai.(*rows.FireboltArray)), []int32{1, 2}, t, "invalid value returned for array(int)")
-		utils.AssertEqual(ai_null_not_null.(*rows.FireboltNullArray).Valid, true, t, "invalid value returned for nullable array(int)")
-		utils.AssertEqual(ai_null_not_null.(*rows.FireboltNullArray).Array, []int32{3, 4}, t, "invalid value returned for nullable array(int)")
-		utils.AssertEqual(ai_null_null.(*rows.FireboltNullArray).Valid, false, t, "invalid value returned for nullable array(int)")
+		const errMsg = "invalid value returned for nullable array(int)"
+		utils.AssertEqual(ai_null_not_null.(*rows.FireboltNullArray).Valid, true, t, errMsg)
+		utils.AssertEqual(ai_null_not_null.(*rows.FireboltNullArray).Array, []int32{3, 4}, t, errMsg)
+		utils.AssertEqual(ai_null_null.(*rows.FireboltNullArray).Valid, false, t, errMsg)
 	})
 }
 
@@ -405,8 +417,9 @@ func TestSelectArrayArrayInt(t *testing.T) {
 		utils.AssertEqual(colTypes[2].ScanType(), reflect.TypeOf(rows.FireboltNullArray{}), t, "invalid scan type returned for nullable array(array(int))")
 
 		utils.AssertEqual(*(aai.(*rows.FireboltArray)), [][]int32{{1, 2}, {3, 4}}, t, "invalid value returned for array(array(int))")
-		utils.AssertEqual(aai_null_not_null.(*rows.FireboltNullArray).Valid, true, t, "invalid value returned for nullable array(array(int))")
-		utils.AssertEqual(aai_null_not_null.(*rows.FireboltNullArray).Array, [][]int32{{5, 6}, {7, 8}}, t, "invalid value returned for nullable array(array(int))")
-		utils.AssertEqual(aai_null_null.(*rows.FireboltNullArray).Valid, false, t, "invalid value returned for nullable array(array(int))")
+		const errMsg = "invalid value returned for nullable array(array(int))"
+		utils.AssertEqual(aai_null_not_null.(*rows.FireboltNullArray).Valid, true, t, errMsg)
+		utils.AssertEqual(aai_null_not_null.(*rows.FireboltNullArray).Array, [][]int32{{5, 6}, {7, 8}}, t, errMsg)
+		utils.AssertEqual(aai_null_null.(*rows.FireboltNullArray).Valid, false, t, errMsg)
 	})
 }

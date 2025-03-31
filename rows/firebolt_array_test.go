@@ -6,6 +6,8 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
+const ARRAY_VALUES_DO_NOT_MATCH = "Array values do not match"
+
 func TestFireboltArrayScan(t *testing.T) {
 	value := []int{1, 2, 3}
 	array := FireboltArray{}
@@ -13,7 +15,7 @@ func TestFireboltArrayScan(t *testing.T) {
 		t.Fatalf("Error scanning array: %v", err)
 	}
 	for i, val := range value {
-		utils.AssertEqual(array[i], val, t, "Array values do not match")
+		utils.AssertEqual(array[i], val, t, ARRAY_VALUES_DO_NOT_MATCH)
 	}
 
 	if err := array.Scan(nil); err == nil {
@@ -30,7 +32,7 @@ func TestFireboltArrayScanNested(t *testing.T) {
 	for i, val := range value {
 		innerArray := array[i].([]string)
 		for j, innerVal := range val {
-			utils.AssertEqual(innerArray[j], innerVal, t, "Array values do not match")
+			utils.AssertEqual(innerArray[j], innerVal, t, ARRAY_VALUES_DO_NOT_MATCH)
 		}
 	}
 }
@@ -42,7 +44,7 @@ func TestFireboltNullableArrayScan(t *testing.T) {
 		t.Fatalf("Error scanning array: %v", err)
 	}
 	for i, val := range value {
-		utils.AssertEqual(array.Array[i], val, t, "Array values do not match")
+		utils.AssertEqual(array.Array[i], val, t, ARRAY_VALUES_DO_NOT_MATCH)
 	}
 
 	if err := array.Scan(nil); err != nil {

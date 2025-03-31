@@ -138,7 +138,7 @@ func parseTypeWithNullability(columnType string, isNullable bool) (fireboltType,
 		if isNullable {
 			structType = reflect.TypeOf(FireboltNullStruct{})
 		} else {
-			structType = reflect.TypeOf(FireboltNullStruct{})
+			structType = reflect.TypeOf(FireboltStruct{})
 		}
 		return makeFireboltType(structType, columnType, -1, isNullable), nil
 	}

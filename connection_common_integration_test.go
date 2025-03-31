@@ -26,6 +26,7 @@ const NEXT_STATEMENT_ERROR_MSG = "Next() call returned false"
 const SCAN_STATEMENT_ERROR_MSG = "firebolt rows Scan() call failed with %v"
 const VALUES_ARE_NOT_EQUAL_ERROR_MSG = "values are not equal: %v and %v\n"
 const RESULTS_ARE_NOT_EQUAL_ERROR_MSG = "results are not equal "
+const NEXT_CALL_ERROR = "Next() call returned false with error: %v"
 
 var longTestValue int = 350000000000 // default value
 
@@ -458,7 +459,7 @@ func TestStreamMultipleDataBlocks(t *testing.T) {
 
 	for i := 0; i <= rowCount; i++ {
 		if !rows.Next() {
-			t.Errorf("Next() call returned false with error: %v", rows.Err())
+			t.Errorf(NEXT_CALL_ERROR, rows.Err())
 			t.FailNow()
 		}
 		err = rows.Scan(&dest)
@@ -510,7 +511,7 @@ func testResponseMetadata(t *testing.T, allTypesSQLPath string, expectedColumnTy
 		expectedColumnTypes := expectedColumnTypesGetter(ctx)
 
 		if !rows.Next() {
-			t.Errorf("Next() call returned false with error: %v", rows.Err())
+			t.Errorf(NEXT_CALL_ERROR, rows.Err())
 			t.FailNow()
 		}
 
@@ -544,7 +545,7 @@ func testTypesScannable(t *testing.T, allTypesSQLPath string) {
 		rows := queryAllTypes(t, ctx, allTypesSQLPath)
 
 		if !rows.Next() {
-			t.Errorf("Next() call returned false with error: %v", rows.Err())
+			t.Errorf(NEXT_CALL_ERROR, rows.Err())
 			t.FailNow()
 		}
 
