@@ -6,7 +6,10 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql/driver"
+	"errors"
 	"testing"
+
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 
@@ -165,4 +168,47 @@ func TestFireboltConnectorStreamingWithOptions(t *testing.T) {
 
 	utils.AssertEqual(len(values), 1, t, "returned more that one value")
 	utils.AssertEqual(values[0], int32(1), t, "result is not 1")
+}
+
+func TestFireboltConnectorWithOptionsInvalidToken(t *testing.T) {
+	token := "invalid token"
+	userAgent := "test user agent"
+
+	cl, err := client.ClientFactory(&types.FireboltSettings{
+		ClientID:     clientIdMock,
+		ClientSecret: clientSecretMock,
+		AccountName:  accountName,
+		EngineName:   engineNameMock,
+		Database:     databaseMock,
+		NewVersion:   true,
+	}, client.GetHostNameURL())
+	if err != nil {
+		t.Errorf("failed to authenticate with client id %s: %v", clientIdMock, err)
+		t.FailNow()
+	}
+
+	engineUrl, engineParameters, err := cl.GetConnectionParameters(context.TODO(), engineNameMock, databaseMock)
+	if err != nil {
+		t.Errorf("failed to get system engine url: %v", err)
+		t.FailNow()
+	}
+
+	accountID, _ := engineParameters["account_id"]
+
+	conn := FireboltConnectorWithOptions(
+		WithEngineUrl(engineUrl),
+		WithDatabaseName(databaseMock),
+		WithAccountID(accountID),
+		WithToken(token),
+		WithUserAgent(userAgent),
+	)
+
+	_, err = conn.client.Query(context.Background(), conn.engineUrl, "SELECT 1", nil, client.ConnectionControl{})
+	if err == nil {
+		t.Errorf("expected to fail with invalid token")
+		t.FailNow()
+	}
+	if !errors.Is(err, errorUtils.UnauthorizedError) {
+		t.Errorf("expected to fail with unauthorized error, got: %v", err)
+	}
 }
