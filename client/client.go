@@ -155,7 +155,7 @@ func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, da
 
 	engineURL, parameters, err := c.getSystemEngineURLAndParameters(context.Background(), c.AccountName, databaseName)
 	if err != nil {
-		return "", nil, errorUtils.ConstructNestedError("error during getting system engine url", err)
+		return "", nil, errorUtils.Wrap(errorUtils.SystemEngineResolutionError, err)
 	}
 	c.ConnectedToSystemEngine = true
 

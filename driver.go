@@ -45,19 +45,19 @@ func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 		// parsing dsn string to get configuration settings
 		settings, err := ParseDSNString(dsn)
 		if err != nil {
-			return nil, errors.ConstructNestedError("error during parsing a dsn", err)
+			return nil, errors.Wrap(errors.DSNParseError, err)
 		}
 
 		// authenticating and getting access token
 		logging.Infolog.Println("dsn parsed correctly, trying to authenticate")
 		d.client, err = client.ClientFactory(settings, client.GetHostNameURL())
 		if err != nil {
-			return nil, errors.ConstructNestedError("error during authentication", err)
+			return nil, errors.ConstructNestedError("error during initializing client", err)
 		}
 
 		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), settings.EngineName, settings.Database)
 		if err != nil {
-			return nil, errors.ConstructNestedError("error during getting engine url", err)
+			return nil, errors.ConstructNestedError("error during getting connection parameters", err)
 		}
 		d.lastUsedDsn = dsn //nolint
 	}
