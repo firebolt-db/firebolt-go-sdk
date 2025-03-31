@@ -1,7 +1,5 @@
 package errors
 
-import "github.com/firebolt-db/firebolt-go-sdk/logging"
-
 type nestedError struct {
 	message string
 	err     error
@@ -26,7 +24,6 @@ func (e *nestedError) Is(target error) bool {
 }
 
 func ConstructNestedError(message string, err error) error {
-	logging.Infolog.Printf("%s: %v", message, err)
 	return &nestedError{message: message, err: err}
 }
 

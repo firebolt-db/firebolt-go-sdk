@@ -36,6 +36,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
+
 	// we need to import firebolt-go-sdk in order to register the driver
 	_ "github.com/firebolt-db/firebolt-go-sdk"
 )
@@ -47,49 +49,50 @@ func main() {
 	clientSecret := ""
 	accountName := ""
 	databaseName := ""
-	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseName, accountName, clientId, clientSecret)
+	engineName := ""
+	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s", databaseName, accountName, clientId, clientSecret, engineName)
 
 	// open a Firebolt connection
 	db, err := sql.Open("firebolt", dsn)
 	if err != nil {
-		fmt.Printf("error during opening a driver: %v", err)
+		log.Fatalf("error during opening a driver: %v", err)
 	}
 
 	// create a table
 	_, err = db.Query("CREATE TABLE test_table(id INT, value TEXT)")
 	if err != nil {
-		fmt.Printf("error during select query: %v", err)
+		log.Fatalf("error during select query: %v", err)
 	}
 
 	// execute a parametrized insert (only ? placeholders are supported)
 	_, err = db.Query("INSERT INTO test_table VALUES (?, ?)", 1, "my value")
 	if err != nil {
-		fmt.Printf("error during select query: %v", err)
+		log.Fatalf("error during select query: %v", err)
 	}
 
 	// execute a simple select query
 	rows, err := db.Query("SELECT id FROM test_table")
 	if err != nil {
-		fmt.Printf("error during select query: %v", err)
+		log.Fatalf("error during select query: %v", err)
 	}
 
 	// iterate over the result
 	defer func() {
 		if err := rows.Close(); err != nil {
-			fmt.Printf("error during rows.Close(): %v\n", err)
+			log.Printf("error during rows.Close(): %v\n", err)
 		}
 	}()
-	
+
 	for rows.Next() {
 		var id int
 		if err := rows.Scan(&id); err != nil {
-			fmt.Printf("error during scan: %v", err)
+			log.Fatalf("error during scan: %v", err)
 		}
-		fmt.Println(id)
+		log.Print(id)
 	}
 
 	if err := rows.Err(); err != nil {
-		fmt.Printf("error during rows iteration: %v\n", err)
+		log.Fatalf("error during rows iteration: %v\n", err)
 	}
 }
 ```
@@ -104,12 +107,13 @@ Here is an example of how to do it:
 package main
 
 import (
-    "context"
-    "database/sql"
-    "fmt"
-	
-    // we need to import firebolt-go-sdk in order to register the driver
-    _ "github.com/firebolt-db/firebolt-go-sdk"
+	"context"
+	"database/sql"
+	"fmt"
+	"log"
+
+	// we need to import firebolt-go-sdk in order to register the driver
+	_ "github.com/firebolt-db/firebolt-go-sdk"
 	fireboltContext "github.com/firebolt-db/firebolt-go-sdk/context"
 )
 
@@ -119,40 +123,41 @@ func main() {
 	clientSecret := ""
 	accountName := ""
 	databaseName := ""
-	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseName, accountName, clientId, clientSecret)
+	engineName := ""
+	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s", databaseName, accountName, clientId, clientSecret, engineName)
 
 	// open a Firebolt connection
 	db, err := sql.Open("firebolt", dsn)
 	if err != nil {
-		fmt.Printf("error during opening a driver: %v", err)
+		log.Fatalf("error during opening a driver: %v", err)
 	}
-	
+
 	// create a streaming context
 	streamingCtx := fireboltContext.WithStreaming(context.Background())
 
 	// execute a large select query
-	rows, err := db.QueryContext(streamingCtx, "SELECT \"abc\" FROM generate_series(1, 100000000)")
+	rows, err := db.QueryContext(streamingCtx, "SELECT 'abc' FROM generate_series(1, 100000000)")
 	if err != nil {
-		fmt.Printf("error during select query: %v", err)
+		log.Fatalf("error during select query: %v", err)
 	}
 
 	// iterating over the result is exactly the same as in the previous example
 	defer func() {
 		if err := rows.Close(); err != nil {
-			fmt.Printf("error during rows.Close(): %v\n", err)
+			log.Printf("error during rows.Close(): %v\n", err)
 		}
 	}()
 
 	for rows.Next() {
 		var id int
 		if err := rows.Scan(&id); err != nil {
-			fmt.Printf("error during scan: %v", err)
+			log.Fatalf("error during scan: %v", err)
 		}
-		fmt.Println(id)
+		log.Print(id)
 	}
 
 	if err := rows.Err(); err != nil {
-		fmt.Printf("error during rows iteration: %v\n", err)
+		log.Fatalf("error during rows iteration: %v\n", err)
 	}
 }
 ```
