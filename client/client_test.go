@@ -142,7 +142,7 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	}
 
 	if totalCount != 4 {
-		t.Errorf("Expected to call the server 5 times (2x to fetch tokens and 3x to send the request that returns a 403). Total: %d", totalCount)
+		t.Errorf("Expected to call the server 4 times (2x to fetch tokens and 2x to send the request that returns a 403). Total: %d", totalCount)
 	}
 }
 
