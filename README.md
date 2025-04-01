@@ -217,7 +217,7 @@ func main() {
     invalidAccountDSN := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
         databaseName, "invalid", clientId, clientSecret, engineName)
     db, err = sql.Open("firebolt", invalidAccountDSN)
-	    if err != nil {
+	if err != nil {
         if errors.Is(err, fireboltErrors.InvalidAccountError) {
             log.Println("Invalid account name. Please check your account name and try again")
         } else {
