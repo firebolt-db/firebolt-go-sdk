@@ -21,7 +21,7 @@ func TestAuthHappyPath(t *testing.T) {
 
 func testAuthWrongCredential(t *testing.T, newVersion bool) {
 	_, err := ClientFactory(&types.FireboltSettings{
-		ClientID:     "TestAuthWrongCredential",
+		ClientID:     "test_auth_wrong_credential",
 		ClientSecret: "wrong_secret",
 		NewVersion:   newVersion,
 	}, GetHostNameURL())
@@ -35,7 +35,7 @@ func testAuthWrongCredential(t *testing.T, newVersion bool) {
 
 func testAuthEmptyCredential(t *testing.T, newVersion bool) {
 	_, err := ClientFactory(&types.FireboltSettings{
-		ClientID:     "TestAuthEmptyCredential",
+		ClientID:     "test_auth_empty_credential",
 		ClientSecret: "",
 		NewVersion:   newVersion,
 	}, GetHostNameURL())
