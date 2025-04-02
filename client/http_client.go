@@ -147,16 +147,6 @@ func DoHttpRequest(reqParams requestParameters) *Response {
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error during a request execution", err))
 	}
 
-	/*defer resp.Body.Close()
-	// Error might be in the Response body, despite the status code 200
-	errorResponse := struct {
-		Errors []types.ErrorDetails `json:"errors"`
-	}{}
-	if err = json.Unmarshal(body, &errorResponse); err == nil {
-		if errorResponse.Errors != nil {
-			return Response{nil, resp.StatusCode, nil, errorUtils.NewStructuredError(errorResponse.Errors)}
-		}
-	}*/
 	return MakeResponse(resp.Body, resp.StatusCode, resp.Header, nil)
 }
 

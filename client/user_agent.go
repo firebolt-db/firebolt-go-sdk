@@ -22,7 +22,7 @@ func ConstructUserAgentString() (ua_string string) {
 		// ConstructUserAgentString is a non-essential function, used for statistic gathering
 		// so carry on working if a failure occurs
 		if err := recover(); err != nil {
-			logging.Infolog.Printf("Unable to generate User Agent string")
+			logging.Infolog.Printf("Unable to generate User Agent string: %v", err)
 			ua_string = "GoSDK"
 		}
 	}()

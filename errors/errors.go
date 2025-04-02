@@ -1,12 +1,13 @@
 package errors
 
-import (
-	"fmt"
+const accountErrorMsg = `provided account name does not exist in this organization or is not authorized.
+Please verify the account name and make sure your service account has the
+correct RBAC permissions and is linked to a user`
 
-	"github.com/firebolt-db/firebolt-go-sdk/logging"
+var (
+	AuthenticationError = ConstructNestedError("authentication error", nil)
+	AuthorizationError  = ConstructNestedError("authorization error", nil)
+	QueryExecutionError = ConstructNestedError("query execution error", nil)
+	DSNParseError       = ConstructNestedError("error parsing DSN", nil)
+	InvalidAccountError = ConstructNestedError(accountErrorMsg, nil)
 )
-
-func ConstructNestedError(message string, err error) error {
-	logging.Infolog.Printf("%s: %v", message, err)
-	return fmt.Errorf("%s: %v", message, err)
-}

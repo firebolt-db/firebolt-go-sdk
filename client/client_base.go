@@ -156,6 +156,11 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 		}
 		// Trying to send the same request again now that the access token has been refreshed
 		resp = DoHttpRequest(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
+
+		// If the request still fails, wrap the error with AuthorizationError
+		if resp.statusCode == http.StatusUnauthorized {
+			resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
+		}
 	}
 	return resp
 }

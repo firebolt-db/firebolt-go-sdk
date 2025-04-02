@@ -36,6 +36,8 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
+
 	// we need to import firebolt-go-sdk in order to register the driver
 	_ "github.com/firebolt-db/firebolt-go-sdk"
 )
@@ -47,49 +49,50 @@ func main() {
 	clientSecret := ""
 	accountName := ""
 	databaseName := ""
-	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseName, accountName, clientId, clientSecret)
+	engineName := ""
+	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s", databaseName, accountName, clientId, clientSecret, engineName)
 
 	// open a Firebolt connection
 	db, err := sql.Open("firebolt", dsn)
 	if err != nil {
-		fmt.Printf("error during opening a driver: %v", err)
+		log.Fatalf("error during opening a driver: %v", err)
 	}
 
 	// create a table
 	_, err = db.Query("CREATE TABLE test_table(id INT, value TEXT)")
 	if err != nil {
-		fmt.Printf("error during select query: %v", err)
+		log.Fatalf("error during select query: %v", err)
 	}
 
 	// execute a parametrized insert (only ? placeholders are supported)
 	_, err = db.Query("INSERT INTO test_table VALUES (?, ?)", 1, "my value")
 	if err != nil {
-		fmt.Printf("error during select query: %v", err)
+		log.Fatalf("error during select query: %v", err)
 	}
 
 	// execute a simple select query
 	rows, err := db.Query("SELECT id FROM test_table")
 	if err != nil {
-		fmt.Printf("error during select query: %v", err)
+		log.Fatalf("error during select query: %v", err)
 	}
 
 	// iterate over the result
 	defer func() {
 		if err := rows.Close(); err != nil {
-			fmt.Printf("error during rows.Close(): %v\n", err)
+			log.Printf("error during rows.Close(): %v\n", err)
 		}
 	}()
-	
+
 	for rows.Next() {
 		var id int
 		if err := rows.Scan(&id); err != nil {
-			fmt.Printf("error during scan: %v", err)
+			log.Fatalf("error during scan: %v", err)
 		}
-		fmt.Println(id)
+		log.Print(id)
 	}
 
 	if err := rows.Err(); err != nil {
-		fmt.Printf("error during rows iteration: %v\n", err)
+		log.Fatalf("error during rows iteration: %v\n", err)
 	}
 }
 ```
@@ -104,12 +107,13 @@ Here is an example of how to do it:
 package main
 
 import (
-    "context"
-    "database/sql"
-    "fmt"
-	
-    // we need to import firebolt-go-sdk in order to register the driver
-    _ "github.com/firebolt-db/firebolt-go-sdk"
+	"context"
+	"database/sql"
+	"fmt"
+	"log"
+
+	// we need to import firebolt-go-sdk in order to register the driver
+	_ "github.com/firebolt-db/firebolt-go-sdk"
 	fireboltContext "github.com/firebolt-db/firebolt-go-sdk/context"
 )
 
@@ -119,40 +123,41 @@ func main() {
 	clientSecret := ""
 	accountName := ""
 	databaseName := ""
-	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s", databaseName, accountName, clientId, clientSecret)
+	engineName := ""
+	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s", databaseName, accountName, clientId, clientSecret, engineName)
 
 	// open a Firebolt connection
 	db, err := sql.Open("firebolt", dsn)
 	if err != nil {
-		fmt.Printf("error during opening a driver: %v", err)
+		log.Fatalf("error during opening a driver: %v", err)
 	}
-	
+
 	// create a streaming context
 	streamingCtx := fireboltContext.WithStreaming(context.Background())
 
 	// execute a large select query
-	rows, err := db.QueryContext(streamingCtx, "SELECT \"abc\" FROM generate_series(1, 100000000)")
+	rows, err := db.QueryContext(streamingCtx, "SELECT 'abc' FROM generate_series(1, 100000000)")
 	if err != nil {
-		fmt.Printf("error during select query: %v", err)
+		log.Fatalf("error during select query: %v", err)
 	}
 
 	// iterating over the result is exactly the same as in the previous example
 	defer func() {
 		if err := rows.Close(); err != nil {
-			fmt.Printf("error during rows.Close(): %v\n", err)
+			log.Printf("error during rows.Close(): %v\n", err)
 		}
 	}()
 
 	for rows.Next() {
-		var id int
-		if err := rows.Scan(&id); err != nil {
-			fmt.Printf("error during scan: %v", err)
+		var data string
+		if err := rows.Scan(&data); err != nil {
+			log.Fatalf("error during scan: %v", err)
 		}
-		fmt.Println(id)
+		log.Print(data)
 	}
 
 	if err := rows.Err(); err != nil {
-		fmt.Printf("error during rows iteration: %v\n", err)
+		log.Fatalf("error during rows iteration: %v\n", err)
 	}
 }
 ```
@@ -160,6 +165,95 @@ func main() {
 #### Errors in streaming
 If you enable streaming the result, the query execution might finish successfully, but the actual error might be returned during the iteration over the rows.
 
+### Error handling
+The SDK provides specific error types that can be checked using Go's `errors.Is()` function. Here's how to handle different types of errors:
+
+```go
+package main
+
+import (
+	"database/sql"
+	"errors"
+	"fmt"
+	"log"
+
+	_ "github.com/firebolt-db/firebolt-go-sdk"
+	fireboltErrors "github.com/firebolt-db/firebolt-go-sdk/errors"
+)
+
+func main() {
+	// set your Firebolt credentials to construct a dsn string
+	clientId := ""
+	clientSecret := ""
+	accountName := ""
+	databaseName := ""
+	engineName := ""
+
+	// Example 1: Invalid DSN format (using account-name instead of account_name)
+	invalidDSN := fmt.Sprintf("firebolt:///%s?account-name=%s&client_id=%s&client_secret=%s&engine=%s",
+		databaseName, accountName, clientId, clientSecret, engineName)
+	db, err := sql.Open("firebolt", invalidDSN)
+	if err != nil {
+		if errors.Is(err, fireboltErrors.DSNParseError) {
+			log.Println("Invalid DSN format, please update your DSN and try again")
+		} else {
+			log.Fatalf("Unexpected error type: %v", err)
+		}
+	}
+
+	// Example 2: Invalid credentials
+	invalidCredentialsDSN := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
+		databaseName, accountName, "invalid", "invalid", engineName)
+	db, err = sql.Open("firebolt", invalidCredentialsDSN)
+	if err != nil {
+		if errors.Is(err, fireboltErrors.AuthenticationError) {
+			log.Println("Authentication error. Please check your credentials and try again")
+		} else {
+			log.Fatalf("Unexpected error type: %v", err)
+		}
+	}
+	
+	// Example 3: Invalid account name
+    invalidAccountDSN := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
+        databaseName, "invalid", clientId, clientSecret, engineName)
+    db, err = sql.Open("firebolt", invalidAccountDSN)
+	if err != nil {
+        if errors.Is(err, fireboltErrors.InvalidAccountError) {
+            log.Println("Invalid account name. Please check your account name and try again")
+        } else {
+            log.Fatalf("Unexpected error type: %v", err)
+        }
+    }
+	
+	// Example 4: Invalid SQL query
+	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
+		databaseName, accountName, clientId, clientSecret, engineName)
+	db, err = sql.Open("firebolt", dsn)
+	if err != nil {
+		log.Fatalf("Failed to open connection: %v", err)
+	}
+	defer db.Close()
+
+	// Try to execute an invalid SQL query
+	_, err = db.Query("SELECT * FROM non_existent_table")
+	if err != nil {
+		if errors.Is(err, fireboltErrors.QueryExecutionError) {
+			log.Printf("Error during query execution. Please fix your SQL query and try again")
+		} else {
+			log.Fatalf("Unexpected error type: %v", err)
+		}
+	}
+}
+```
+
+The SDK provides the following error types:
+- `DSNParseError`: Provided DSN string format is invalid
+- `AuthenticationError`: Authentication failure
+- `QueryExecutionError`: SQL query execution error
+- `AuthorizationError`:A user doesn't have permission to perform an action
+- `InvalidAccountError`: Provided account name is invalid or no permissions to access the account
+
+Each error type can be checked using `errors.Is(err, errorType)`. This allows for specific error handling based on the type of error encountered.
 
 ### Limitations
 Although, all interfaces are available, not all of them are implemented or could be implemented:
