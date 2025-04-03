@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"errors"
+	"io"
 	"testing"
 
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
@@ -168,6 +169,10 @@ func TestFireboltConnectorStreamingWithOptions(t *testing.T) {
 
 	utils.AssertEqual(len(values), 1, t, "returned more that one value")
 	utils.AssertEqual(values[0], int32(1), t, "result is not 1")
+	if rows.Next(values) != io.EOF {
+		t.Errorf("expected no more rows, but got additional data")
+		t.FailNow()
+	}
 }
 
 func TestFireboltConnectorWithOptionsInvalidToken(t *testing.T) {
