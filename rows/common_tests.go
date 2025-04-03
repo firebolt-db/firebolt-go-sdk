@@ -151,7 +151,7 @@ func testRowsNextSet(t *testing.T, rowsFactory func(isMultiStatement bool) drive
 	utils.AssertEqual(rows.Next(dest), nil, t, "Next shouldn't return an error")
 	utils.AssertEqual(dest[0], nil, t, "results are not equal for final row")
 
-	utils.AssertEqual(io.EOF, rows.Next(dest), t, "Next should return io.EOF if no data available anymore")
+	utils.AssertEqual(rows.Next(dest), io.EOF, t, "Next should return io.EOF if no data available anymore ")
 }
 
 func testRowsNextStructError(t *testing.T, rowsFactory func(isMultiStatement bool) driver.RowsNextResultSet) {
