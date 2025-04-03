@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
+	"github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
@@ -138,6 +139,16 @@ func TestStreamRowsError(t *testing.T) {
 	err = rows.Next(dest)
 	if err == nil {
 		t.Errorf("Expected error, got nil")
+	} else {
+		// Make sure the error is correct
+		if structuredErr, ok := err.(*errors.StructuredError); !ok {
+			t.Errorf("Expected *errors.StructuredError, got %T", err)
+		} else {
+			expectedDescription := "my error"
+			if !strings.Contains(structuredErr.Message, expectedDescription) {
+				t.Errorf("Expected description to contain '%s', got '%s'", expectedDescription, structuredErr.Message)
+			}
+		}
 	}
 
 	// rows are closed now
