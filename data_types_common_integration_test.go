@@ -23,7 +23,7 @@ import (
 )
 
 // runSetupAndSelect runs the setup query and the query and returns the values and column types
-func runSetupAndSelect(t *testing.T, ctx context.Context, setupQueries []string, query, cleanupQuery string) (any, any, any, []*sql.ColumnType, func()) {
+func runSetupAndSelect(t *testing.T, ctx context.Context, setupQueries []string, query, cleanupQuery string) (interface{}, interface{}, interface{}, []*sql.ColumnType, func()) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
 		t.Errorf(OPEN_CONNECTION_ERROR_MSG)

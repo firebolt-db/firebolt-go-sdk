@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-type FireboltStruct map[string]any
+type FireboltStruct map[string]interface{}
 
 func (fs *FireboltStruct) Scan(src interface{}) error {
 	if src == nil {
@@ -16,7 +16,7 @@ func (fs *FireboltStruct) Scan(src interface{}) error {
 		return fmt.Errorf("unexpected struct value type: %T", src)
 	}
 
-	*fs = make(map[string]any, t.Len())
+	*fs = make(map[string]interface{}, t.Len())
 	for _, key := range t.MapKeys() {
 		(*fs)[key.String()] = t.MapIndex(key).Interface()
 	}
