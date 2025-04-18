@@ -42,7 +42,7 @@ func AssertEqual(testVal interface{}, expectedVal interface{}, t *testing.T, err
 	}
 }
 
-func assertArrays(testVal any, expectedVal any, t *testing.T, err string) {
+func assertArrays(testVal interface{}, expectedVal interface{}, t *testing.T, err string) {
 	// manually
 	testValType := reflect.ValueOf(testVal)
 	expectedValType := reflect.ValueOf(expectedVal)
