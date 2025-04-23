@@ -475,6 +475,23 @@ func TestStreamMultipleDataBlocks(t *testing.T) {
 
 }
 
+func TestConnectionEmptyQuery(t *testing.T) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		conn, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Errorf(OPEN_CONNECTION_ERROR_MSG)
+			t.FailNow()
+		}
+
+		rows, err := conn.QueryContext(ctx, "")
+		if err != nil {
+			t.Errorf(STATEMENT_ERROR_MSG, err)
+		}
+
+		utils.AssertEqual(rows.Next(), false, t, NEXT_STATEMENT_ERROR_MSG)
+	})
+}
+
 type columnType struct {
 	Name              string
 	DatabaseTypeName  string
