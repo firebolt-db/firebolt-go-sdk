@@ -100,6 +100,10 @@ func prepareStatement(query string, params []driver.NamedValue) (string, error) 
 func SplitStatements(sql string) ([]string, error) {
 	var queries []string
 
+	if sql == "" {
+		return []string{""}, nil
+	}
+
 	for sql != "" {
 		var err error
 		var query string

@@ -489,6 +489,8 @@ func TestConnectionEmptyQuery(t *testing.T) {
 		}
 
 		utils.AssertEqual(rows.Next(), false, t, NEXT_STATEMENT_ERROR_MSG)
+		utils.AssertEqual(rows.Err(), nil, t, "rows.Err() returned an error, but shouldn't")
+		utils.AssertEqual(rows.NextResultSet(), false, t, "NextResultSet() returned true, but shouldn't")
 	})
 }
 
