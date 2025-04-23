@@ -1,6 +1,10 @@
 package fireboltgosdk
 
-import "github.com/firebolt-db/firebolt-go-sdk/client"
+import (
+	"context"
+
+	"github.com/firebolt-db/firebolt-go-sdk/client"
+)
 
 type driverOption func(d *FireboltDriver)
 
@@ -75,6 +79,49 @@ func WithClientParams(accountID string, token string, userAgent string) driverOp
 		WithAccountID(accountID)(d)
 		WithToken(token)(d)
 		WithUserAgent(userAgent)(d)
+	}
+}
+
+// WithAccountName defines account name for the driver
+func WithAccountName(accountName string) driverOption {
+	return func(d *FireboltDriver) {
+		if d.client != nil {
+			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
+				clientImpl.AccountName = accountName
+			} else if clientImplV0, ok := d.client.(*client.ClientImplV0); ok {
+				var err error
+				clientImplV0.AccountID, err = clientImplV0.GetAccountID(context.TODO(), accountName)
+				if err != nil {
+					panic(err)
+				}
+			}
+		} else {
+			cl := &client.ClientImpl{
+				ConnectedToSystemEngine: true,
+				BaseClient:              client.BaseClient{},
+				AccountName:             accountName,
+			}
+			cl.ParameterGetter = cl.GetQueryParams
+			d.client = cl
+		}
+	}
+}
+
+// WithDatabaseAndEngineName defines database name and engine name for the driver
+func WithDatabaseAndEngineName(databaseName, engineName string) driverOption {
+	return func(d *FireboltDriver) {
+		if d.client == nil {
+			panic("client must be initialized before setting database and engine name")
+		}
+		oldCachedParameters := d.cachedParams
+		var err error
+		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), engineName, databaseName)
+		if err != nil {
+			panic(err)
+		}
+		for key, value := range oldCachedParameters {
+			d.cachedParams[key] = value
+		}
 	}
 }
 
