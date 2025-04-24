@@ -41,4 +41,4 @@ jobs:
       run: pip install pre-commit==3.7.1
 
     - name: Run pre-commit checks
-      uses: pre-commit/action@v3.0.1
+      run: pre-commit run --all-files
