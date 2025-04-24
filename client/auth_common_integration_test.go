@@ -32,9 +32,10 @@ func randomString(length int) string {
 }
 
 func testAuthWrongCredential(t *testing.T, newVersion bool) {
+	wrong_client_id := "wrong_client_id" + randomString(10)
 	wrong_secret := "wrong_secret" + randomString(10)
 	_, err := ClientFactory(&types.FireboltSettings{
-		ClientID:     "test_auth_wrong_credential",
+		ClientID:     wrong_client_id,
 		ClientSecret: wrong_secret,
 		NewVersion:   newVersion,
 	}, GetHostNameURL())
