@@ -127,14 +127,10 @@ func WithDatabaseAndEngineName(databaseName, engineName string) driverOptionWith
 		if d.client == nil {
 			return errors.New("client must be initialized before setting database and engine name")
 		}
-		oldCachedParameters := d.cachedParams
 		var err error
 		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), engineName, databaseName)
 		if err != nil {
 			return err
-		}
-		for key, value := range oldCachedParameters {
-			d.cachedParams[key] = value
 		}
 		return nil
 	}
