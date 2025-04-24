@@ -5,7 +5,9 @@ package client
 
 import (
 	"errors"
+	"math/rand"
 	"testing"
+	"time"
 
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 
@@ -19,10 +21,22 @@ func TestAuthHappyPath(t *testing.T) {
 	}
 }
 
+func randomString(length int) string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	seededRand := rand.New(rand.NewSource(time.Now().UnixNano()))
+	b := make([]byte, length)
+	for i := range b {
+		b[i] = charset[seededRand.Intn(len(charset))]
+	}
+	return string(b)
+}
+
 func testAuthWrongCredential(t *testing.T, newVersion bool) {
+	wrong_client_id := "wrong_client_id" + randomString(10)
+	wrong_secret := "wrong_secret" + randomString(10)
 	_, err := ClientFactory(&types.FireboltSettings{
-		ClientID:     "test_auth_wrong_credential",
-		ClientSecret: "wrong_secret",
+		ClientID:     wrong_client_id,
+		ClientSecret: wrong_secret,
 		NewVersion:   newVersion,
 	}, GetHostNameURL())
 	if err == nil {
