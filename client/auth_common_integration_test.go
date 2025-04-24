@@ -20,9 +20,10 @@ func TestAuthHappyPath(t *testing.T) {
 }
 
 func testAuthWrongCredential(t *testing.T, newVersion bool) {
+	wrong_secret := "wrong_secret" + utils.RandomString(10)
 	_, err := ClientFactory(&types.FireboltSettings{
 		ClientID:     "test_auth_wrong_credential",
-		ClientSecret: "wrong_secret",
+		ClientSecret: wrong_secret,
 		NewVersion:   newVersion,
 	}, GetHostNameURL())
 	if err == nil {
