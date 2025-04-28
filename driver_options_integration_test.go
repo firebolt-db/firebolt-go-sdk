@@ -217,3 +217,107 @@ func TestFireboltConnectorWithOptionsInvalidToken(t *testing.T) {
 		t.Errorf("expected to fail with unauthorized error, got: %v", err)
 	}
 }
+
+func TestFireboltConnectorWithOptionsWithErrors(t *testing.T) {
+	cl, err := client.ClientFactory(&types.FireboltSettings{
+		ClientID:     clientIdMock,
+		ClientSecret: clientSecretMock,
+		AccountName:  accountName,
+		EngineName:   engineNameMock,
+		Database:     databaseMock,
+		NewVersion:   true,
+	}, client.GetHostNameURL())
+	if err != nil {
+		t.Errorf("failed to authenticate with client id %s: %v", clientIdMock, err)
+		t.FailNow()
+	}
+	token, err := cl.(*client.ClientImpl).AccessTokenGetter()
+	if err != nil {
+		t.Errorf("failed to get access token: %v", err)
+		t.FailNow()
+	}
+
+	userAgent := "test user agent"
+
+	conn, err := FireboltConnectorWithOptionsWithErrors(
+		WithAccountName(accountName),
+		NoError(WithUserAgent(userAgent)),
+		NoError(WithToken(token)),
+		WithDatabaseAndEngineName(databaseMock, engineNameMock),
+	)
+	if err != nil {
+		t.Errorf("failed to create connector with options: %v", err)
+		t.FailNow()
+	}
+
+	resp, err := conn.client.Query(context.Background(), conn.engineUrl, "SELECT 1", nil, client.ConnectionControl{})
+	if err != nil {
+		t.Errorf("failed unexpectedly with: %v", err)
+		t.FailNow()
+	}
+
+	rows := rows.InMemoryRows{}
+	if err := rows.ProcessAndAppendResponse(resp); err != nil {
+		t.Errorf("failed to process response: %v", err)
+		t.FailNow()
+	}
+
+	var values []driver.Value = make([]driver.Value, len(rows.Columns()))
+
+	if err := rows.Next(values); err != nil {
+		t.Errorf("failed to get result: %v", err)
+		t.FailNow()
+	}
+
+	utils.AssertEqual(len(values), 1, t, "returned more that one value")
+	utils.AssertEqual(values[0], int32(1), t, "result is not 1")
+}
+
+func TestFireboltConnectorWithOptionsWithErrorsHandleErrors(t *testing.T) {
+	cl, err := client.ClientFactory(&types.FireboltSettings{
+		ClientID:     clientIdMock,
+		ClientSecret: clientSecretMock,
+		AccountName:  accountName,
+		EngineName:   engineNameMock,
+		Database:     databaseMock,
+		NewVersion:   true,
+	}, client.GetHostNameURL())
+	if err != nil {
+		t.Errorf("failed to authenticate with client id %s: %v", clientIdMock, err)
+		t.FailNow()
+	}
+	token, err := cl.(*client.ClientImpl).AccessTokenGetter()
+	if err != nil {
+		t.Errorf("failed to get access token: %v", err)
+		t.FailNow()
+	}
+
+	userAgent := "test user agent"
+
+	_, err = FireboltConnectorWithOptionsWithErrors(
+		WithDatabaseAndEngineName(databaseMock, engineNameMock),
+		WithAccountName(accountName),
+		NoError(WithUserAgent(userAgent)),
+		NoError(WithToken(token)),
+	)
+	if err == nil {
+		t.Errorf("expected to fail with uninitialized client")
+		t.FailNow()
+	}
+	if err.Error() != "client must be initialized before setting database and engine name" {
+		t.Errorf("expected to fail with uninitialized client, got: %v", err)
+		t.FailNow()
+	}
+
+	_, err = FireboltConnectorWithOptionsWithErrors(
+		WithAccountName(accountName+"invalid"),
+		NoError(WithUserAgent(userAgent)),
+		NoError(WithToken(token)),
+		WithDatabaseAndEngineName(databaseMock, engineNameMock),
+	)
+	if !errors.Is(err, errorUtils.InvalidAccountError) {
+		t.Errorf("expected to fail with invalid account name, got: %v", err)
+		t.FailNow()
+	}
+
+}

@@ -1,8 +1,21 @@
 package fireboltgosdk
 
-import "github.com/firebolt-db/firebolt-go-sdk/client"
+import (
+	"context"
+	"errors"
+
+	"github.com/firebolt-db/firebolt-go-sdk/client"
+)
 
 type driverOption func(d *FireboltDriver)
+type driverOptionWithError func(d *FireboltDriver) error
+
+func NoError(option driverOption) driverOptionWithError {
+	return func(d *FireboltDriver) error {
+		option(d)
+		return nil
+	}
+}
 
 // WithEngineUrl defines engine url for the driver
 func WithEngineUrl(engineUrl string) driverOption {
@@ -38,13 +51,14 @@ func withClientOption(setter func(baseClient *client.BaseClient)) driverOption {
 		if d.client != nil {
 			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
 				setter(&clientImpl.BaseClient)
-			} else if clientImplV0, ok := d.client.(*client.ClientImplV0); ok {
-				setter(&clientImplV0.BaseClient)
 			}
+			// ignore V0 client since it's not supported
 		} else {
 			cl := &client.ClientImpl{
 				ConnectedToSystemEngine: true,
-				BaseClient:              client.BaseClient{},
+				BaseClient: client.BaseClient{
+					ApiEndpoint: client.GetHostNameURL(),
+				},
 			}
 			cl.ParameterGetter = cl.GetQueryParams
 			setter(&cl.BaseClient)
@@ -78,6 +92,44 @@ func WithClientParams(accountID string, token string, userAgent string) driverOp
 	}
 }
 
+// WithAccountName defines account name for the driver
+func WithAccountName(accountName string) driverOptionWithError {
+	return func(d *FireboltDriver) error {
+		if d.client != nil {
+			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
+				clientImpl.AccountName = accountName
+			}
+			// ignore V0 client since it's not supported
+		} else {
+			cl := &client.ClientImpl{
+				ConnectedToSystemEngine: true,
+				BaseClient: client.BaseClient{
+					ApiEndpoint: client.GetHostNameURL(),
+				},
+				AccountName: accountName,
+			}
+			cl.ParameterGetter = cl.GetQueryParams
+			d.client = cl
+		}
+		return nil
+	}
+}
+
+// WithDatabaseAndEngineName defines database name and engine name for the driver
+func WithDatabaseAndEngineName(databaseName, engineName string) driverOptionWithError {
+	return func(d *FireboltDriver) error {
+		if d.client == nil {
+			return errors.New("client must be initialized before setting database and engine name")
+		}
+		var err error
+		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), engineName, databaseName)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+}
+
 // FireboltConnectorWithOptions builds a custom connector
 func FireboltConnectorWithOptions(opts ...driverOption) *FireboltConnector {
 	d := &FireboltDriver{}
@@ -92,4 +144,22 @@ func FireboltConnectorWithOptions(opts ...driverOption) *FireboltConnector {
 		d.cachedParams,
 		d,
 	}
+}
+
+// FireboltConnectorWithOptionsWithErrors builds a custom connector with error handling
+func FireboltConnectorWithOptionsWithErrors(opts ...driverOptionWithError) (*FireboltConnector, error) {
+	d := &FireboltDriver{}
+
+	for _, opt := range opts {
+		if err := opt(d); err != nil {
+			return nil, err
+		}
+	}
+
+	return &FireboltConnector{
+		d.engineUrl,
+		d.client,
+		d.cachedParams,
+		d,
+	}, nil
 }

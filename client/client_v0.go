@@ -31,7 +31,7 @@ func MakeClientV0(settings *types.FireboltSettings, apiEndpoint string) (*Client
 	client.AccessTokenGetter = client.getAccessToken
 
 	var err error
-	client.AccountID, err = client.getAccountID(context.Background(), settings.AccountName)
+	client.AccountID, err = client.GetAccountID(context.Background(), settings.AccountName)
 	if err != nil {
 		return nil, errorUtils.ConstructNestedError("error during getting account id", err)
 	}
@@ -93,7 +93,7 @@ func (c *ClientImplV0) getDefaultAccountID(ctx context.Context) (string, error) 
 	return defaultAccountResponse.Account.Id, nil
 }
 
-func (c *ClientImplV0) getAccountID(ctx context.Context, accountName string) (string, error) {
+func (c *ClientImplV0) GetAccountID(ctx context.Context, accountName string) (string, error) {
 	var accountId string
 	var err error
 	if accountName == "" {
