@@ -483,14 +483,19 @@ func TestConnectionEmptyQuery(t *testing.T) {
 			t.FailNow()
 		}
 
-		rows, err := conn.QueryContext(ctx, "")
-		if err != nil {
-			t.Errorf(STATEMENT_ERROR_MSG, err)
+		for _, query := range []string{"", ";", " ; ", ";;", " ; ; "} {
+			t.Run(query, func(t *testing.T) {
+				rows, err := conn.QueryContext(ctx, query)
+				if err != nil {
+					t.Errorf(STATEMENT_ERROR_MSG, err)
+				}
+
+				utils.AssertEqual(rows.Next(), false, t, NEXT_STATEMENT_ERROR_MSG)
+				utils.AssertEqual(rows.Err(), nil, t, "rows.Err() returned an error, but shouldn't")
+				utils.AssertEqual(rows.NextResultSet(), false, t, "NextResultSet() returned true, but shouldn't")
+			})
 		}
 
-		utils.AssertEqual(rows.Next(), false, t, NEXT_STATEMENT_ERROR_MSG)
-		utils.AssertEqual(rows.Err(), nil, t, "rows.Err() returned an error, but shouldn't")
-		utils.AssertEqual(rows.NextResultSet(), false, t, "NextResultSet() returned true, but shouldn't")
 	})
 }
 
