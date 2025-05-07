@@ -100,10 +100,6 @@ func prepareStatement(query string, params []driver.NamedValue) (string, error) 
 func SplitStatements(sql string) ([]string, error) {
 	var queries []string
 
-	if sql == "" {
-		return []string{""}, nil
-	}
-
 	for sql != "" {
 		var err error
 		var query string
@@ -116,6 +112,12 @@ func SplitStatements(sql string) ([]string, error) {
 			continue
 		}
 		queries = append(queries, query)
+	}
+
+	if len(queries) == 0 {
+		// Parser stripped all the symbols and found no meaningfully query
+		// Consider it as empty query
+		return []string{""}, nil
 	}
 
 	return queries, nil
