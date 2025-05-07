@@ -483,12 +483,35 @@ func TestConnectionEmptyQuery(t *testing.T) {
 			t.FailNow()
 		}
 
-		rows, err := conn.QueryContext(ctx, "")
+		for _, query := range []string{"", ";", " ; ", ";;", " ; ; "} {
+			t.Run(query, func(t *testing.T) {
+				rows, err := conn.QueryContext(ctx, query)
+				if err != nil {
+					t.Errorf(STATEMENT_ERROR_MSG, err)
+				}
+
+				utils.AssertEqual(rows.Next(), false, t, NEXT_STATEMENT_ERROR_MSG)
+				utils.AssertEqual(rows.Err(), nil, t, "rows.Err() returned an error, but shouldn't")
+				utils.AssertEqual(rows.NextResultSet(), false, t, "NextResultSet() returned true, but shouldn't")
+			})
+		}
+	})
+}
+
+func TestConnectionQueryWithEmptyPart(t *testing.T) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		conn, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Errorf(OPEN_CONNECTION_ERROR_MSG)
+			t.FailNow()
+		}
+
+		rows, err := conn.QueryContext(ctx, ";;; select 1 ;;;")
 		if err != nil {
 			t.Errorf(STATEMENT_ERROR_MSG, err)
 		}
 
-		utils.AssertEqual(rows.Next(), false, t, NEXT_STATEMENT_ERROR_MSG)
+		utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
 		utils.AssertEqual(rows.Err(), nil, t, "rows.Err() returned an error, but shouldn't")
 		utils.AssertEqual(rows.NextResultSet(), false, t, "NextResultSet() returned true, but shouldn't")
 	})
