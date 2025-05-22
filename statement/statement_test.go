@@ -97,7 +97,7 @@ func TestCloseStmt(t *testing.T) {
 	utils.AssertEqual(stmt.Queries, []PreparedQuery{}, t, "queries weren't reset by stmt")
 }
 
-/*// TestNumInput checks, that NumInput returns the number of input parameters
+// TestNumInput checks, that NumInput returns the number of input parameters
 func TestNumInput(t *testing.T) {
 	executor := driverExecerMock{}
 
@@ -107,7 +107,7 @@ func TestNumInput(t *testing.T) {
 		t.Fatalf("Failed to create statement: %v", err)
 	}
 
-	utils.AssertEqual(stmt.NumInput(), 2, t, "NumInput should return 0 for a query without parameters")
+	utils.AssertEqual(stmt.NumInput(), 0, t, "NumInput should return 0 for a query without parameters")
 
 	sql = "INSERT INTO t VALUES (?, ?)"
 	stmt, err = MakeStmt(&executor, sql, contextUtils.PreparedStatementsStyleNative)
@@ -124,4 +124,4 @@ func TestNumInput(t *testing.T) {
 	}
 
 	utils.AssertEqual(stmt.NumInput(), -1, t, "NumInput should return -1 for server-side parameters")
-}*/
+}

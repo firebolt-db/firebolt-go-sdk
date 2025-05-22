@@ -2,6 +2,7 @@ package statement
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -25,12 +26,41 @@ type SingleStatement struct {
 }
 
 func (s *SingleStatement) GetNumParams() int {
+	if s.parametersStyle == context.PreparedStatementsStyleFbNumeric {
+		// We don't know the number of parameters in the query
+		return -1
+	}
 	return len(s.paramsPositions)
 }
 
+func makeQueryParameters(args []driver.NamedValue) (map[string]string, error) {
+	queryParameters := make([]map[string]string, len(args))
+	for _, arg := range args {
+		var key string
+		if arg.Name != "" {
+			return nil, fmt.Errorf("named parameters are not supported for server-side prepared statements: %s", arg.Name)
+		}
+		key = fmt.Sprintf("$%d", arg.Ordinal)
+		value, err := formatValue(arg.Value)
+		if err != nil {
+			return nil, err
+		}
+		queryParameters = append(queryParameters, map[string]string{"name": key, "value": value})
+	}
+	// Encode the query parameters to JSON
+	queryParametersJSON, err := json.Marshal(queryParameters)
+	return map[string]string{"queryParameters": string(queryParametersJSON)}, err
+}
+
 func (s *SingleStatement) Format(args []driver.NamedValue) (string, map[string]string, error) {
+	if s.parametersStyle == context.PreparedStatementsStyleFbNumeric {
+		// Don't replace the parameters in the query, send them as `query_parameters`
+		queryParameters, err := makeQueryParameters(args)
+		return s.query, queryParameters, err
+	}
 	query, err := formatStatement(s.query, s.paramsPositions, args)
 	return query, map[string]string{}, err
+
 }
 
 func (s *SingleStatement) OnSuccess(control client.ConnectionControl) {}
@@ -71,9 +101,14 @@ func prepareQuery(query string, style context.PreparedStatementsStyle) ([]Prepar
 			}
 			preparedQueries[i] = &SetStatement{key, value}
 		} else {
-			positions, err := prepareStatement(singleQuery)
-			if err != nil {
-				return nil, err
+			var positions []int
+			if style == context.PreparedStatementsStyleNative {
+				positions, err = prepareStatement(singleQuery)
+				if err != nil {
+					return nil, err
+				}
+			} else {
+				positions = make([]int, 0)
 			}
 			preparedQueries[i] = &SingleStatement{singleQuery, positions, style}
 		}
