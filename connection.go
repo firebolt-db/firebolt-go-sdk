@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/firebolt-db/firebolt-go-sdk/statement"
+
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/rows"
 
@@ -26,9 +28,9 @@ type fireboltConnection struct {
 // returns an error if the connection isn't initialized or closed
 func (c *fireboltConnection) Prepare(query string) (driver.Stmt, error) {
 	if c.client != nil && len(c.engineUrl) != 0 {
-		return &fireboltStmt{execer: c, queryer: c, query: query}, nil
+		return statement.MakeStmt(c, c, query)
 	}
-	return nil, errors.New("fireboltConnection isn't properly initialized")
+	return nil, errors.New("firebolt connection isn't properly initialized")
 }
 
 // Close closes the connection, and make the fireboltConnection unusable

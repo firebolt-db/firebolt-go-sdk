@@ -165,11 +165,3 @@ func formatValue(value driver.Value) (string, error) {
 		return "", fmt.Errorf("not supported type: %v", v)
 	}
 }
-
-func valueToNamedValue(args []driver.Value) []driver.NamedValue {
-	namedValues := make([]driver.NamedValue, 0, len(args))
-	for i, arg := range args {
-		namedValues = append(namedValues, driver.NamedValue{Ordinal: i, Value: arg})
-	}
-	return namedValues
-}

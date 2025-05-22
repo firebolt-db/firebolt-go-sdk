@@ -5,8 +5,6 @@ import (
 	"reflect"
 	"testing"
 	"time"
-
-	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
 func runParseSetStatementSuccess(t *testing.T, value, expectedKey, expectedValue string) {
@@ -145,13 +143,4 @@ func TestSplitStatements(t *testing.T) {
 	runSplitStatement(t, "SET time_zone=America/New_York; SELECT 2 /*some ; comment*/", []string{"SET time_zone=America/New_York", " SELECT 2 /*some ; comment*/"})
 	runSplitStatement(t, "SET time_zone='America/New_York'; SELECT 2 /*some ; comment*/", []string{"SET time_zone='America/New_York'", " SELECT 2 /*some ; comment*/"})
 	runSplitStatement(t, "SELECT 1; SELECT 2; SELECT 3; SELECT 4; SELECT 5; SELECT 6", []string{"SELECT 1", " SELECT 2", " SELECT 3", " SELECT 4", " SELECT 5", " SELECT 6"})
-}
-
-func TestValueToNamedValue(t *testing.T) {
-	utils.AssertEqual(len(valueToNamedValue([]driver.Value{})), 0, t, "valueToNamedValue of empty array is wrong")
-
-	namedValues := valueToNamedValue([]driver.Value{2, "string"})
-	utils.AssertEqual(len(namedValues), 2, t, "len of namedValues is wrong")
-	utils.AssertEqual(namedValues[0].Value, 2, t, "namedValues value is wrong")
-	utils.AssertEqual(namedValues[1].Value, "string", t, "namedValues value is wrong")
 }

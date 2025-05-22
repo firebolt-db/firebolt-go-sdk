@@ -1,4 +1,4 @@
-package fireboltgosdk
+package statement
 
 import (
 	"context"
@@ -10,6 +10,14 @@ type fireboltStmt struct {
 	queryer driver.QueryerContext
 
 	query string
+}
+
+func MakeStmt(execer driver.ExecerContext, queryer driver.QueryerContext, query string) (*fireboltStmt, error) {
+	return &fireboltStmt{
+		execer:  execer,
+		queryer: queryer,
+		query:   query,
+	}, nil
 }
 
 // Close the statement makes it unusable anymore
