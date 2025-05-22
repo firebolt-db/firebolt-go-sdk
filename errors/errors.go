@@ -8,6 +8,7 @@ var (
 	AuthenticationError = ConstructNestedError("authentication error", nil)
 	AuthorizationError  = ConstructNestedError("authorization error", nil)
 	QueryExecutionError = ConstructNestedError("query execution error", nil)
+	QueryParsingError   = ConstructNestedError("query parsing error", nil)
 	DSNParseError       = ConstructNestedError("error parsing DSN", nil)
 	InvalidAccountError = ConstructNestedError(accountErrorMsg, nil)
 )

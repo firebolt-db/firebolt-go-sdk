@@ -1,4 +1,4 @@
-package fireboltgosdk
+package statement
 
 import "github.com/firebolt-db/firebolt-go-sdk/logging"
 

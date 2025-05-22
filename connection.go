@@ -27,8 +27,14 @@ type fireboltConnection struct {
 // Prepare returns a firebolt prepared statement
 // returns an error if the connection isn't initialized or closed
 func (c *fireboltConnection) Prepare(query string) (driver.Stmt, error) {
+	return c.PrepareContext(context.TODO(), query)
+}
+
+// PrepareContext returns a firebolt prepared statement
+// returns an error if the connection isn't initialized or closed
+func (c *fireboltConnection) PrepareContext(ctx context.Context, query string) (driver.Stmt, error) {
 	if c.client != nil && len(c.engineUrl) != 0 {
-		return statement.MakeStmt(c, c, query)
+		return statement.MakeStmt(c, query, contextUtils.GetPreparedStatementsStyle(ctx))
 	}
 	return nil, errors.New("firebolt connection isn't properly initialized")
 }
@@ -48,13 +54,21 @@ func (c *fireboltConnection) Begin() (driver.Tx, error) {
 
 // ExecContext sends the query to the engine and returns empty fireboltResult
 func (c *fireboltConnection) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	_, err := c.queryContextInternal(ctx, query, args, false)
-	return &FireboltResult{}, err
+	stmt, err := statement.MakeStmt(c, query, contextUtils.GetPreparedStatementsStyle(ctx))
+	if err != nil {
+		return nil, errorUtils.ConstructNestedError("error during preparing a statement", err)
+	}
+	_, err = c.ExecutePreparedQueries(ctx, stmt.Queries, args, false)
+	return &statement.FireboltResult{}, err
 }
 
 // QueryContext sends the query to the engine and returns fireboltRows
 func (c *fireboltConnection) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Rows, error) {
-	return c.queryContextInternal(ctx, query, args, true)
+	stmt, err := statement.MakeStmt(c, query, contextUtils.GetPreparedStatementsStyle(ctx))
+	if err != nil {
+		return nil, errorUtils.ConstructNestedError("error during preparing a statement", err)
+	}
+	return c.ExecutePreparedQueries(ctx, stmt.Queries, args, true)
 }
 
 func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRows {
@@ -66,73 +80,45 @@ func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRows {
 	return &rows.InMemoryRows{}
 }
 
-func (c *fireboltConnection) queryContextInternal(ctx context.Context, query string, args []driver.NamedValue, isMultiStatementAllowed bool) (driver.Rows, error) {
-	query, err := prepareStatement(query, args)
-	if err != nil {
-		return nil, errorUtils.ConstructNestedError("error during preparing a statement", err)
+func mergeMaps(m1, m2 map[string]string) map[string]string {
+	merged := make(map[string]string)
+	for k, v := range m1 {
+		merged[k] = v
 	}
-	queries, err := SplitStatements(query)
-	if err != nil {
-		return nil, errorUtils.ConstructNestedError("error during splitting query", err)
+	for k, v := range m2 {
+		merged[k] = v
 	}
+	return merged
+}
+
+func (c *fireboltConnection) ExecutePreparedQueries(ctx context.Context, queries []statement.PreparedQuery, args []driver.NamedValue, isMultiStatementAllowed bool) (driver.Rows, error) {
 	if len(queries) > 1 && !isMultiStatementAllowed {
 		return nil, fmt.Errorf("multistatement is not allowed")
 	}
 
 	var rowsInst = c.makeRows(ctx)
 
-	for _, query := range queries {
-		if isSetStatement, err := processSetStatement(ctx, c, query); isSetStatement {
-			if err != nil {
-				return rowsInst, errorUtils.ConstructNestedError("statement recognized as an invalid set statement", err)
-			} else if err = rowsInst.ProcessAndAppendResponse(client.MakeResponse(nil, 200, nil, nil)); err != nil {
-				return rowsInst, errorUtils.Wrap(errorUtils.QueryExecutionError, err)
-			}
-		} else {
-			if response, err := c.client.Query(ctx, c.engineUrl, query, c.parameters, client.ConnectionControl{
-				UpdateParameters: c.setParameter,
-				SetEngineURL:     c.setEngineURL,
-				ResetParameters:  c.resetParameters,
-			}); err != nil {
-				return rowsInst, errorUtils.Wrap(errorUtils.QueryExecutionError, err)
-			} else if err = rowsInst.ProcessAndAppendResponse(response); err != nil {
-				return rowsInst, errorUtils.Wrap(errorUtils.QueryExecutionError, err)
-			}
-		}
-	}
-	return rowsInst, nil
-}
-
-// processSetStatement is an internal function for checking whether query is a valid set statement
-// and updating set statement map of the fireboltConnection
-func processSetStatement(ctx context.Context, c *fireboltConnection, query string) (bool, error) {
-	setKey, setValue, err := parseSetStatement(query)
-	if err != nil {
-		// if parsing of set statement returned an error, we will not handle the request as a set statement
-		return false, nil
-	}
-	err = validateSetStatement(setKey)
-	if err != nil {
-		return false, err
-	}
-
-	// combine parameters from connection and set statement
-	combinedParameters := make(map[string]string)
-	for k, v := range c.parameters {
-		combinedParameters[k] = v
-	}
-	combinedParameters[setKey] = setValue
-
-	_, err = c.client.Query(ctx, c.engineUrl, "SELECT 1", combinedParameters, client.ConnectionControl{
+	connectionControl := client.ConnectionControl{
 		UpdateParameters: c.setParameter,
 		SetEngineURL:     c.setEngineURL,
 		ResetParameters:  c.resetParameters,
-	})
-	if err == nil {
-		c.setParameter(setKey, setValue)
-		return true, nil
 	}
-	return true, err
+
+	for _, query := range queries {
+		sql, additionalParameters, err := query.Format(args)
+		if err != nil {
+			return rowsInst, errorUtils.Wrap(errorUtils.QueryExecutionError, err)
+		}
+		parameters := mergeMaps(c.parameters, additionalParameters)
+		if response, err := c.client.Query(ctx, c.engineUrl, sql, parameters, connectionControl); err != nil {
+			return rowsInst, errorUtils.Wrap(errorUtils.QueryExecutionError, err)
+		} else if err = rowsInst.ProcessAndAppendResponse(response); err != nil {
+			return rowsInst, errorUtils.Wrap(errorUtils.QueryExecutionError, err)
+		} else {
+			query.OnSuccess(connectionControl)
+		}
+	}
+	return rowsInst, nil
 }
 
 func (c *fireboltConnection) setParameter(key, value string) {
@@ -152,7 +138,7 @@ func (c *fireboltConnection) setEngineURL(engineUrl string) {
 }
 
 func (c *fireboltConnection) resetParameters() {
-	ignoreParameters := append(getUseParametersList(), getDisallowedParametersList()...)
+	ignoreParameters := append(statement.GetUseParametersList(), statement.GetDisallowedParametersList()...)
 	if c.parameters != nil {
 		for k := range c.parameters {
 			if !utils.ContainsString(ignoreParameters, k) {

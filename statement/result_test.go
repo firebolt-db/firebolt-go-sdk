@@ -1,4 +1,4 @@
-package fireboltgosdk
+package statement
 
 import "testing"
 
