@@ -154,3 +154,13 @@ func GetQueryFromFile(fileName string) string {
 	}
 	return string(query)
 }
+
+// RunClientAndServerPreparedStatements runs a test case with both client and server prepared statements
+func RunClientAndServerPreparedStatements(t *testing.T, testCase func(t *testing.T, ctx context.Context)) {
+	ctx := context.Background()
+	testName := getCallerFunctionName()
+	t.Run(testName+"ClientPreparedStatements", func(t *testing.T) { testCase(t, ctx) })
+	t.Run(testName+"ServerPreparedStatements", func(t *testing.T) {
+		testCase(t, contextUtils.WithPreparedStatementsStyle(ctx, contextUtils.PreparedStatementsStyleFbNumeric))
+	})
+}

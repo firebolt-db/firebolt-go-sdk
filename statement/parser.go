@@ -34,22 +34,25 @@ func (s *SingleStatement) GetNumParams() int {
 }
 
 func makeQueryParameters(args []driver.NamedValue) (map[string]string, error) {
-	queryParameters := make([]map[string]string, len(args))
-	for _, arg := range args {
+	if len(args) == 0 {
+		return nil, nil
+	}
+	queryParameters := make([]map[string]*string, len(args))
+	for i, arg := range args {
 		var key string
 		if arg.Name != "" {
 			return nil, fmt.Errorf("named parameters are not supported for server-side prepared statements: %s", arg.Name)
 		}
 		key = fmt.Sprintf("$%d", arg.Ordinal)
-		value, err := formatValue(arg.Value)
+		value, err := formatValueServerSide(arg.Value)
 		if err != nil {
 			return nil, err
 		}
-		queryParameters = append(queryParameters, map[string]string{"name": key, "value": value})
+		queryParameters[i] = map[string]*string{"name": &key, "value": value}
 	}
 	// Encode the query parameters to JSON
 	queryParametersJSON, err := json.Marshal(queryParameters)
-	return map[string]string{"queryParameters": string(queryParametersJSON)}, err
+	return map[string]string{"query_parameters": string(queryParametersJSON)}, err
 }
 
 func (s *SingleStatement) Format(args []driver.NamedValue) (string, map[string]string, error) {
@@ -210,13 +213,34 @@ func splitStatements(sql string) ([]string, error) {
 	return queries, nil
 }
 
+func formatValueServerSide(value driver.Value) (*string, error) {
+	// Server-side prepared statements don't support parameters
+	// So we need to convert all the values to strings
+	res, err := internalFormatValue(value, true)
+	if res == "NULL" {
+		return nil, err
+	}
+	return &res, err
+}
+
 func formatValue(value driver.Value) (string, error) {
+	return internalFormatValue(value, false)
+}
+
+func internalFormatValue(value driver.Value, isServerSide bool) (string, error) {
+	quote := func(s string) string {
+		if isServerSide {
+			return s
+		}
+		return "'" + s + "'"
+	}
+
 	switch v := value.(type) {
 	case string:
 		res := value.(string)
 		res = strings.Replace(res, "\\", "\\\\", -1)
 		res = strings.Replace(res, "'", "\\'", -1)
-		return fmt.Sprintf("'%s'", res), nil
+		return quote(res), nil
 	case int64, uint64, int32, uint32, int16, uint16, int8, uint8, int, uint:
 		return fmt.Sprintf("%d", value), nil
 	case float64, float32:
@@ -238,14 +262,21 @@ func formatValue(value driver.Value) (string, error) {
 			// If we have a timezone info, add it to format
 			layout = "2006-01-02 15:04:05.000000-07:00"
 		}
-		return fmt.Sprintf("'%s'", timeValue.Format(layout)), nil
+		return quote(timeValue.Format(layout)), nil
 	case []byte:
 		byteValue := value.([]byte)
 		parts := make([]string, len(byteValue))
-		for i, b := range byteValue {
-			parts[i] = fmt.Sprintf("\\x%02x", b)
+		if isServerSide {
+			for i, b := range byteValue {
+				parts[i] = fmt.Sprintf("%02x", b)
+			}
+			return fmt.Sprintf("\\x%s", strings.Join(parts, "")), nil
+		} else {
+			for i, b := range byteValue {
+				parts[i] = fmt.Sprintf("\\x%02x", b)
+			}
+			return fmt.Sprintf("E'%s'", strings.Join(parts, "")), nil
 		}
-		return fmt.Sprintf("E'%s'", strings.Join(parts, "")), nil
 	case nil:
 		return "NULL", nil
 	default:
