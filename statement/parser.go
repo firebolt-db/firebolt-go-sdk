@@ -111,7 +111,7 @@ func prepareQuery(query string, style context.PreparedStatementsStyle) ([]Prepar
 					return nil, err
 				}
 			} else {
-				positions = make([]int, 0)
+				positions = nil
 			}
 			preparedQueries[i] = &SingleStatement{singleQuery, positions, style}
 		}

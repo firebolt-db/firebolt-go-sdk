@@ -6,6 +6,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 )
 
 func runParseSetStatementSuccess(t *testing.T, value, expectedKey, expectedValue string) {
@@ -168,4 +170,74 @@ func TestValidateSetStatement(t *testing.T) {
 	runValidateSetStatement(t, "engine", true, "Try again with 'USE ENGINE' instead of SET")
 	runValidateSetStatement(t, "database", true, "Try again with 'USE DATABASE' instead of SET")
 	runValidateSetStatement(t, "output_format", true, "Set parameter 'output_format' is not allowed")
+}
+
+func runPrepareQuery(t *testing.T, query string, style contextUtils.PreparedStatementsStyle, expected []PreparedQuery, shouldError bool) {
+	res, err := prepareQuery(query, style)
+	if shouldError && err == nil {
+		t.Errorf("prepareQuery should return an error for query '%s', but it didn't", query)
+		return
+	}
+	if !shouldError && err != nil {
+		t.Errorf("prepareQuery returned an error, but it shouldn't: %v", err)
+	}
+	for i, r := range res {
+		// Use reflect to compare
+		if !reflect.DeepEqual(r, expected[i]) {
+			t.Errorf("prepareQuery result is not equal to expected at index %d: '%v' != '%v'", i, r, expected[i])
+			return
+		}
+	}
+}
+
+func TestPrepareQuery(t *testing.T) {
+	runPrepareQuery(t, "SELECT 1", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{&SingleStatement{
+			query:           "SELECT 1",
+			paramsPositions: nil,
+			parametersStyle: contextUtils.PreparedStatementsStyleNative,
+		}}, false)
+	runPrepareQuery(t, "SELECT 1;SELECT 2", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{
+			&SingleStatement{
+				query:           "SELECT 1",
+				paramsPositions: nil,
+				parametersStyle: contextUtils.PreparedStatementsStyleNative,
+			},
+			&SingleStatement{
+				query:           "SELECT 2",
+				paramsPositions: nil,
+				parametersStyle: contextUtils.PreparedStatementsStyleNative,
+			},
+		}, false)
+	runPrepareQuery(t, "SELECT ?, ?", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{&SingleStatement{
+			query:           "SELECT ?, ?",
+			paramsPositions: []int{8, 11},
+			parametersStyle: contextUtils.PreparedStatementsStyleNative,
+		}}, false)
+	runPrepareQuery(t, "SET timezone=America/New_York", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{&SetStatement{
+			key:   "timezone",
+			value: "America/New_York",
+		}}, false)
+	runPrepareQuery(t, "SET timezone=America/New_York;SELECT 1", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{
+			&SetStatement{
+				key:   "timezone",
+				value: "America/New_York",
+			},
+			&SingleStatement{
+				query:           "SELECT 1",
+				paramsPositions: nil,
+				parametersStyle: contextUtils.PreparedStatementsStyleNative,
+			},
+		}, false)
+	runPrepareQuery(t, "SELECT $1, $2", contextUtils.PreparedStatementsStyleFbNumeric,
+		[]PreparedQuery{&SingleStatement{
+			query:           "SELECT $1, $2",
+			paramsPositions: nil,
+			parametersStyle: contextUtils.PreparedStatementsStyleFbNumeric,
+		}}, false)
+	runPrepareQuery(t, "SET engine=some_engine", contextUtils.PreparedStatementsStyleNative, []PreparedQuery{}, true)
 }
