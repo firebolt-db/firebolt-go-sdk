@@ -3,6 +3,7 @@ package statement
 import (
 	"database/sql/driver"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 )
@@ -149,4 +150,22 @@ func TestSplitStatements(t *testing.T) {
 	runSplitStatement(t, "SET time_zone=America/New_York; SELECT 2 /*some ; comment*/", []string{"SET time_zone=America/New_York", " SELECT 2 /*some ; comment*/"})
 	runSplitStatement(t, "SET time_zone='America/New_York'; SELECT 2 /*some ; comment*/", []string{"SET time_zone='America/New_York'", " SELECT 2 /*some ; comment*/"})
 	runSplitStatement(t, "SELECT 1; SELECT 2; SELECT 3; SELECT 4; SELECT 5; SELECT 6", []string{"SELECT 1", " SELECT 2", " SELECT 3", " SELECT 4", " SELECT 5", " SELECT 6"})
+}
+
+func runValidateSetStatement(t *testing.T, value string, shouldError bool, messagePart string) {
+	res := validateSetStatement(value)
+	if !shouldError && res != nil {
+		t.Errorf("validateSetStatement returned an error, but it shouldn't for: %s", value)
+		return
+	}
+	if shouldError && !strings.Contains(res.Error(), messagePart) {
+		t.Errorf("validateSetStatement returned an error '%s', but it should contain '%s'", res.Error(), messagePart)
+	}
+}
+
+func TestValidateSetStatement(t *testing.T) {
+	runValidateSetStatement(t, "time_zone", false, "")
+	runValidateSetStatement(t, "engine", true, "Try again with 'USE ENGINE' instead of SET")
+	runValidateSetStatement(t, "database", true, "Try again with 'USE DATABASE' instead of SET")
+	runValidateSetStatement(t, "output_format", true, "Set parameter 'output_format' is not allowed")
 }
