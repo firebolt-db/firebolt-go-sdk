@@ -165,6 +165,113 @@ func main() {
 #### Errors in streaming
 If you enable streaming the result, the query execution might finish successfully, but the actual error might be returned during the iteration over the rows.
 
+### Prepared statements
+The SDK supports two types of prepared statements:
+1. **Native** - client-side prepared statements. Uses `?` as a placeholder for parameters.
+2. **FBNumeric** - server-side prepared statements. Uses `$i` as a placeholder for parameters.   
+
+You can manually create a prepared statement using the `Prepare` method of the `sql.DB` object. You can also use the `Exec` method of the `sql.DB` object to execute a prepared statement directly without creating it first.
+
+#### Example of client-side prepared statements
+
+```go
+package main
+import (
+    "database/sql"
+    "fmt"
+    "log"
+
+    // we need to import firebolt-go-sdk in order to register the driver
+    _ "github.com/firebolt-db/firebolt-go-sdk"
+)
+func main() {
+    // set your Firebolt credentials to construct a dsn string
+    clientId := ""
+    clientSecret := ""
+    accountName := ""
+    databaseName := ""
+    engineName := ""
+    dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s", databaseName, accountName, clientId, clientSecret, engineName)
+
+    // open a Firebolt connection
+    db, err := sql.Open("firebolt", dsn)
+    if err != nil {
+        log.Fatalf("error during opening a driver: %v", err)
+    }
+
+    // Initially created client-side prepared statement
+    nativeStmt, err := db.Prepare("INSERT INTO test_table VALUES (?, ?)")
+    if err != nil {
+        log.Fatalf("error preparing native statement: %v", err)
+    }
+    defer nativeStmt.Close()
+
+    _, err = nativeStmt.Exec(1, "value")
+    if err != nil {
+        log.Fatalf("error executing native prepared statement: %v", err)
+    }
+
+    // Executing the same statement directly using Exec
+    _, err = db.Exec("INSERT INTO test_table VALUES (?, ?)", 2, "another value")
+    if err != nil {
+        log.Fatalf("error executing native prepared statement directly: %v", err)
+    }
+}
+```
+
+#### Example of server-side prepared statements
+
+```go
+package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log"
+
+	// we need to import firebolt-go-sdk in order to register the driver
+	_ "github.com/firebolt-db/firebolt-go-sdk"
+	fireboltContext "github.com/firebolt-db/firebolt-go-sdk/context"
+)
+
+func main() {
+	// set your Firebolt credentials to construct a dsn string
+	clientId := ""
+	clientSecret := ""
+	accountName := ""
+	databaseName := ""
+	engineName := ""
+	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s", databaseName, accountName, clientId, clientSecret, engineName)
+
+	// open a Firebolt connection
+	db, err := sql.Open("firebolt", dsn)
+	if err != nil {
+		log.Fatalf("error during opening a driver: %v", err)
+	}
+	// We need to specify the prepared statement style in the context. Native is used by default.
+	serverSideCtx := fireboltContext.WithPreparedStatementsStyle(context.Background(), fireboltContext.PreparedStatementsStyleFbNumeric)
+
+	// Initially created server-side prepared statement
+	fbnumericStmt, err := db.PrepareContext(serverSideCtx, "INSERT INTO test_table VALUES ($1, $2)")
+	if err != nil {
+		log.Fatalf("error preparing FBNumeric statement: %v", err)
+	}
+	defer fbnumericStmt.Close()
+
+	_, err = fbnumericStmt.Exec(1, "value")
+	if err != nil {
+		log.Fatalf("error executing FBNumeric prepared statement: %v", err)
+	}
+
+	// Executing the same statement directly using Exec
+	_, err = db.ExecContext(serverSideCtx, "INSERT INTO test_table VALUES ($1, $2)", 2, "another value")
+	if err != nil {
+		log.Fatalf("error executing FBNumeric prepared statement directly: %v", err)
+	}
+}
+```
+
 ### Error handling
 The SDK provides specific error types that can be checked using Go's `errors.Is()` function. Here's how to handle different types of errors:
 
