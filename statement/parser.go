@@ -79,7 +79,7 @@ func (s *SetStatement) GetNumParams() int {
 
 func (s *SetStatement) Format(args []driver.NamedValue) (string, map[string]string, error) {
 	if len(args) != 0 {
-		return "", map[string]string{}, fmt.Errorf("SET statements don't support parameters")
+		return "", map[string]string{}, fmt.Errorf("parameters are not supported in SET statements")
 	}
 	return "", map[string]string{s.key: s.value}, nil
 }

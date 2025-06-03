@@ -154,31 +154,34 @@ func TestSplitStatements(t *testing.T) {
 	runSplitStatement(t, "SELECT 1; SELECT 2; SELECT 3; SELECT 4; SELECT 5; SELECT 6", []string{"SELECT 1", " SELECT 2", " SELECT 3", " SELECT 4", " SELECT 5", " SELECT 6"})
 }
 
-func runValidateSetStatement(t *testing.T, value string, shouldError bool, messagePart string) {
+func runValidateSetStatementSuccess(t *testing.T, value string) {
 	res := validateSetStatement(value)
-	if !shouldError && res != nil {
+	if res != nil {
 		t.Errorf("validateSetStatement returned an error, but it shouldn't for: %s", value)
 		return
 	}
-	if shouldError && !strings.Contains(res.Error(), messagePart) {
+}
+
+func runValidateSetStatementFailure(t *testing.T, value string, messagePart string) {
+	res := validateSetStatement(value)
+	if res == nil {
+		t.Errorf("validateSetStatement didn't return an error for: %s", value)
+	}
+	if !strings.Contains(res.Error(), messagePart) {
 		t.Errorf("validateSetStatement returned an error '%s', but it should contain '%s'", res.Error(), messagePart)
 	}
 }
 
 func TestValidateSetStatement(t *testing.T) {
-	runValidateSetStatement(t, "time_zone", false, "")
-	runValidateSetStatement(t, "engine", true, "Try again with 'USE ENGINE' instead of SET")
-	runValidateSetStatement(t, "database", true, "Try again with 'USE DATABASE' instead of SET")
-	runValidateSetStatement(t, "output_format", true, "Set parameter 'output_format' is not allowed")
+	runValidateSetStatementSuccess(t, "time_zone")
+	runValidateSetStatementFailure(t, "engine", "Try again with 'USE ENGINE' instead of SET")
+	runValidateSetStatementFailure(t, "database", "Try again with 'USE DATABASE' instead of SET")
+	runValidateSetStatementFailure(t, "output_format", "Set parameter 'output_format' is not allowed")
 }
 
-func runPrepareQuery(t *testing.T, query string, style contextUtils.PreparedStatementsStyle, expected []PreparedQuery, shouldError bool) {
+func runPrepareQuerySuccess(t *testing.T, query string, style contextUtils.PreparedStatementsStyle, expected []PreparedQuery) {
 	res, err := prepareQuery(query, style)
-	if shouldError && err == nil {
-		t.Errorf("prepareQuery should return an error for query '%s', but it didn't", query)
-		return
-	}
-	if !shouldError && err != nil {
+	if err != nil {
 		t.Errorf("prepareQuery returned an error, but it shouldn't: %v", err)
 	}
 	for i, r := range res {
@@ -190,14 +193,24 @@ func runPrepareQuery(t *testing.T, query string, style contextUtils.PreparedStat
 	}
 }
 
+func runPrepareQueryFail(t *testing.T, query string, style contextUtils.PreparedStatementsStyle) {
+	res, err := prepareQuery(query, style)
+	if err == nil {
+		t.Errorf("prepareQuery should return an error for query '%s', but it didn't", query)
+	}
+	if res != nil {
+		t.Errorf("prepareQuery should return nil for query '%s', but it returned: %v", query, res)
+	}
+}
+
 func TestPrepareQuery(t *testing.T) {
-	runPrepareQuery(t, "SELECT 1", contextUtils.PreparedStatementsStyleNative,
+	runPrepareQuerySuccess(t, "SELECT 1", contextUtils.PreparedStatementsStyleNative,
 		[]PreparedQuery{&SingleStatement{
 			query:           "SELECT 1",
 			paramsPositions: nil,
 			parametersStyle: contextUtils.PreparedStatementsStyleNative,
-		}}, false)
-	runPrepareQuery(t, "SELECT 1;SELECT 2", contextUtils.PreparedStatementsStyleNative,
+		}})
+	runPrepareQuerySuccess(t, "SELECT 1;SELECT 2", contextUtils.PreparedStatementsStyleNative,
 		[]PreparedQuery{
 			&SingleStatement{
 				query:           "SELECT 1",
@@ -209,19 +222,19 @@ func TestPrepareQuery(t *testing.T) {
 				paramsPositions: nil,
 				parametersStyle: contextUtils.PreparedStatementsStyleNative,
 			},
-		}, false)
-	runPrepareQuery(t, "SELECT ?, ?", contextUtils.PreparedStatementsStyleNative,
+		})
+	runPrepareQuerySuccess(t, "SELECT ?, ?", contextUtils.PreparedStatementsStyleNative,
 		[]PreparedQuery{&SingleStatement{
 			query:           "SELECT ?, ?",
 			paramsPositions: []int{8, 11},
 			parametersStyle: contextUtils.PreparedStatementsStyleNative,
-		}}, false)
-	runPrepareQuery(t, "SET timezone=America/New_York", contextUtils.PreparedStatementsStyleNative,
+		}})
+	runPrepareQuerySuccess(t, "SET timezone=America/New_York", contextUtils.PreparedStatementsStyleNative,
 		[]PreparedQuery{&SetStatement{
 			key:   "timezone",
 			value: "America/New_York",
-		}}, false)
-	runPrepareQuery(t, "SET timezone=America/New_York;SELECT 1", contextUtils.PreparedStatementsStyleNative,
+		}})
+	runPrepareQuerySuccess(t, "SET timezone=America/New_York;SELECT 1", contextUtils.PreparedStatementsStyleNative,
 		[]PreparedQuery{
 			&SetStatement{
 				key:   "timezone",
@@ -232,12 +245,12 @@ func TestPrepareQuery(t *testing.T) {
 				paramsPositions: nil,
 				parametersStyle: contextUtils.PreparedStatementsStyleNative,
 			},
-		}, false)
-	runPrepareQuery(t, "SELECT $1, $2", contextUtils.PreparedStatementsStyleFbNumeric,
+		})
+	runPrepareQuerySuccess(t, "SELECT $1, $2", contextUtils.PreparedStatementsStyleFbNumeric,
 		[]PreparedQuery{&SingleStatement{
 			query:           "SELECT $1, $2",
 			paramsPositions: nil,
 			parametersStyle: contextUtils.PreparedStatementsStyleFbNumeric,
-		}}, false)
-	runPrepareQuery(t, "SET engine=some_engine", contextUtils.PreparedStatementsStyleNative, []PreparedQuery{}, true)
+		}})
+	runPrepareQueryFail(t, "SET engine=some_engine", contextUtils.PreparedStatementsStyleNative)
 }

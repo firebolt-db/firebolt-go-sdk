@@ -80,17 +80,6 @@ func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRows {
 	return &rows.InMemoryRows{}
 }
 
-func mergeMaps(m1, m2 map[string]string) map[string]string {
-	merged := make(map[string]string)
-	for k, v := range m1 {
-		merged[k] = v
-	}
-	for k, v := range m2 {
-		merged[k] = v
-	}
-	return merged
-}
-
 func (c *fireboltConnection) ExecutePreparedQueries(ctx context.Context, queries []statement.PreparedQuery, args []driver.NamedValue, isMultiStatementAllowed bool) (driver.Rows, error) {
 	if len(queries) > 1 && !isMultiStatementAllowed {
 		return nil, fmt.Errorf("multistatement is not allowed")
