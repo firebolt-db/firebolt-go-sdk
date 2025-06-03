@@ -193,29 +193,34 @@ func main() {
     engineName := ""
     dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s", databaseName, accountName, clientId, clientSecret, engineName)
 
-    // open a Firebolt connection
-    db, err := sql.Open("firebolt", dsn)
-    if err != nil {
-        log.Fatalf("error during opening a driver: %v", err)
-    }
+	// open a Firebolt connection
+	db, err := sql.Open("firebolt", dsn)
+	if err != nil {
+		log.Fatalf("error during opening a driver: %v", err)
+	}
+	defer db.Close()
+	log.Printf("successfully opened a driver with dsn: %s", dsn)
 
-    // Initially created client-side prepared statement
-    nativeStmt, err := db.Prepare("INSERT INTO test_table VALUES (?, ?)")
-    if err != nil {
-        log.Fatalf("error preparing native statement: %v", err)
-    }
-    defer nativeStmt.Close()
+	// Initially created client-side prepared statement
+	nativeStmt, err := db.Prepare("INSERT INTO test_table VALUES (?, ?)")
+	if err != nil {
+		log.Fatalf("error preparing native statement: %v", err)
+	}
+	defer nativeStmt.Close()
+	log.Printf("successfully prepared a native statement")
 
-    _, err = nativeStmt.Exec(1, "value")
-    if err != nil {
-        log.Fatalf("error executing native prepared statement: %v", err)
-    }
+	_, err = nativeStmt.Exec(1, "value")
+	if err != nil {
+		log.Fatalf("error executing native prepared statement: %v", err)
+	}
+	log.Printf("successfully executed native prepared statement with args: 1, \"value\"")
 
-    // Executing the same statement directly using Exec
-    _, err = db.Exec("INSERT INTO test_table VALUES (?, ?)", 2, "another value")
-    if err != nil {
-        log.Fatalf("error executing native prepared statement directly: %v", err)
-    }
+	// Executing the same statement directly using Exec
+	_, err = db.Exec("INSERT INTO test_table VALUES (?, ?)", 2, "another value")
+	if err != nil {
+		log.Fatalf("error executing native prepared statement directly: %v", err)
+	}
+	log.Printf("successfully executed native prepared statement directly with args: 2, \"another_value\"")
 }
 ```
 
@@ -249,6 +254,9 @@ func main() {
 	if err != nil {
 		log.Fatalf("error during opening a driver: %v", err)
 	}
+	defer db.Close()
+	log.Printf("successfully opened a driver with dsn: %s", dsn)
+
 	// We need to specify the prepared statement style in the context. Native is used by default.
 	serverSideCtx := fireboltContext.WithPreparedStatementsStyle(context.Background(), fireboltContext.PreparedStatementsStyleFbNumeric)
 
@@ -258,17 +266,20 @@ func main() {
 		log.Fatalf("error preparing FBNumeric statement: %v", err)
 	}
 	defer fbnumericStmt.Close()
+	log.Printf("successfully prepared a native statement")
 
 	_, err = fbnumericStmt.Exec(1, "value")
 	if err != nil {
 		log.Fatalf("error executing FBNumeric prepared statement: %v", err)
 	}
+	log.Printf("successfully executed native prepared statement with args: 1, \"value\"")
 
 	// Executing the same statement directly using Exec
 	_, err = db.ExecContext(serverSideCtx, "INSERT INTO test_table VALUES ($1, $2)", 2, "another value")
 	if err != nil {
 		log.Fatalf("error executing FBNumeric prepared statement directly: %v", err)
 	}
+	log.Printf("successfully executed native prepared statement directly with args: 2, \"another_value\"")
 }
 ```
 
