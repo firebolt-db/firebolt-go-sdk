@@ -8,7 +8,4 @@ require github.com/matishsiao/goInfo v0.0.0-20210923090445-da2e3fa8d45f
 
 require github.com/astaxie/beego v1.12.3
 
-require (
-	github.com/lib/pq v1.0.0
-	github.com/shopspring/decimal v1.4.0
-)
+require github.com/shopspring/decimal v1.4.0

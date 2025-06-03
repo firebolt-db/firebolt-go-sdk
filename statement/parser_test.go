@@ -1,12 +1,13 @@
-package fireboltgosdk
+package statement
 
 import (
 	"database/sql/driver"
 	"reflect"
+	"strings"
 	"testing"
 	"time"
 
-	"github.com/firebolt-db/firebolt-go-sdk/utils"
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 )
 
 func runParseSetStatementSuccess(t *testing.T, value, expectedKey, expectedValue string) {
@@ -54,12 +55,16 @@ func runPrepareStatementSuccess(t *testing.T, query string, params []driver.Valu
 		namedParams = append(namedParams, driver.NamedValue{Value: param})
 	}
 
-	res, err := prepareStatement(query, namedParams)
-	if res != expected {
-		t.Errorf("expected string is not equal to result '%s' != '%s'", expected, res)
-	}
+	positions, err := prepareStatement(query)
 	if err != nil {
 		t.Errorf("function returned an error, but it shouldn't: %v", err)
+	}
+	res, err := formatStatement(query, positions, namedParams)
+	if err != nil {
+		t.Errorf("function returned an error, but it shouldn't: %v", err)
+	}
+	if res != expected {
+		t.Errorf("expected string is not equal to result '%s' != '%s'", expected, res)
 	}
 }
 
@@ -69,10 +74,12 @@ func runPrepareStatementFail(t *testing.T, query string, params []driver.Value) 
 		namedParams = append(namedParams, driver.NamedValue{Value: param})
 	}
 
-	_, err := prepareStatement(query, namedParams)
-	if err == nil {
+	positions, err1 := prepareStatement(query)
+	_, err2 := formatStatement(query, positions, namedParams)
+	if err1 == nil && err2 == nil {
 		t.Errorf("function didn't return an error, but it should")
 	}
+
 }
 
 func TestPrepareStatement(t *testing.T) {
@@ -125,13 +132,13 @@ func TestFormatValue(t *testing.T) {
 }
 
 func runSplitStatement(t *testing.T, value string, expected []string) {
-	stmts, err := SplitStatements(value)
+	stmts, err := splitStatements(value)
 	if err != nil {
-		t.Errorf("SplitStatements return an error for: %v", value)
+		t.Errorf("splitStatements return an error for: %v", value)
 	}
 
 	if !reflect.DeepEqual(stmts, expected) {
-		t.Errorf("SplitStatements returned and expected are not equal: %v != %v", stmts, expected)
+		t.Errorf("splitStatements returned and expected are not equal: %v != %v", stmts, expected)
 	}
 }
 
@@ -147,11 +154,103 @@ func TestSplitStatements(t *testing.T) {
 	runSplitStatement(t, "SELECT 1; SELECT 2; SELECT 3; SELECT 4; SELECT 5; SELECT 6", []string{"SELECT 1", " SELECT 2", " SELECT 3", " SELECT 4", " SELECT 5", " SELECT 6"})
 }
 
-func TestValueToNamedValue(t *testing.T) {
-	utils.AssertEqual(len(valueToNamedValue([]driver.Value{})), 0, t, "valueToNamedValue of empty array is wrong")
+func runValidateSetStatementSuccess(t *testing.T, value string) {
+	res := validateSetStatement(value)
+	if res != nil {
+		t.Errorf("validateSetStatement returned an error, but it shouldn't for: %s", value)
+		return
+	}
+}
 
-	namedValues := valueToNamedValue([]driver.Value{2, "string"})
-	utils.AssertEqual(len(namedValues), 2, t, "len of namedValues is wrong")
-	utils.AssertEqual(namedValues[0].Value, 2, t, "namedValues value is wrong")
-	utils.AssertEqual(namedValues[1].Value, "string", t, "namedValues value is wrong")
+func runValidateSetStatementFailure(t *testing.T, value string, messagePart string) {
+	res := validateSetStatement(value)
+	if res == nil {
+		t.Errorf("validateSetStatement didn't return an error for: %s", value)
+	}
+	if !strings.Contains(res.Error(), messagePart) {
+		t.Errorf("validateSetStatement returned an error '%s', but it should contain '%s'", res.Error(), messagePart)
+	}
+}
+
+func TestValidateSetStatement(t *testing.T) {
+	runValidateSetStatementSuccess(t, "time_zone")
+	runValidateSetStatementFailure(t, "engine", "Try again with 'USE ENGINE' instead of SET")
+	runValidateSetStatementFailure(t, "database", "Try again with 'USE DATABASE' instead of SET")
+	runValidateSetStatementFailure(t, "output_format", "Set parameter 'output_format' is not allowed")
+}
+
+func runPrepareQuerySuccess(t *testing.T, query string, style contextUtils.PreparedStatementsStyle, expected []PreparedQuery) {
+	res, err := prepareQuery(query, style)
+	if err != nil {
+		t.Errorf("prepareQuery returned an error, but it shouldn't: %v", err)
+	}
+	for i, r := range res {
+		// Use reflect to compare
+		if !reflect.DeepEqual(r, expected[i]) {
+			t.Errorf("prepareQuery result is not equal to expected at index %d: '%v' != '%v'", i, r, expected[i])
+			return
+		}
+	}
+}
+
+func runPrepareQueryFail(t *testing.T, query string, style contextUtils.PreparedStatementsStyle) {
+	res, err := prepareQuery(query, style)
+	if err == nil {
+		t.Errorf("prepareQuery should return an error for query '%s', but it didn't", query)
+	}
+	if res != nil {
+		t.Errorf("prepareQuery should return nil for query '%s', but it returned: %v", query, res)
+	}
+}
+
+func TestPrepareQuery(t *testing.T) {
+	runPrepareQuerySuccess(t, "SELECT 1", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{&SingleStatement{
+			query:           "SELECT 1",
+			paramsPositions: nil,
+			parametersStyle: contextUtils.PreparedStatementsStyleNative,
+		}})
+	runPrepareQuerySuccess(t, "SELECT 1;SELECT 2", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{
+			&SingleStatement{
+				query:           "SELECT 1",
+				paramsPositions: nil,
+				parametersStyle: contextUtils.PreparedStatementsStyleNative,
+			},
+			&SingleStatement{
+				query:           "SELECT 2",
+				paramsPositions: nil,
+				parametersStyle: contextUtils.PreparedStatementsStyleNative,
+			},
+		})
+	runPrepareQuerySuccess(t, "SELECT ?, ?", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{&SingleStatement{
+			query:           "SELECT ?, ?",
+			paramsPositions: []int{8, 11},
+			parametersStyle: contextUtils.PreparedStatementsStyleNative,
+		}})
+	runPrepareQuerySuccess(t, "SET timezone=America/New_York", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{&SetStatement{
+			key:   "timezone",
+			value: "America/New_York",
+		}})
+	runPrepareQuerySuccess(t, "SET timezone=America/New_York;SELECT 1", contextUtils.PreparedStatementsStyleNative,
+		[]PreparedQuery{
+			&SetStatement{
+				key:   "timezone",
+				value: "America/New_York",
+			},
+			&SingleStatement{
+				query:           "SELECT 1",
+				paramsPositions: nil,
+				parametersStyle: contextUtils.PreparedStatementsStyleNative,
+			},
+		})
+	runPrepareQuerySuccess(t, "SELECT $1, $2", contextUtils.PreparedStatementsStyleFbNumeric,
+		[]PreparedQuery{&SingleStatement{
+			query:           "SELECT $1, $2",
+			paramsPositions: nil,
+			parametersStyle: contextUtils.PreparedStatementsStyleFbNumeric,
+		}})
+	runPrepareQueryFail(t, "SET engine=some_engine", contextUtils.PreparedStatementsStyleNative)
 }
