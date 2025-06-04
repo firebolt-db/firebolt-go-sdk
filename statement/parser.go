@@ -201,7 +201,7 @@ func splitStatements(sql string) ([]string, error) {
 		if strings.Trim(query, " \t\n") == "" {
 			continue
 		}
-		queries = append(queries, query)
+		queries = append(queries, strings.Trim(query, " \t\n"))
 	}
 
 	if len(queries) == 0 {

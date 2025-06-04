@@ -143,15 +143,15 @@ func runSplitStatement(t *testing.T, value string, expected []string) {
 }
 
 func TestSplitStatements(t *testing.T) {
-	runSplitStatement(t, "SELECT 1; SELECT 2;", []string{"SELECT 1", " SELECT 2"})
+	runSplitStatement(t, "SELECT 1; SELECT 2;", []string{"SELECT 1", "SELECT 2"})
 	runSplitStatement(t, "SELECT 1;", []string{"SELECT 1"})
 	runSplitStatement(t, "SELECT 1; ", []string{"SELECT 1"})
 	runSplitStatement(t, "SELECT 1", []string{"SELECT 1"})
 	runSplitStatement(t, "SELECT 1; ; ; ; ", []string{"SELECT 1"})
 
-	runSplitStatement(t, "SET time_zone=America/New_York; SELECT 2 /*some ; comment*/", []string{"SET time_zone=America/New_York", " SELECT 2 /*some ; comment*/"})
-	runSplitStatement(t, "SET time_zone='America/New_York'; SELECT 2 /*some ; comment*/", []string{"SET time_zone='America/New_York'", " SELECT 2 /*some ; comment*/"})
-	runSplitStatement(t, "SELECT 1; SELECT 2; SELECT 3; SELECT 4; SELECT 5; SELECT 6", []string{"SELECT 1", " SELECT 2", " SELECT 3", " SELECT 4", " SELECT 5", " SELECT 6"})
+	runSplitStatement(t, "SET time_zone=America/New_York; SELECT 2 /*some ; comment*/", []string{"SET time_zone=America/New_York", "SELECT 2 /*some ; comment*/"})
+	runSplitStatement(t, "SET time_zone='America/New_York'; SELECT 2 /*some ; comment*/", []string{"SET time_zone='America/New_York'", "SELECT 2 /*some ; comment*/"})
+	runSplitStatement(t, "SELECT 1; SELECT 2; SELECT 3; SELECT 4; SELECT 5; SELECT 6", []string{"SELECT 1", "SELECT 2", "SELECT 3", "SELECT 4", "SELECT 5", "SELECT 6"})
 
 	multistatement_with_line_endings := `
     SELECT 1;  
