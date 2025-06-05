@@ -1,5 +1,5 @@
-//go:build integration || integration_v0
-// +build integration integration_v0
+//go:build integration || integration_v0 || integration_core
+// +build integration integration_v0 integration_core
 
 package client
 

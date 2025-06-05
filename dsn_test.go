@@ -105,3 +105,12 @@ func TestDSNV0Failed(t *testing.T) {
 	runDSNTestFail(t, "jdbc://user:yury_db@db_name")
 	runDSNTestFail(t, "firebolt://yury_db@dn_name?account_name=firebolt_account")
 }
+
+func TestDSNCoreHappyPath(t *testing.T) {
+	runDSNTest(t, "firebolt://?url=http", types.FireboltSettings{Url: "http", NewVersion: true})
+
+	runDSNTest(t, "firebolt:///test_db?url=http", types.FireboltSettings{Database: "test_db", Url: "http", NewVersion: true})
+
+	runDSNTest(t, "firebolt:///test_db?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_cs&url=http",
+		types.FireboltSettings{Database: "test_db", AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_cs", Url: "http", NewVersion: true})
+}

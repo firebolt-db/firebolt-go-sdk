@@ -57,11 +57,16 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 
 func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRows {
 	isStreaming := contextUtils.IsStreaming(ctx)
-	_, isNewVersion := c.client.(*client.ClientImpl)
-	if isStreaming && isNewVersion {
+	if isStreaming && isNewVersion(c) {
 		return &rows.StreamRows{}
 	}
 	return &rows.InMemoryRows{}
+}
+
+func isNewVersion(c *fireboltConnection) bool {
+	_, isV2 := c.client.(*client.ClientImpl)
+	_, isCore := c.client.(*client.ClientImplCore)
+	return isV2 || isCore
 }
 
 func (c *fireboltConnection) queryContextInternal(ctx context.Context, query string, args []driver.NamedValue, isMultiStatementAllowed bool) (driver.Rows, error) {

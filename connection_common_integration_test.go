@@ -1,5 +1,5 @@
-//go:build integration || integration_v0
-// +build integration integration_v0
+//go:build integration || integration_v0 || integration_core
+// +build integration integration_v0 integration_core
 
 package fireboltgosdk
 
@@ -28,7 +28,7 @@ const VALUES_ARE_NOT_EQUAL_ERROR_MSG = "values are not equal: %v and %v\n"
 const RESULTS_ARE_NOT_EQUAL_ERROR_MSG = "results are not equal "
 const NEXT_CALL_ERROR = "Next() call returned false with error: %v"
 
-var longTestValue int = 350000000000 // default value
+var longTestValue int = 400000000000 // default value
 
 func init() {
 	var err error
@@ -50,7 +50,7 @@ func TestConnectionSetStatement(t *testing.T) {
 			t.FailNow()
 		}
 
-		_, err = conn.ExecContext(ctx, "SET time_zone=America/New_York")
+		_, err = conn.ExecContext(ctx, "SET timezone=America/New_York")
 		utils.AssertEqual(err, nil, t, "set time_zone returned an error, but shouldn't")
 
 		_, err = conn.QueryContext(ctx, "SELECT * FROM information_schema.tables")
@@ -304,7 +304,7 @@ func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
 			t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 			t.FailNow()
 		}
-		if _, err = conn.ExecContext(ctx, "SET time_zone=Asia/Calcutta"); err != nil {
+		if _, err = conn.ExecContext(ctx, "SET timezone=Asia/Calcutta"); err != nil {
 			t.Errorf(STATEMENT_ERROR_MSG, err)
 			t.FailNow()
 		}

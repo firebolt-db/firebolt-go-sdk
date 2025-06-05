@@ -6,5 +6,6 @@ type FireboltSettings struct {
 	Database     string
 	EngineName   string
 	AccountName  string
+	Url          string
 	NewVersion   bool
 }

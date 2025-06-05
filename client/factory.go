@@ -10,6 +10,9 @@ func ClientFactory(settings *types.FireboltSettings, apiEndpoint string) (Client
 	userAgent := ConstructUserAgentString()
 
 	if settings.NewVersion {
+		if settings.Url != "" {
+			return MakeClientCore(settings)
+		}
 		_, err := getAccessTokenServiceAccount(settings.ClientID, settings.ClientSecret, apiEndpoint, userAgent)
 		if err != nil {
 			return nil, errors.ConstructNestedError("error while getting access token", err)

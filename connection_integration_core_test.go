@@ -1,5 +1,5 @@
-//go:build integration
-// +build integration
+//go:build integration_core
+// +build integration_core
 
 package fireboltgosdk
 
@@ -41,11 +41,6 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.Errorf("opening a second connection failed unexpectedly: %v", err)
 		t.FailNow()
 	}
-	system_conn, err := sql.Open("firebolt", dsnSystemEngineWithDatabaseMock)
-	if err != nil {
-		t.Errorf("opening a system connection failed unexpectedly: %v", err)
-		t.FailNow()
-	}
 
 	_, err = conn.ExecContext(context.Background(), useDatabaseSQL+databaseMock)
 
@@ -76,7 +71,6 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.Errorf("create database statement failed with %v", err)
 		t.FailNow()
 	}
-	defer system_conn.Exec("DROP DATABASE " + newDatabaseName)
 
 	_, err = conn.ExecContext(context.Background(), useDatabaseSQL+newDatabaseName)
 	if err != nil {
@@ -96,13 +90,12 @@ func TestConnectionUseDatabase(t *testing.T) {
 }
 
 func TestConnectionUppercaseNames(t *testing.T) {
-	systemConnection, err := sql.Open("firebolt", dsnSystemEngineMock)
+	systemConnection, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
 		t.Errorf("opening a system connection failed unexpectedly %v", err)
 		t.FailNow()
 	}
 
-	engineName := engineNameMock + "_UPPERCASE"
 	databaseName := databaseMock + "_UPPERCASE"
 
 	_, err = systemConnection.Exec(fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName))
@@ -111,18 +104,10 @@ func TestConnectionUppercaseNames(t *testing.T) {
 		t.FailNow()
 	}
 	defer systemConnection.Exec(fmt.Sprintf("DROP DATABASE \"%s\"", databaseName))
-	_, err = systemConnection.Exec(fmt.Sprintf("CREATE ENGINE \"%s\"", engineName))
-	if err != nil {
-		t.Errorf("creating an engine failed unexpectedly %v", err)
-		t.FailNow()
-	}
-	defer systemConnection.Exec(fmt.Sprintf("DROP ENGINE \"%s\"", engineName))
-	// defers run in reverse order so we stop the engine before dropping it
-	defer systemConnection.Exec(fmt.Sprintf("STOP ENGINE \"%s\"", engineName))
 
 	dsnUppercase := fmt.Sprintf(
-		"firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s",
-		databaseName, accountName, engineName, clientIdMock, clientSecretMock,
+		"firebolt:///%s?url=%s",
+		databaseName, urlMock,
 	)
 
 	conn, err := sql.Open("firebolt", dsnUppercase)
@@ -144,7 +129,7 @@ func TestConnectionUseDatabaseEngine(t *testing.T) {
 	const insertSQL = "INSERT INTO test_use VALUES (1)"
 	const insertSQL2 = "INSERT INTO test_use VALUES (2)"
 
-	conn, err := sql.Open("firebolt", dsnSystemEngineMock)
+	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
 		t.Errorf("opening a connection failed unexpectedly")
 		t.FailNow()
@@ -174,21 +159,9 @@ func TestConnectionUseDatabaseEngine(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err = conn.Exec(fmt.Sprintf("USE ENGINE \"%s\"", engineNameMock))
-	if err != nil {
-		t.Errorf("use engine failed with %v", err)
-		t.FailNow()
-	}
-
 	_, err = conn.Exec(insertSQL)
 	if err != nil {
 		t.Errorf("insert failed with %v", err)
-		t.FailNow()
-	}
-
-	_, err = conn.Exec("USE ENGINE system")
-	if err != nil {
-		t.Errorf("use engine failed with %v", err)
 		t.FailNow()
 	}
 
