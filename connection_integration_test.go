@@ -246,18 +246,12 @@ func TestConnectionPreparedStatement(t *testing.T) {
 			sql,
 			1, int64(2), 0.333333, 0.333333333333, "text", d, ts, tstz, true, ba, ge,
 		)
-    if err != nil {
+		if err != nil {
 			t.Errorf("insert statement failed with %v", err)
 			t.FailNow()
 		}
 
-    _, err = conn.QueryContext(ctx, "SET timezone=Europe/Berlin")
-    if err != nil {
-      t.Errorf("set time_zone statement failed with %v", err)
-      t.FailNow()
-    }
-
-		_, err = conn.QueryContext(ctx, "SET time_zone=Europe/Berlin")
+		_, err = conn.QueryContext(ctx, "SET timezone=Europe/Berlin")
 		if err != nil {
 			t.Errorf("set time_zone statement failed with %v", err)
 			t.FailNow()
