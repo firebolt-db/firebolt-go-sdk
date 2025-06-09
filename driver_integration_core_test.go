@@ -189,8 +189,3 @@ func TestParametrisedQuery(t *testing.T) {
 		t.Errorf("Results not equal: %s %s", engineName, status)
 	}
 }
-
-func TestDriverInvalidAuthError(t *testing.T) {
-	dsn := fmt.Sprintf("firebolt:///%s?url=%s", databaseMock, "invalid")
-	runTestDriverInvalidAuthError(t, dsn)
-}

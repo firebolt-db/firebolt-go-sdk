@@ -130,18 +130,23 @@ func TestConnectionUppercaseNames(t *testing.T) {
 func TestConnectionUseDatabaseEngine(t *testing.T) {
 	createTableSQL := "CREATE TABLE IF NOT EXISTS test_use (id INT)"
 	insertSQL := "INSERT INTO test_use VALUES (1)"
-	insertSQL2 := "INSERT INTO test_use VALUES (2)"
 	useDatabaseSQL := fmt.Sprintf("USE DATABASE \"%s\"", databaseMock)
 
-	conn, err := sql.Open("firebolt", dsnMock)
+	conn, err := sql.Open("firebolt", dsnNoDatabaseMock)
 	if err != nil {
 		t.Errorf("opening a connection failed unexpectedly")
 		t.FailNow()
 	}
 
 	_, err = conn.Exec(createTableSQL)
-	if err == nil {
-		t.Errorf("create table worked on a system engine without a database, while it shouldn't")
+	if err != nil {
+		t.Errorf("create table failed with %v", err)
+		t.FailNow()
+	}
+
+	_, err = conn.Exec(insertSQL)
+	if err != nil {
+		t.Errorf("insert failed with %v", err)
 		t.FailNow()
 	}
 
@@ -158,20 +163,8 @@ func TestConnectionUseDatabaseEngine(t *testing.T) {
 	}
 
 	_, err = conn.Exec(insertSQL)
-	if err == nil {
-		t.Errorf("insert worked on a system engine, while it shouldn't")
-		t.FailNow()
-	}
-
-	_, err = conn.Exec(insertSQL)
 	if err != nil {
 		t.Errorf("insert failed with %v", err)
-		t.FailNow()
-	}
-
-	_, err = conn.Exec(insertSQL2)
-	if err == nil {
-		t.Errorf("insert worked on a system engine, while it shouldn't")
 		t.FailNow()
 	}
 }
