@@ -26,10 +26,10 @@ func TestConnectionUseDatabase(t *testing.T) {
 	const tableName = "test_use_database"
 	const newDatabaseName = databaseMock + "_new"
 
-	const createTableSQL = fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (id INT)", tableName)
-	const selectTableSQL = "SELECT table_name FROM information_schema.tables WHERE table_name = ?"
-	const useDatabaseSQL = fmt.Sprintf("USE DATABASE \"%s\"", databaseMock)
-	const useNewDatabaseSQL = fmt.Sprintf("USE DATABASE \"%s\"", newDatabaseName)
+	createTableSQL := fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (id INT)", tableName)
+	selectTableSQL := "SELECT table_name FROM information_schema.tables WHERE table_name = ?"
+	useDatabaseSQL := fmt.Sprintf("USE DATABASE \"%s\"", databaseMock)
+	useNewDatabaseSQL := fmt.Sprintf("USE DATABASE \"%s\"", newDatabaseName)
 
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
@@ -93,8 +93,8 @@ func TestConnectionUseDatabase(t *testing.T) {
 
 func TestConnectionUppercaseNames(t *testing.T) {
 	const databaseName = databaseMock + "_UPPERCASE"
-	const createDatabaseSQL = fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName)
-	const dropDatabaseSQL = fmt.Sprintf("DROP DATABASE \"%s\"", databaseName)
+	createDatabaseSQL := fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName)
+	dropDatabaseSQL := fmt.Sprintf("DROP DATABASE \"%s\"", databaseName)
 
 	systemConnection, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
@@ -128,11 +128,10 @@ func TestConnectionUppercaseNames(t *testing.T) {
 }
 
 func TestConnectionUseDatabaseEngine(t *testing.T) {
-
-	const createTableSQL = "CREATE TABLE IF NOT EXISTS test_use (id INT)"
-	const insertSQL = "INSERT INTO test_use VALUES (1)"
-	const insertSQL2 = "INSERT INTO test_use VALUES (2)"
-	const useDatabaseSQL = fmt.Sprintf("USE DATABASE \"%s\"", databaseMock)
+	createTableSQL = "CREATE TABLE IF NOT EXISTS test_use (id INT)"
+	insertSQL = "INSERT INTO test_use VALUES (1)"
+	insertSQL2 = "INSERT INTO test_use VALUES (2)"
+	useDatabaseSQL = fmt.Sprintf("USE DATABASE \"%s\"", databaseMock)
 
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
