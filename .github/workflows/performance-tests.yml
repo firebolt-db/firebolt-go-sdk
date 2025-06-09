@@ -29,7 +29,7 @@ jobs:
   run-core-integration-tests:
     runs-on: ${{ inputs.os_name }}
     env:
-      DOCKER_COMPOSE_FILE: ${{ github.workspace }}/resources/core/docker-compose.yaml
+      DOCKER_COMPOSE_FILE: ${{ github.workspace }}/.github/workflows/core/docker-compose.yaml
       SERVICE_PORT: 3473
       SERVICE_URL: http://localhost:3473
       MAX_RETRIES: 30
@@ -63,9 +63,9 @@ jobs:
 
       - name: Write certificate and certificate key to file
         run: |
-          mkdir "${{ github.workspace }}/resources/core/certs"
-          echo "${{ secrets.FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY }}" > ${{ github.workspace }}/resources/core/certs/localhost-key.pem
-          echo "${{ secrets.FIREBOLT_CORE_DEV_CERT }}" > ${{ github.workspace }}/resources/core/certs/localhost.pem
+          mkdir "${{ github.workspace }}/.github/workflows/core/certs"
+          echo "${{ secrets.FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY }}" > ${{ github.workspace }}/.github/workflows/core/certs/localhost-key.pem
+          echo "${{ secrets.FIREBOLT_CORE_DEV_CERT }}" > ${{ github.workspace }}/.github/workflows/core/certs/localhost.pem
 
       # if no image tag was passed in, then use the image tag from the defaults
       - name: Set image tag
