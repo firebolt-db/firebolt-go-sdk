@@ -32,6 +32,16 @@ func init() {
 
 	dsnMock = fmt.Sprintf("firebolt:///%s?url=%s", databaseMock, urlMock)
 	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?url=%s", urlMock)
+
+	// create a database if not exists
+	conn, err := sql.Open("firebolt", dsnNoDatabaseMock)
+	if err != nil {
+		panic(fmt.Sprintf("failed to open connection: %v", err))
+	}
+	_, err = conn.Exec(fmt.Sprintf("CREATE DATABASE IF NOT EXISTS %s", databaseMock))
+	if err != nil {
+		panic(fmt.Sprintf("failed to create database: %v", err))
+	}
 }
 
 // TestDriverQueryResult tests query happy path, as user would do it
