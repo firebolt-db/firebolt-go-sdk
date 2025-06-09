@@ -189,3 +189,14 @@ func TestParametrisedQuery(t *testing.T) {
 		t.Errorf("Results not equal: %s %s", engineName, status)
 	}
 }
+
+func TestConnectWithHttps(t *testing.T) {
+	dsn := fmt.Sprintf("firebolt:///%s?url=https://localhost:443", databaseMock)
+	db, err := sql.Open("firebolt", dsn)
+	if err != nil {
+		t.Errorf("failed unexpectedly with %v", err)
+	}
+	if _, err = db.Exec("SELECT 1"); err != nil {
+		t.Errorf("connection is not established correctly: %v", err)
+	}
+}
