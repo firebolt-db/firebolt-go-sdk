@@ -13,7 +13,7 @@ services:
       - 3473:3473
     volumes:
       # Mount the config file into the container.
-      - ${BASE_DIR}/resources/core/config.json:/firebolt-core/config.json:ro
+      - ${BASE_DIR}/.github/workflows/core/config.json:/firebolt-core/config.json:ro
       # Create an anonymous volume for Firebolt's internal database files. Not using a volume would have a performance impact.
       - ${BASE_DIR}/firebolt-core:/firebolt-core/data
 
@@ -22,7 +22,7 @@ services:
     ports:
       - "443:443"
     volumes:
-      - ${BASE_DIR}/resources/core/certs:/etc/nginx/certs:ro
-      - ${BASE_DIR}/resources/core/default.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${BASE_DIR}/.github/workflows/core/certs:/etc/nginx/certs:ro
+      - ${BASE_DIR}/.github/workflows/core/default.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - firebolt-core
