@@ -2,7 +2,6 @@ package rows
 
 import (
 	"database/sql"
-	"math"
 	"reflect"
 	"testing"
 	"time"
@@ -108,7 +107,7 @@ var testCases = []columnReaderTestCase{
 		expectedType:       reflect.TypeOf(""),
 		expectedDBTypeName: "text",
 		expectedNullable:   false,
-		expectedLength:     math.MaxInt,
+		expectedLength:     int64(^uint(0) >> 1), // math.MaxInt
 		expectedPrecision:  -1,
 		expectedScale:      -1,
 	},
@@ -158,7 +157,7 @@ var testCases = []columnReaderTestCase{
 		expectedType:       reflect.TypeOf(FireboltArray{}),
 		expectedDBTypeName: "array(int)",
 		expectedNullable:   false,
-		expectedLength:     math.MaxInt,
+		expectedLength:     int64(^uint(0) >> 1), // math.MaxInt
 		expectedPrecision:  -1,
 		expectedScale:      -1,
 	},
@@ -188,7 +187,7 @@ var testCases = []columnReaderTestCase{
 		expectedType:       reflect.TypeOf([]byte{}),
 		expectedDBTypeName: "bytea",
 		expectedNullable:   false,
-		expectedLength:     math.MaxInt,
+		expectedLength:     int64(^uint(0) >> 1), // math.MaxInt
 		expectedPrecision:  -1,
 		expectedScale:      -1,
 	},

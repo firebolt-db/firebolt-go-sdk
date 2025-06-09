@@ -5,7 +5,7 @@ import (
 	"reflect"
 )
 
-type FireboltArray []any
+type FireboltArray []interface{}
 
 // Scan implements the sql.Scanner interface.
 func (fa *FireboltArray) Scan(src interface{}) error {
@@ -17,7 +17,7 @@ func (fa *FireboltArray) Scan(src interface{}) error {
 		return fmt.Errorf("unexpected array value type: %T", src)
 	}
 
-	*fa = make([]any, t.Len())
+	*fa = make([]interface{}, t.Len())
 	for i := 0; i < t.Len(); i++ {
 		(*fa)[i] = t.Index(i).Interface()
 	}
