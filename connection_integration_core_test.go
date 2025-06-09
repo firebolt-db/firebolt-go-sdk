@@ -23,11 +23,13 @@ import (
 )
 
 func TestConnectionUseDatabase(t *testing.T) {
-	tableName := "test_use_database"
-	createTableSQL := "CREATE TABLE IF NOT EXISTS " + tableName + " (id INT)"
-	selectTableSQL := "SELECT table_name FROM information_schema.tables WHERE table_name = ?"
-	useDatabaseSQL := "USE DATABASE "
-	newDatabaseName := databaseMock + "_new"
+	const tableName = "test_use_database"
+	const newDatabaseName = databaseMock + "_new"
+
+	const createTableSQL = fmt.Sprintf("CREATE TABLE IF NOT EXISTS \"%s\" (id INT)", tableName)
+	const selectTableSQL = "SELECT table_name FROM information_schema.tables WHERE table_name = ?"
+	const useDatabaseSQL = fmt.Sprintf("USE DATABASE \"%s\"", databaseMock)
+	const useNewDatabaseSQL = fmt.Sprintf("USE DATABASE \"%s\"", newDatabaseName)
 
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
@@ -42,7 +44,7 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err = conn.ExecContext(context.Background(), useDatabaseSQL+databaseMock)
+	_, err = conn.ExecContext(context.Background(), useDatabaseSQL)
 
 	if err != nil {
 		t.Errorf("use database statement failed with %v", err)
@@ -72,7 +74,7 @@ func TestConnectionUseDatabase(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err = conn.ExecContext(context.Background(), useDatabaseSQL+newDatabaseName)
+	_, err = conn.ExecContext(context.Background(), useNewDatabaseSQL)
 	if err != nil {
 		t.Errorf("use database statement failed with %v", err)
 		t.FailNow()
@@ -90,20 +92,22 @@ func TestConnectionUseDatabase(t *testing.T) {
 }
 
 func TestConnectionUppercaseNames(t *testing.T) {
+	const databaseName = databaseMock + "_UPPERCASE"
+	const createDatabaseSQL = fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName)
+	const dropDatabaseSQL = fmt.Sprintf("DROP DATABASE \"%s\"", databaseName)
+
 	systemConnection, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
 		t.Errorf("opening a system connection failed unexpectedly %v", err)
 		t.FailNow()
 	}
 
-	databaseName := databaseMock + "_UPPERCASE"
-
-	_, err = systemConnection.Exec(fmt.Sprintf("CREATE DATABASE \"%s\"", databaseName))
+	_, err = systemConnection.Exec(createDatabaseSQL)
 	if err != nil {
 		t.Errorf("creating a database failed unexpectedly %v", err)
 		t.FailNow()
 	}
-	defer systemConnection.Exec(fmt.Sprintf("DROP DATABASE \"%s\"", databaseName))
+	defer systemConnection.Exec(dropDatabaseSQL)
 
 	dsnUppercase := fmt.Sprintf(
 		"firebolt:///%s?url=%s",
@@ -128,6 +132,7 @@ func TestConnectionUseDatabaseEngine(t *testing.T) {
 	const createTableSQL = "CREATE TABLE IF NOT EXISTS test_use (id INT)"
 	const insertSQL = "INSERT INTO test_use VALUES (1)"
 	const insertSQL2 = "INSERT INTO test_use VALUES (2)"
+	const useDatabaseSQL = fmt.Sprintf("USE DATABASE \"%s\"", databaseMock)
 
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
@@ -141,7 +146,7 @@ func TestConnectionUseDatabaseEngine(t *testing.T) {
 		t.FailNow()
 	}
 
-	_, err = conn.Exec(fmt.Sprintf("USE DATABASE \"%s\"", databaseMock))
+	_, err = conn.Exec(useDatabaseSQL)
 	if err != nil {
 		t.Errorf("use database failed with %v", err)
 		t.FailNow()
