@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
