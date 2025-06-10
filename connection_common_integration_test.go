@@ -297,14 +297,15 @@ func TestConnectionQueryTimestampTZType(t *testing.T) {
 	})
 }
 
-func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
+func testConnectionQueryTimestampTZTypeAsia(t *testing.T, timezoneParameterName string) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
 		conn, err := sql.Open("firebolt", dsnMock)
+		setSQL := fmt.Sprintf("SET %s=Asia/Calcutta", timezoneParameterName)
 		if err != nil {
 			t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 			t.FailNow()
 		}
-		if _, err = conn.ExecContext(ctx, "SET timezone=Asia/Calcutta"); err != nil {
+		if _, err = conn.ExecContext(ctx, setSQL); err != nil {
 			t.Errorf(STATEMENT_ERROR_MSG, err)
 			t.FailNow()
 		}

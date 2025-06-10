@@ -503,3 +503,8 @@ func TestConnectionSetStatement(t *testing.T) {
 	testConnectionSetStatement(t, "timezone")
 	testConnectionSetStatement(t, "time_zone")
 }
+
+func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
+	testConnectionQueryTimestampTZTypeAsia(t, "timezone")
+	testConnectionQueryTimestampTZTypeAsia(t, "time_zone")
+}

@@ -472,3 +472,7 @@ func TestTypesScannable(t *testing.T) {
 func TestConnectionSetStatement(t *testing.T) {
 	testConnectionSetStatement(t, "timezone")
 }
+
+func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
+	testConnectionQueryTimestampTZTypeAsia(t, "timezone")
+}
