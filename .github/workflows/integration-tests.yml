@@ -16,6 +16,10 @@ on:
         required: false
       SERVICE_SECRET_STG:
         required: false
+      FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY:
+        required: true
+      FIREBOLT_CORE_DEV_CERT:
+        required: true
 
 jobs:
   integration-tests-v1:
@@ -33,3 +37,4 @@ jobs:
         FIREBOLT_CLIENT_SECRET_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
   integration-tests-core:
     uses: ./.github/workflows/integration-test-core.yml
+    secrets: inherit

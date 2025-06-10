@@ -192,7 +192,7 @@ func TestParametrisedQuery(t *testing.T) {
 }
 
 func TestConnectWithHttps(t *testing.T) {
-	dsn := fmt.Sprintf("firebolt:///%s?url=https://127.0.0.1:8443", databaseMock)
+	dsn := fmt.Sprintf("firebolt:///%s?url=https://localhost:443", databaseMock)
 	db, err := sql.Open("firebolt", dsn)
 	if err != nil {
 		t.Errorf("failed unexpectedly with %v", err)

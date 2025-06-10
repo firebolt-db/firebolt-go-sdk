@@ -20,7 +20,7 @@ services:
   nginx:
     image: nginx:alpine
     ports:
-      - "8443:443"
+      - "443:443"
     volumes:
       - ${BASE_DIR}/.github/workflows/core/certs:/etc/nginx/certs:ro
       - ${BASE_DIR}/.github/workflows/core/default.conf:/etc/nginx/conf.d/default.conf:ro
