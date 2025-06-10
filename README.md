@@ -15,6 +15,7 @@ go get github.com/firebolt-db/firebolt-go-sdk
 ```
 
 ### DSN (Data source name)
+#### Cloud instance
 All information for the connection should be specified using the DSN string. The firebolt dsn string has the following format:
 ```
 firebolt://[/database]?account_name=account_name&client_id=client_id&client_secret=client_secret[&engine=engine]
@@ -25,6 +26,14 @@ firebolt://[/database]?account_name=account_name&client_id=client_id&client_secr
 - **account_name** - the name of Firebolt account to log in to.
 - **database** - (optional) the name of the database to connect to.
 - **engine** - (optional) the name of the engine to run SQL on.
+#### Core instance
+For the core instance, the DSN string has the following format:
+```
+firebolt://[/database]?url=core_instance_url
+```
+
+- **url** - the URL of the core instance to connect to. It should contain the full URL, including schema. E.g. `http://localhost:3473`.
+- **database** - (optional) the name of the database to connect to.
 
 ### Querying example
 Here is an example of establishing a connection and executing a simple select query.
