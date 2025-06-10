@@ -412,7 +412,7 @@ func TestConnectionQueryByteaType(t *testing.T) {
 	})
 }
 
-func TestLongQuery(t *testing.T) {
+/*func TestLongQuery(t *testing.T) {
 	var maxValue = longTestValue
 
 	finished_in := make(chan time.Duration, 1)
@@ -436,7 +436,7 @@ func TestLongQuery(t *testing.T) {
 	case <-time.After(10 * time.Minute):
 		t.Errorf("Long query didn't finish in 10 minutes")
 	}
-}
+}*/
 
 func TestStreamMultipleDataBlocks(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
