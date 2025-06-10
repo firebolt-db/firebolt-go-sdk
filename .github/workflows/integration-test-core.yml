@@ -67,6 +67,11 @@ jobs:
           echo "${{ secrets.FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY }}" > ${{ github.workspace }}/.github/workflows/core/certs/localhost-key.pem
           echo "${{ secrets.FIREBOLT_CORE_DEV_CERT }}" > ${{ github.workspace }}/.github/workflows/core/certs/localhost.pem
 
+      - name: Trust self-signed cert
+        run: |
+          sudo cp "${{ github.workspace }}/.github/workflows/core/certs/localhost.pem" /usr/local/share/ca-certificates/localhost.crt
+          sudo update-ca-certificates
+
       # if no image tag was passed in, then use the image tag from the defaults
       - name: Set image tag
         id: set-tag
