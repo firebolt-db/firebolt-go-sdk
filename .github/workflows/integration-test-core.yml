@@ -32,6 +32,7 @@ jobs:
       DOCKER_COMPOSE_FILE: ${{ github.workspace }}/.github/workflows/core/docker-compose.yaml
       SERVICE_PORT: 3473
       SERVICE_URL: http://localhost:3473
+      SECURE_SERVICE_URL: https://localhost:8443
       MAX_RETRIES: 30
       RETRY_INTERVAL: 2
     steps:
@@ -110,6 +111,20 @@ jobs:
           done
           echo "Error: Service failed to start within timeout"
           docker compose -f "$DOCKER_COMPOSE_FILE" logs
+          exit 1
+
+      - name: Wait for service to be ready
+        run: |
+          for i in $(seq 1 $MAX_RETRIES); do
+            if ss -tln | grep -qE 'LISTEN.*:8443'; then
+              echo "✅ nginx is listening on port 8443"
+              exit 0
+            fi
+            echo "⏳ Waiting for nginx... ($i/$MAX_RETRIES)"
+            sleep $RETRY_INTERVAL
+          done
+          echo "Error: nginx never started listening on port 8443"
+          docker compose -f "$DOCKER_COMPOSE_FILE" logs nginx
           exit 1
 
       - name: Run integration tests
