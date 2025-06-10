@@ -163,7 +163,7 @@ func TestIncorrectQueryThrowingStructuredError(t *testing.T) {
 }
 
 func TestParametrisedQuery(t *testing.T) {
-	const engineName = "firebolt-core-engine-name"
+	const engineNameMock = "firebolt-core-engine-name"
 
 	ctx := context.TODO()
 	db, err := sql.Open("firebolt", dsnNoDatabaseMock)
@@ -175,7 +175,7 @@ func TestParametrisedQuery(t *testing.T) {
 	if err != nil {
 		t.Errorf("The query %s returned an error: %v", query, err)
 	}
-	rows, err := stmt.QueryContext(ctx, engineName, "RUNNING")
+	rows, err := stmt.QueryContext(ctx, engineNameMock, "RUNNING")
 	if err != nil {
 		t.Errorf("The query %s returned an error: %v", query, err)
 	}
