@@ -41,16 +41,16 @@ func init() {
 	}
 }
 
-// TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
-func TestConnectionSetStatement(t *testing.T) {
+func testConnectionSetStatement(t *testing.T, timeZoneParameterName string) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		setSQL := fmt.Sprintf("SET %s=America/New_York", timeZoneParameterName)
 		conn, err := sql.Open("firebolt", dsnMock)
 		if err != nil {
 			t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 			t.FailNow()
 		}
 
-		_, err = conn.ExecContext(ctx, "SET timezone=America/New_York")
+		_, err = conn.ExecContext(ctx, setSQL)
 		utils.AssertEqual(err, nil, t, "set time_zone returned an error, but shouldn't")
 
 		_, err = conn.QueryContext(ctx, "SELECT * FROM information_schema.tables")
@@ -412,7 +412,7 @@ func TestConnectionQueryByteaType(t *testing.T) {
 	})
 }
 
-/*func TestLongQuery(t *testing.T) {
+func TestLongQuery(t *testing.T) {
 	var maxValue = longTestValue
 
 	finished_in := make(chan time.Duration, 1)
@@ -436,7 +436,7 @@ func TestConnectionQueryByteaType(t *testing.T) {
 	case <-time.After(10 * time.Minute):
 		t.Errorf("Long query didn't finish in 10 minutes")
 	}
-}*/
+}
 
 func TestStreamMultipleDataBlocks(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)

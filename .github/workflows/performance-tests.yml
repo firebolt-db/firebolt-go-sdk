@@ -1,116 +1,62 @@
-name: Core integration tests
+name: Performance tests
 
-on:
-  workflow_dispatch:
-    inputs:
-      tag_version:
-        description: 'The docker image tag for the firebolt core'
-        required: false
-        type: string
-      os_name:
-        description: 'The operating system'
-        required: false
-        type: string
-        default: 'ubuntu-latest'
-  workflow_call:
-    inputs:
-      tag_version:
-        description: 'The docker image tag for the firebolt core'
-        required: false
-        type: string
-      os_name:
-        description: 'Operating system'
-        required: false
-        type: string
-        default: 'ubuntu-latest'
-env:
-  DEFAULT_IMAGE_TAG: ${{ vars.DEFAULT_CORE_IMAGE_TAG }}
+on: workflow_dispatch
+
 jobs:
-  run-core-integration-tests:
-    runs-on: ${{ inputs.os_name }}
-    env:
-      DOCKER_COMPOSE_FILE: ${{ github.workspace }}/.github/workflows/core/docker-compose.yaml
-      SERVICE_PORT: 3473
-      SERVICE_URL: http://localhost:3473
-      MAX_RETRIES: 30
-      RETRY_INTERVAL: 2
+  performance-tests:
+    runs-on: ubuntu-latest
     steps:
-      - name: Check out code
-        uses: actions/checkout@v4
+      - name: checkout
+        uses: actions/checkout@v3
 
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: '1.19.0'
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+          go-version: '1.18.0'
+          
+      - name: Setup database and engine
+        id: setup
+        uses: firebolt-db/integration-testing-setup@master
         with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
+          firebolt-username: ${{ secrets.FIREBOLT_STG_USERNAME }}
+          firebolt-password: ${{ secrets.FIREBOLT_STG_PASSWORD }}
+          api-endpoint: "api.staging.firebolt.io"
+          region: "us-east-1"
+          instance-type: "C2"
+          engine-scale: 2
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Add data to database
+        env:
+          USER_NAME: ${{ secrets.FIREBOLT_STG_USERNAME }}
+          PASSWORD: ${{ secrets.FIREBOLT_STG_PASSWORD }}
+          DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
+          ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
+          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
+          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
+          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
+          FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
+          ACCOUNT_NAME: "firebolt"
+        run: |
+          go run scripts/performance_test_init.go     
 
-      - name: Cache Docker layers
-        uses: actions/cache@v3
+      - name: gobenchdata publish
+        uses: bobheadxi/gobenchdata@v1
         with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
-      - name: Write certificate and certificate key to file
-        run: |
-          mkdir "${{ github.workspace }}/.github/workflows/core/certs"
-          echo "${{ secrets.FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY }}" > ${{ github.workspace }}/.github/workflows/core/certs/localhost-key.pem
-          echo "${{ secrets.FIREBOLT_CORE_DEV_CERT }}" > ${{ github.workspace }}/.github/workflows/core/certs/localhost.pem
-
-      # if no image tag was passed in, then use the image tag from the defaults
-      - name: Set image tag
-        id: set-tag
-        run: |
-          IMAGE_TAG="${{ inputs.tag_version }}"
-          if [ -z "$IMAGE_TAG" ]; then
-            IMAGE_TAG="$DEFAULT_IMAGE_TAG"
-          fi
-          echo "tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
-
-      - name: Prepare docker-compose.yml
-        run: |
-          if [ ! -f "$DOCKER_COMPOSE_FILE" ]; then
-            echo "Error: Docker compose file not found at $DOCKER_COMPOSE_FILE"
-            exit 1
-          fi
-          sed -i "s|\${IMAGE_TAG}|${{ steps.set-tag.outputs.tag }}|g" "$DOCKER_COMPOSE_FILE"
-          sed -i "s|\${BASE_DIR}|${{ github.workspace }}|g" "$DOCKER_COMPOSE_FILE"
-          echo "Docker compose file prepared:"
-          cat "$DOCKER_COMPOSE_FILE"
-
-      - name: Start service container
-        run: |
-          docker compose -f "$DOCKER_COMPOSE_FILE" up -d
-          docker compose -f "$DOCKER_COMPOSE_FILE" ps
-
-      - name: Wait for service to be ready
-        run: |
-          for i in $(seq 1 $MAX_RETRIES); do
-            if curl --silent --fail "$SERVICE_URL" --data-binary "SELECT 1" | grep -q "1"; then
-              echo "Service is up and responding!"
-              exit 0
-            fi
-            echo "Waiting for service... ($i/$MAX_RETRIES)"
-            sleep $RETRY_INTERVAL
-          done
-          echo "Error: Service failed to start within timeout"
-          docker compose -f "$DOCKER_COMPOSE_FILE" logs
-          exit 1
-
-      - name: Run integration tests
-        run: go test ./... -timeout=30m -v --tags=integration_core
-
-      - name: Stop container
-        if: always()
-        run: |
-          docker compose -f "$DOCKER_COMPOSE_FILE" down
+          PRUNE_COUNT: 20
+          GO_TEST_FLAGS: -test.benchtime=50x
+          PUBLISH: true
+          PUBLISH_BRANCH: gh-pages
+          GO_BENCHMARKS: BenchmarkSelect
+          BENCHMARKS_OUT: benchmark/benchmarks.json
+        env:
+          USER_NAME: ${{ secrets.FIREBOLT_STG_USERNAME }}
+          PASSWORD: ${{ secrets.FIREBOLT_STG_PASSWORD }}
+          DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
+          ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
+          ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
+          STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
+          STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
+          FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
+          ACCOUNT_NAME: "firebolt"
+          TEST_THREAD_COUNT: 5
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

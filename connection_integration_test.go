@@ -502,3 +502,8 @@ func TestResponseMetadata(t *testing.T) {
 func TestTypesScannable(t *testing.T) {
 	testTypesScannable(t, allTypesSQLPath)
 }
+
+func TestConnectionSetStatement(t *testing.T) {
+	testConnectionSetStatement(t, "timezone")
+	testConnectionSetStatement(t, "time_zone")
+}
