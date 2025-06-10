@@ -26,7 +26,7 @@ on:
 env:
   DEFAULT_IMAGE_TAG: ${{ vars.DEFAULT_CORE_IMAGE_TAG }}
 jobs:
-  run-core-integration-tests:
+  integration-tests:
     runs-on: ${{ inputs.os_name }}
     env:
       DOCKER_COMPOSE_FILE: ${{ github.workspace }}/.github/workflows/core/docker-compose.yaml

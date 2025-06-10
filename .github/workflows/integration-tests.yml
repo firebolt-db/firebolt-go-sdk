@@ -32,4 +32,4 @@ jobs:
         FIREBOLT_CLIENT_ID_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
         FIREBOLT_CLIENT_SECRET_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
   integration-tests-core:
-    uses: ./.github/workflows/core-integration-test.yml
+    uses: ./.github/workflows/integration-test-core.yml
