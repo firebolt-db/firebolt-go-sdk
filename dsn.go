@@ -51,6 +51,8 @@ func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 			result.ClientID = m[2]
 		case "client_secret":
 			result.ClientSecret = m[2]
+		case "url":
+			result.Url = m[2]
 		default:
 			return nil, fmt.Errorf("unknown parameter name %s", m[1])
 		}
