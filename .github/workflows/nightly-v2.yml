@@ -39,6 +39,7 @@ jobs:
           firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
           api-endpoint: "api.staging.firebolt.io"
           account: ${{ vars.FIREBOLT_ACCOUNT }}
+          db_suffix: ${{ matrix.os }}_${{ matrix.go-version }}
 
       - name: Run integration tests
         env:
