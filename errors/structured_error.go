@@ -1,8 +1,11 @@
 package errors
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
@@ -19,11 +22,21 @@ func NewStructuredError(errorDetails []types.ErrorDetails) error {
 	// "{severity}: {name} ({code}) - {source}, {description}, resolution: {resolution} at {location} see {helpLink}"
 	message := strings.Builder{}
 	for _, e := range errorDetails {
+		currentMessage := strings.Builder{}
 		if message.Len() > 0 {
 			message.WriteString("\n")
 		}
-		if err := formatErrorDetails(&message, e); err != nil {
-			return fmt.Errorf("failed to format error details: %w", err)
+		if err := formatErrorDetails(&currentMessage, e); err != nil {
+			logging.Errorlog.Printf("Failed to format error details: %v", err)
+			if asJson, err := json.Marshal(e); err == nil {
+				content := fmt.Sprintf("%v", e)
+				message.WriteString("Failed to format error details: " + content + ", JSON: " + string(asJson))
+			} else {
+				// just write json encoded message
+				message.WriteString(string(asJson))
+			}
+		} else {
+			message.WriteString(currentMessage.String())
 		}
 	}
 	return &StructuredError{
