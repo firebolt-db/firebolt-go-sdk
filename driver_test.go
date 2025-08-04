@@ -14,17 +14,18 @@ import (
 // TestDriverOpen tests that the connector is opened (happy path)
 func TestDriverOpen(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == client.UsernamePasswordURLSuffix {
+		switch r.URL.Path {
+		case client.UsernamePasswordURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
-		} else if r.URL.Path == client.DefaultAccountURL {
+		case client.DefaultAccountURL:
 			_, _ = w.Write(getDefaultAccountResponse())
 		}
 	}))
 	defer server.Close()
 
 	currentEndpoint := os.Getenv("FIREBOLT_ENDPOINT")
-	os.Setenv("FIREBOLT_ENDPOINT", server.URL)
-	defer os.Setenv("FIREBOLT_ENDPOINT", currentEndpoint)
+	utils.Must(os.Setenv("FIREBOLT_ENDPOINT", server.URL))
+	defer func() { utils.Must(os.Setenv("FIREBOLT_ENDPOINT", currentEndpoint)) }()
 
 	db, err := sql.Open("firebolt", "firebolt://user@fb:pass@db_name/eng.firebolt.io")
 	if err != nil {
@@ -48,17 +49,18 @@ func getDefaultAccountResponse() []byte {
 // TestDriverOpenFail tests opening a connector with wrong dsn
 func TestDriverOpenFail(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == client.UsernamePasswordURLSuffix {
+		switch r.URL.Path {
+		case client.UsernamePasswordURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
-		} else if r.URL.Path == client.DefaultAccountURL {
+		case client.DefaultAccountURL:
 			_, _ = w.Write(getDefaultAccountResponse())
 		}
 	}))
 	defer server.Close()
 
 	currentEndpoint := os.Getenv("FIREBOLT_ENDPOINT")
-	os.Setenv("FIREBOLT_ENDPOINT", server.URL)
-	defer os.Setenv("FIREBOLT_ENDPOINT", currentEndpoint)
+	utils.Must(os.Setenv("FIREBOLT_ENDPOINT", server.URL))
+	defer func() { utils.Must(os.Setenv("FIREBOLT_ENDPOINT", currentEndpoint)) }()
 
 	if _, err := sql.Open("firebolt", "firebolt://pass@db_name"); err == nil {
 		t.Errorf("missing username in dsn should result into sql.Open error")

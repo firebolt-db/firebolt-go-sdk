@@ -140,9 +140,9 @@ func parseSetStatement(query string) (string, string, error) {
 		if key != "" && value != "" {
 			return key, value, nil
 		}
-		return "", "", fmt.Errorf("Either key or value is empty")
+		return "", "", fmt.Errorf("either key or value is empty")
 	}
-	return "", "", fmt.Errorf("Not a set statement")
+	return "", "", fmt.Errorf("not a set statement")
 }
 
 // prepareStatement parses a query and finds all the positions of the value arguments
@@ -238,8 +238,8 @@ func internalFormatValue(value driver.Value, isServerSide bool) (string, error) 
 	switch v := value.(type) {
 	case string:
 		res := value.(string)
-		res = strings.Replace(res, "\\", "\\\\", -1)
-		res = strings.Replace(res, "'", "\\'", -1)
+		res = strings.ReplaceAll(res, "\\", "\\\\")
+		res = strings.ReplaceAll(res, "'", "\\'")
 		return quote(res), nil
 	case int64, uint64, int32, uint32, int16, uint16, int8, uint8, int, uint:
 		return fmt.Sprintf("%d", value), nil

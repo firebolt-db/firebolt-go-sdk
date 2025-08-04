@@ -164,3 +164,9 @@ func RunClientAndServerPreparedStatements(t *testing.T, testCase func(t *testing
 		testCase(t, contextUtils.WithPreparedStatementsStyle(ctx, contextUtils.PreparedStatementsStyleFbNumeric))
 	})
 }
+
+func Must(err error) {
+	if err != nil {
+		panic(err)
+	}
+}

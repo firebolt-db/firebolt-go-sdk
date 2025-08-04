@@ -28,7 +28,11 @@ func TestNewStructuredError(t *testing.T) {
 
 	expectedMessage := "error: TestError (123) - This is a test error, TestSource, resolution: Please fix the error at {FailingLine:10 StartOffset:20 EndOffset:30}, see https://example.com"
 
-	err := NewStructuredError([]types.ErrorDetails{errorDetails})
+	e := NewStructuredError([]types.ErrorDetails{errorDetails})
+	var err *StructuredError
+	if err = e.(*StructuredError); err == nil {
+		t.Fatalf("NewStructuredError had an error %v", e)
+	}
 
 	if err.Message != expectedMessage {
 		t.Errorf(incorrectErrorMessage, err.Message, expectedMessage)
@@ -45,7 +49,11 @@ func TestStructuredErrorWithMissingFields(t *testing.T) {
 
 	expectedMessage := "error: TestError (123) - This is a test error"
 
-	err := NewStructuredError([]types.ErrorDetails{errorDetails})
+	e := NewStructuredError([]types.ErrorDetails{errorDetails})
+	var err *StructuredError
+	if err = e.(*StructuredError); err == nil {
+		t.Fatalf("NewStructuredError had an error %v", e)
+	}
 
 	if err.Message != expectedMessage {
 		t.Errorf(incorrectErrorMessage, err.Message, expectedMessage)
@@ -79,7 +87,11 @@ func TestStructuredErrorWithMultipleErrors(t *testing.T) {
 
 	expectedMessage := "error: TestError (123) - This is a test error, TestSource, resolution: Please fix the error at {FailingLine:10 StartOffset:20 EndOffset:30}, see https://example.com\nerror: TestError (123) - This is a test error, TestSource, resolution: Please fix the error"
 
-	err := NewStructuredError([]types.ErrorDetails{errorDetails, errorDetails2})
+	e := NewStructuredError([]types.ErrorDetails{errorDetails, errorDetails2})
+	var err *StructuredError
+	if err = e.(*StructuredError); err == nil {
+		t.Fatalf("NewStructuredError had an error %v", e)
+	}
 
 	if err.Message != expectedMessage {
 		t.Errorf(incorrectErrorMessage, err.Message, expectedMessage)

@@ -26,7 +26,7 @@ type Response struct {
 func MakeResponse(body io.ReadCloser, statusCode int, headers http.Header, err error) *Response {
 	response := &Response{body, nil, statusCode, headers, err}
 
-	if response.err == nil && !(statusCode >= 200 && statusCode < 300) {
+	if response.err == nil && (statusCode < 200 || statusCode >= 300) {
 		if err := checkErrorResponse(response); err != nil {
 			response.err = errorUtils.ConstructNestedError("request returned an error", err)
 		} else if statusCode == 500 {
@@ -48,8 +48,10 @@ func (r *Response) Content() ([]byte, error) {
 		if r.body == nil {
 			r.content = []byte{}
 		} else {
-			defer r.body.Close()
 			r.content, err = io.ReadAll(r.body)
+			if err != nil {
+				err = r.body.Close()
+			}
 		}
 	}
 	return r.content, err
