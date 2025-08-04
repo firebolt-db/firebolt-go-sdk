@@ -91,7 +91,10 @@ func TestCloseStmt(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create statement: %v", err)
 	}
-	stmt.Close()
+	err = stmt.Close()
+	if err != nil {
+		t.Fatalf("Failed to close statement: %v", err)
+	}
 
 	utils.AssertEqual(stmt.executor, nil, t, "execer wasn't reset by stmt")
 	utils.AssertEqual(stmt.Queries, []PreparedQuery{}, t, "queries weren't reset by stmt")

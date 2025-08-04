@@ -20,8 +20,8 @@ func TestFireboltDecimalComposeDecompose(t *testing.T) {
 		t.Fatalf("Error composing decimal: %v", err)
 	}
 
-	if newFd.Decimal.String() != RAW_DECIMAL {
-		t.Fatalf("Expected %s, got %s", RAW_DECIMAL, newFd.Decimal.String())
+	if newFd.String() != RAW_DECIMAL {
+		t.Fatalf("Expected %s, got %s", RAW_DECIMAL, newFd.String())
 	}
 
 	if err := newFd.Scan(nil); err == nil {

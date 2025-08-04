@@ -5,17 +5,19 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
+
 	"github.com/firebolt-db/firebolt-go-sdk/version"
 	"github.com/matishsiao/goInfo"
 )
 
 func TestConstructUserAgentString(t *testing.T) {
-	os.Setenv("FIREBOLT_GO_DRIVERS", "GORM/0.0.1")
-	os.Setenv("FIREBOLT_GO_CLIENTS", "Client1/0.2.3 Client2/0.3.4")
+	utils.Must(os.Setenv("FIREBOLT_GO_DRIVERS", "GORM/0.0.1"))
+	utils.Must(os.Setenv("FIREBOLT_GO_CLIENTS", "Client1/0.2.3 Client2/0.3.4"))
 
 	defer func() {
-		os.Unsetenv("FIREBOLT_GO_DRIVERS")
-		os.Unsetenv("FIREBOLT_GO_CLIENTS")
+		utils.Must(os.Unsetenv("FIREBOLT_GO_DRIVERS"))
+		utils.Must(os.Unsetenv("FIREBOLT_GO_CLIENTS"))
 	}()
 
 	userAgentString := ConstructUserAgentString()

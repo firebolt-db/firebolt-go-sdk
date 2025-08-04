@@ -70,7 +70,7 @@ func checkTypeValue(columnType string, val interface{}) error {
 				}
 			}
 			// Allow string values for long columns
-			if _, isStr := val.(string); !((columnType == longType || columnType == bigIntType) && isStr) {
+			if _, isStr := val.(string); (columnType != longType && columnType != bigIntType) || !isStr {
 				return fmt.Errorf("expected to convert a value to long, but couldn't: %v", val)
 			}
 		}
@@ -108,9 +108,10 @@ func extractStructColumns(columnTypes string) (map[string]string, error) {
 	current := strings.Builder{}
 	columns := make(map[string]string)
 	for _, char := range columnTypes {
-		if char == '(' {
+		switch char {
+		case '(':
 			balance++
-		} else if char == ')' {
+		case ')':
 			balance--
 		}
 		if balance == 0 && char == ',' {

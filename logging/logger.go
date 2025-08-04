@@ -11,3 +11,4 @@ func init() {
 }
 
 var Infolog = log.New(os.Stderr, "[firebolt-go-sdk]", log.Ldate|log.Ltime|log.Lshortfile)
+var Errorlog = log.New(os.Stderr, "[firebolt-go-sdk][ERROR]", log.Ldate|log.Ltime|log.Lshortfile)

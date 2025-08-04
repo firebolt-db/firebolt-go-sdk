@@ -84,17 +84,18 @@ func (r *StreamRows) populateDataBuffer() error {
 	if err != nil {
 		return errorUtils.ConstructNestedError("Error reading JSON line:", err)
 	}
-	if nextRecord.MessageType == types.MessageTypeError {
+	switch nextRecord.MessageType {
+	case types.MessageTypeError:
 		errors := make([]types.ErrorDetails, 0)
 		if nextRecord.Errors != nil {
 			errors = *nextRecord.Errors
 		}
 		r.consumedResponse = true
 		return errorUtils.NewStructuredError(errors)
-	} else if nextRecord.MessageType == types.MessageTypeSuccess {
+	case types.MessageTypeSuccess:
 		r.consumedResponse = true
 		return io.EOF
-	} else {
+	default:
 		if nextRecord.MessageType != types.MessageTypeData {
 			return fmt.Errorf("unexpected message type returned from the server %s", nextRecord.MessageType)
 		}

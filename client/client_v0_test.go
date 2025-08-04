@@ -189,10 +189,10 @@ func TestAdditionalHeadersV0(t *testing.T) {
 }
 
 func prepareEnvVariablesForTest(t *testing.T, server *httptest.Server) {
-	os.Setenv("FIREBOLT_ENDPOINT", server.URL)
+	utils.Must(os.Setenv("FIREBOLT_ENDPOINT", server.URL))
 	t.Cleanup(cleanupEnvVariables)
 }
 
 func cleanupEnvVariables() {
-	os.Setenv("FIREBOLT_ENDPOINT", originalEndpoint)
+	utils.Must(os.Setenv("FIREBOLT_ENDPOINT", originalEndpoint))
 }

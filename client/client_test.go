@@ -266,11 +266,12 @@ func TestGetSystemEngineURLCaching(t *testing.T) {
 func TestUpdateEndpoint(t *testing.T) {
 	var newEndpoint = "new-endpoint/path?query=param"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
+		switch r.URL.Path {
+		case ServiceAccountLoginURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
-		} else if r.URL.Path == UsernamePasswordURLSuffix {
+		case UsernamePasswordURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
-		} else {
+		default:
 			w.Header().Set(updateEndpointHeader, newEndpoint)
 			w.WriteHeader(http.StatusOK)
 		}

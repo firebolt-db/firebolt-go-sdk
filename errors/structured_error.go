@@ -1,8 +1,11 @@
 package errors
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
+
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
@@ -15,50 +18,71 @@ func (e StructuredError) Error() string {
 	return e.Message
 }
 
-func NewStructuredError(errorDetails []types.ErrorDetails) *StructuredError {
+func NewStructuredError(errorDetails []types.ErrorDetails) error {
 	// "{severity}: {name} ({code}) - {source}, {description}, resolution: {resolution} at {location} see {helpLink}"
 	message := strings.Builder{}
-	for _, error := range errorDetails {
+	for _, e := range errorDetails {
+		currentMessage := strings.Builder{}
 		if message.Len() > 0 {
 			message.WriteString("\n")
 		}
-		formatErrorDetails(&message, error)
+		if err := formatErrorDetails(&currentMessage, e); err != nil {
+			logging.Errorlog.Printf("Failed to format error details: %v", err)
+			if asJson, err := json.Marshal(e); err == nil {
+				content := fmt.Sprintf("%v", e)
+				message.WriteString("Failed to format error details: " + content + ", JSON: " + string(asJson))
+			} else {
+				// just write json encoded message
+				message.WriteString(string(asJson))
+			}
+		} else {
+			message.WriteString(currentMessage.String())
+		}
 	}
 	return &StructuredError{
 		Message: message.String(),
 	}
 }
-func formatErrorDetails(message *strings.Builder, error types.ErrorDetails) string {
-	if error.Severity != "" {
-		message.WriteString(fmt.Sprintf("%s: ", error.Severity))
+
+type errorFieldConfig struct {
+	value     string
+	delimiter string
+	format    string
+	name      string
+}
+
+func formatErrorDetails(message *strings.Builder, error types.ErrorDetails) error {
+	fields := []errorFieldConfig{
+		{error.Severity, "", "%s: ", "severity"},
+		{error.Name, "", "%s ", "name"},
+		{error.Code, "", "(%s) ", "code"},
+		{error.Description, "-", "%s", "description"},
+		{error.Source, ",", "%s", "source"},
+		{error.Resolution, ",", "resolution: %s", "resolution"},
 	}
-	if error.Name != "" {
-		message.WriteString(fmt.Sprintf("%s ", error.Name))
-	}
-	if error.Code != "" {
-		message.WriteString(fmt.Sprintf("(%s) ", error.Code))
-	}
-	if error.Description != "" {
-		addDelimiterIfNotEmpty(message, "-")
-		message.WriteString(error.Description)
-	}
-	if error.Source != "" {
-		addDelimiterIfNotEmpty(message, ",")
-		message.WriteString(error.Source)
-	}
-	if error.Resolution != "" {
-		addDelimiterIfNotEmpty(message, ",")
-		message.WriteString(fmt.Sprintf("resolution: %s", error.Resolution))
+	for _, field := range fields {
+		if field.value != "" {
+			if field.delimiter != "" {
+				addDelimiterIfNotEmpty(message, field.delimiter)
+			}
+			if _, err := fmt.Fprintf(message, field.format, field.value); err != nil {
+				return fmt.Errorf("failed to format %s: %w", field.name, err)
+			}
+		}
 	}
 	if error.Location.FailingLine != 0 || error.Location.StartOffset != 0 || error.Location.EndOffset != 0 {
 		addDelimiterIfNotEmpty(message, " at")
-		message.WriteString(fmt.Sprintf("%+v", error.Location))
+		if _, err := fmt.Fprintf(message, "%+v", error.Location); err != nil {
+			return fmt.Errorf("failed to format failing line: %w", err)
+		}
 	}
 	if error.HelpLink != "" {
 		addDelimiterIfNotEmpty(message, ",")
-		message.WriteString(fmt.Sprintf("see %s", error.HelpLink))
+		if _, err := fmt.Fprintf(message, "see %s", error.HelpLink); err != nil {
+			return fmt.Errorf("failed to format help link: %w", err)
+		}
 	}
-	return message.String()
+	return nil
 }
 
 func addDelimiterIfNotEmpty(message *strings.Builder, delimiter string) {

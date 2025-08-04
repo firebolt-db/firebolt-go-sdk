@@ -34,11 +34,12 @@ func testProtocolVersion(t *testing.T, clientFactory func(string) Client) {
 func testUpdateParameters(t *testing.T, clientFactory func(string) Client) {
 	var newDatabaseName = "new_database"
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
+		switch r.URL.Path {
+		case ServiceAccountLoginURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
-		} else if r.URL.Path == UsernamePasswordURLSuffix {
+		case UsernamePasswordURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
-		} else {
+		default:
 			w.Header().Set(updateParametersHeader, fmt.Sprintf("%s=%s", "database", newDatabaseName))
 			w.WriteHeader(http.StatusOK)
 		}
@@ -71,11 +72,12 @@ func testAdditionalHeaders(t *testing.T, clientFactory func(string) Client) {
 		"Ignored-Header":       "ignored",
 	}
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == ServiceAccountLoginURLSuffix {
+		switch r.URL.Path {
+		case ServiceAccountLoginURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
-		} else if r.URL.Path == UsernamePasswordURLSuffix {
+		case UsernamePasswordURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
-		} else {
+		default:
 			if r.Header.Get("Firebolt-Test-Header") != "test" {
 				t.Errorf("Did not set Firebolt-Test-Header value when passed in ctx")
 			}
