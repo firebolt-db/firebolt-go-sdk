@@ -31,14 +31,6 @@ jobs:
         with:
           python-version: "3.9"
 
-      - name: Generate db suffix
-        id: dbsuffix
-        shell: bash
-        run: |
-          DB_SUFFIX="${{ matrix.os }}_${{ matrix.go-version }}"
-          echo "DB_SUFFIX=$DB_SUFFIX"
-          echo "db_suffix=$DB_SUFFIX" >> $GITHUB_OUTPUT
-
       - name: Setup database and engine
         id: setup
         uses: firebolt-db/integration-testing-setup@v2
@@ -47,7 +39,7 @@ jobs:
           firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
           api-endpoint: "api.staging.firebolt.io"
           account: ${{ vars.FIREBOLT_ACCOUNT }}
-          db_suffix: ${{ steps.dbsuffix.outputs.db_suffix }}
+          db_suffix: ${{ matrix.os }}_${{ matrix.go-version }}
 
       - name: Run integration tests
         env:
