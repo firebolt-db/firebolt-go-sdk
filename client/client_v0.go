@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
+
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
@@ -236,6 +238,9 @@ func (c *ClientImplV0) GetConnectionParameters(ctx context.Context, engineName, 
 
 func (c *ClientImplV0) getQueryParams(_ context.Context, setStatements map[string]string) (map[string]string, error) {
 	params := map[string]string{"output_format": jsonOutputFormat}
+	if contextUtils.IsAsync(context.Background()) {
+		return nil, errorUtils.AsyncNotSupportedError
+	}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}

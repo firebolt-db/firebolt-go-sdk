@@ -135,6 +135,9 @@ func (c *ClientImpl) getOutputFormat(ctx context.Context) string {
 
 func (c *ClientImpl) GetQueryParams(ctx context.Context, setStatements map[string]string) (map[string]string, error) {
 	params := map[string]string{"output_format": c.getOutputFormat(ctx)}
+	if contextUtils.IsAsync(ctx) {
+		params["async"] = "true"
+	}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}
