@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/firebolt-db/firebolt-go-sdk/async"
+
 	"github.com/firebolt-db/firebolt-go-sdk/statement"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
@@ -58,8 +60,11 @@ func (c *fireboltConnection) ExecContext(ctx context.Context, query string, args
 	if err != nil {
 		return nil, errorUtils.ConstructNestedError("error during preparing a statement", err)
 	}
-	_, err = c.ExecutePreparedQueries(ctx, stmt.Queries, args, false)
-	return &statement.FireboltResult{}, err
+	if rs, err := c.ExecutePreparedQueries(ctx, stmt.Queries, args, false); err != nil {
+		return nil, errorUtils.Wrap(errorUtils.QueryExecutionError, err)
+	} else {
+		return rs.Result()
+	}
 }
 
 // QueryContext sends the query to the engine and returns fireboltRows
@@ -71,7 +76,11 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 	return c.ExecutePreparedQueries(ctx, stmt.Queries, args, true)
 }
 
-func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRows {
+func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRowsWithResult {
+	isAsync := contextUtils.IsAsync(ctx)
+	if isAsync {
+		return &async.AsyncRows{}
+	}
 	isStreaming := contextUtils.IsStreaming(ctx)
 	if isStreaming && isNewVersion(c) {
 		return &rows.StreamRows{}
@@ -85,7 +94,7 @@ func isNewVersion(c *fireboltConnection) bool {
 	return isV2 || isCore
 }
 
-func (c *fireboltConnection) ExecutePreparedQueries(ctx context.Context, queries []statement.PreparedQuery, args []driver.NamedValue, isMultiStatementAllowed bool) (driver.Rows, error) {
+func (c *fireboltConnection) ExecutePreparedQueries(ctx context.Context, queries []statement.PreparedQuery, args []driver.NamedValue, isMultiStatementAllowed bool) (rows.ExtendableRowsWithResult, error) {
 	if len(queries) > 1 && !isMultiStatementAllowed {
 		return nil, fmt.Errorf("multistatement is not allowed")
 	}

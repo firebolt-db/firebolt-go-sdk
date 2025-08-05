@@ -61,7 +61,7 @@ func (r *InMemoryRows) NextResultSet() error {
 	return r.setColumns(r.queryResponses[r.resultSetPosition].Meta)
 }
 
-// AppendResponse appends the response to the InMemoryRows, parsing the response content
+// ProcessAndAppendResponse appends the response to the InMemoryRows, parsing the response content
 // and checking for errors in the response body
 func (r *InMemoryRows) ProcessAndAppendResponse(response *client.Response) error {
 	// Check for error in the Response body, despite the status code 200
@@ -94,4 +94,8 @@ func (r *InMemoryRows) ProcessAndAppendResponse(response *client.Response) error
 	}
 
 	return nil
+}
+
+func (r *InMemoryRows) Result() (driver.Result, error) {
+	return &FireboltResult{}, nil
 }

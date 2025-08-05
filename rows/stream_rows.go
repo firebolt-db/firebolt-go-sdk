@@ -170,11 +170,15 @@ func (r *StreamRows) NextResultSet() error {
 	return r.fetchColumns()
 }
 
-// AppendResponse appends a response to the list of row streams
+// ProcessAndAppendResponse appends a response to the list of row streams
 func (r *StreamRows) ProcessAndAppendResponse(response *client.Response) error {
 	r.responses = append(r.responses, response)
 	if r.columns == nil {
 		return r.fetchColumns()
 	}
 	return nil
+}
+
+func (r *StreamRows) Result() (driver.Result, error) {
+	return &FireboltResult{}, nil
 }
