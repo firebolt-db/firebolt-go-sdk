@@ -16,7 +16,7 @@ import (
 const jsonOutputFormat = "JSON_Compact"
 const jsonLinesOutputFormat = "JSONLines_Compact"
 const protocolVersionHeader = "Firebolt-Protocol-Version"
-const protocolVersion = "2.1"
+const protocolVersion = "2.2"
 
 const updateParametersHeader = "Firebolt-Update-Parameters"
 const updateEndpointHeader = "Firebolt-Update-Endpoint"
