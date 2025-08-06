@@ -6,8 +6,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/firebolt-db/firebolt-go-sdk/async"
-
 	"github.com/firebolt-db/firebolt-go-sdk/statement"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
@@ -79,7 +77,7 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRowsWithResult {
 	isAsync := contextUtils.IsAsync(ctx)
 	if isAsync {
-		return &async.AsyncRows{}
+		return &rows.AsyncRows{}
 	}
 	isStreaming := contextUtils.IsStreaming(ctx)
 	if isStreaming && isNewVersion(c) {

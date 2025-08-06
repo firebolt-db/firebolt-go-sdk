@@ -1,4 +1,4 @@
-package async
+package rows
 
 import (
 	"database/sql/driver"
