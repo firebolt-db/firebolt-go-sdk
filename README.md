@@ -292,6 +292,71 @@ func main() {
 }
 ```
 
+### Server-side asynchronous execution
+The SDK supports server-side asynchronous execution of queries. This allows you to execute long-running queries on the background and retrieve the results later.
+
+Note: the asynchronous execution does not support returning query results. It is useful for long-running queries that do not require immediate results, such as data loading or transformation tasks.
+
+Here is an example of how to use server-side asynchronous execution:
+
+```go
+package main
+
+import (
+    "context"
+    "database/sql"
+    "fmt"
+    "log"
+	
+    firebolt "github.com/firebolt-db/firebolt-go-sdk"
+)
+
+func main() {
+    // set your Firebolt credentials to construct a dsn string
+    clientId := ""
+    clientSecret := ""
+    accountName := ""
+    databaseName := ""
+    engineName := ""
+    dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s", databaseName, accountName, clientId, clientSecret, engineName)
+
+    // open a Firebolt connection
+    db, err := sql.Open("firebolt", dsn)
+    if err != nil {
+        log.Fatalf("error during opening a driver: %v", err)
+    }
+    defer db.Close()
+    log.Printf("successfully opened a driver with dsn: %s", dsn)
+	
+	
+    token, err := firebolt.ExecAsync(db, "INSERT INTO test_table VALUES (?, ?)", 1, "async value")
+    if err != nil {
+        log.Fatalf("error executing asynchronous query: %v", err)
+    }
+
+	log.Print("started asynchronous query execution")
+	
+	for {
+		running, err := firebolt.IsAsyncQueryRunning(db, token)
+		if err != nil {
+			log.Fatalf("Failed to check async query status: %v", err)
+		}
+		if !running {
+			break
+		}
+    }
+	
+	success, err := firebolt.IsAsyncQuerySuccessful(db, token)
+	if err != nil {
+		log.Fatalf("Failed to check async query success: %v", err)
+	}
+	if success {
+		log.Println("asynchronous query executed successfully")
+	} else {
+        log.Println("asynchronous query failed")
+    }
+}
+```
 ### Error handling
 The SDK provides specific error types that can be checked using Go's `errors.Is()` function. Here's how to handle different types of errors:
 
