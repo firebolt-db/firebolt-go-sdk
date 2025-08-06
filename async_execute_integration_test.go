@@ -6,8 +6,6 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql"
-	"fmt"
-	"os"
 	"testing"
 
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
@@ -15,22 +13,6 @@ import (
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/rows"
 )
-
-var (
-	dsn string
-)
-
-func init() {
-	clientId := os.Getenv("CLIENT_ID")
-	clientSecret := os.Getenv("CLIENT_SECRET")
-	database := os.Getenv("DATABASE_NAME")
-	engineName := os.Getenv("ENGINE_NAME")
-	accountName := os.Getenv("ACCOUNT_NAME")
-	dsn = fmt.Sprintf(
-		"firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s",
-		database, accountName, engineName, clientId, clientSecret)
-
-}
 
 type execer func(db *sql.DB, query string, args ...any) (rows.AsyncResult, error)
 
@@ -50,10 +32,11 @@ func RunWithAndWithoutContext(t *testing.T, testCase func(*testing.T, execer)) {
 
 func TestExecAsync(t *testing.T) {
 	RunWithAndWithoutContext(t, func(t *testing.T, asyncExec execer) {
-		db, err := sql.Open("firebolt", dsn)
+		db, err := sql.Open("firebolt", dsnMock)
 		if err != nil {
 			t.Fatalf("Failed to open database connection: %v", err)
 		}
+
 		dropTableSQL := "DROP TABLE IF EXISTS test_async_exec"
 		createTableSQL := "CREATE TABLE IF NOT EXISTS test_async_exec (id INT, value TEXT)"
 		insertSQL := "INSERT INTO test_async_exec (id, value) VALUES (1, 'test_value'), (2, 'another_value')"
@@ -94,7 +77,7 @@ func TestExecAsync(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to query data: %v", err)
 		}
-		defer utils.Must(rows.Close())
+		defer func() { utils.Must(rows.Close()) }()
 
 		// Validate that row count is 2
 		count := 0
@@ -114,7 +97,7 @@ func TestExecAsync(t *testing.T) {
 
 func TestExecAsyncClientPreparedStatement(t *testing.T) {
 	RunWithAndWithoutContext(t, func(t *testing.T, asyncExec execer) {
-		db, err := sql.Open("firebolt", dsn)
+		db, err := sql.Open("firebolt", dsnMock)
 		if err != nil {
 			t.Fatalf("Failed to open database connection: %v", err)
 		}
@@ -158,7 +141,7 @@ func TestExecAsyncClientPreparedStatement(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Failed to query data: %v", err)
 		}
-		defer utils.Must(rows.Close())
+		defer func() { utils.Must(rows.Close()) }()
 
 		// Validate that row count is 2
 		count := 0
@@ -177,7 +160,7 @@ func TestExecAsyncClientPreparedStatement(t *testing.T) {
 }
 
 func TestExecAsyncServerPreparedStatement(t *testing.T) {
-	db, err := sql.Open("firebolt", dsn)
+	db, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
 		t.Fatalf("Failed to open database connection: %v", err)
 	}
@@ -223,7 +206,7 @@ func TestExecAsyncServerPreparedStatement(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to query data: %v", err)
 	}
-	defer utils.Must(rows.Close())
+	defer func() { utils.Must(rows.Close()) }()
 
 	// Validate that row count is 2
 	count := 0
@@ -242,7 +225,7 @@ func TestExecAsyncServerPreparedStatement(t *testing.T) {
 
 func TestCancelAsyncQuery(t *testing.T) {
 	RunWithAndWithoutContext(t, func(t *testing.T, asyncExec execer) {
-		db, err := sql.Open("firebolt", dsn)
+		db, err := sql.Open("firebolt", dsnMock)
 		if err != nil {
 			t.Fatalf("Failed to open database connection: %v", err)
 		}
