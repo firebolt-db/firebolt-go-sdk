@@ -278,3 +278,44 @@ func TestCancelAsyncQuery(t *testing.T) {
 		}
 	})
 }
+
+func TestExecAsyncMultiStatementsNotSupported(t *testing.T) {
+	RunWithAndWithoutContext(t, func(t *testing.T, asyncExec execer) {
+		db, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Fatalf("Failed to open database connection: %v", err)
+		}
+
+		sql := "CREATE TABLE IF NOT EXISTS test_multi_statements (id INT); INSERT INTO test_multi_statements (id) VALUES (1);"
+
+		token, err := asyncExec(db, sql)
+		if err == nil {
+			t.Fatal("Expected error for multi-statement execution, but got none")
+		}
+
+		if !token.IsEmpty() {
+			t.Fatal("Expected result to be empty for multi-statement execution, but it is not")
+		}
+
+	})
+}
+
+func TestExecAsyncSetStatementsNotSupported(t *testing.T) {
+	RunWithAndWithoutContext(t, func(t *testing.T, asyncExec execer) {
+		db, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Fatalf("Failed to open database connection: %v", err)
+		}
+
+		sql := "SET timezone=Europe/Berlin;"
+
+		token, err := asyncExec(db, sql)
+		if err == nil {
+			t.Fatal("Expected error for SET statement execution, but got none")
+		}
+
+		if !token.IsEmpty() {
+			t.Fatal("Expected result to be empty for SET statement execution, but it is not")
+		}
+	})
+}

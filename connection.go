@@ -93,6 +93,16 @@ func isNewVersion(c *fireboltConnection) bool {
 }
 
 func (c *fireboltConnection) ExecutePreparedQueries(ctx context.Context, queries []statement.PreparedQuery, args []driver.NamedValue, isMultiStatementAllowed bool) (rows.ExtendableRowsWithResult, error) {
+	if contextUtils.IsAsync(ctx) {
+		if len(queries) > 1 {
+			return nil, fmt.Errorf("multi statement queries cannot be executed assynchronously")
+		} else if len(queries) == 1 {
+			if _, ok := queries[0].(*statement.SetStatement); ok {
+				return nil, fmt.Errorf("SET statements cannot be executed assynchronously")
+			}
+		}
+	}
+
 	if len(queries) > 1 && !isMultiStatementAllowed {
 		return nil, fmt.Errorf("multistatement is not allowed")
 	}
