@@ -76,7 +76,7 @@ func TestAsyncRowsProcessAndAppendResponseNonAsyncResponse(t *testing.T) {
 	response := client.MakeResponse(io.NopCloser(bytes.NewReader([]byte{})), 200, nil, nil)
 	if err := rows.ProcessAndAppendResponse(response); err == nil {
 		t.Error("Expected error for non-async response, got nil")
-	} else if err.Error() != "expected to receive an async response, but got a regular response" {
+	} else if errors.Is(err, errors.New("expected to receive an async response, but got a regular response")) {
 		t.Errorf("Unexpected error message: %v", err)
 	}
 }

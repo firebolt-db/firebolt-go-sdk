@@ -83,15 +83,17 @@ func (r *AsyncRows) ProcessAndAppendResponse(response *client.Response) error {
 	if r.result != nil {
 		return errors.New("async query already returned a token")
 	}
-	if !response.IsAsyncResponse() {
-		return errors.New("expected to receive an async response, but got a regular response")
-	}
-	// parse
-	var asyncResponse AsyncResponse
+
 	content, err := response.Content()
 	if err != nil {
 		return errorUtils.ConstructNestedError("error during reading async response content", err)
 	}
+
+	if !response.IsAsyncResponse() {
+		return errorUtils.ConstructNestedError("expected to receive an async response, but got a regular response with content", errors.New(string(content)))
+	}
+
+	var asyncResponse AsyncResponse
 	if err := json.Unmarshal(content, &asyncResponse); err != nil {
 		return errorUtils.ConstructNestedError("error during parsing async response", err)
 	}
