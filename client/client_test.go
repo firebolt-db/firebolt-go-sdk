@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
+
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
@@ -335,4 +337,32 @@ func TestResetSession(t *testing.T) {
 
 func TestAdditionalHeaders(t *testing.T) {
 	testAdditionalHeaders(t, clientFactory)
+}
+
+func TestAsyncQuery(t *testing.T) {
+	validatedAsync := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case ServiceAccountLoginURLSuffix:
+			_, _ = w.Write(utils.GetAuthResponse(10000))
+		default:
+			if r.URL.Query().Get("async") != "true" {
+				t.Errorf("Did not set async query parameter to true in async context")
+			}
+			validatedAsync = true
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	prepareEnvVariablesForTest(t, server)
+	client := clientFactory(server.URL)
+
+	ctx := contextUtils.WithAsync(context.Background())
+
+	_, _ = client.Query(ctx, server.URL, selectOne, map[string]string{}, ConnectionControl{})
+
+	if !validatedAsync {
+		t.Errorf("Async query was not validated correctly")
+	}
 }

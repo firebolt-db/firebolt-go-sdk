@@ -16,6 +16,7 @@ const (
 const AdditionalHeadersContextKey = ContextKey("additionalHeaders")
 const StreamingContextKey = ContextKey("streaming")
 const PreparedStatementsStyleContextKey = ContextKey("preparedStatementsStyle")
+const AsyncContextKey = ContextKey("async")
 
 func WithStreaming(ctx context.Context) context.Context {
 	return context.WithValue(ctx, StreamingContextKey, true)
@@ -45,4 +46,13 @@ func GetPreparedStatementsStyle(ctx context.Context) PreparedStatementsStyle {
 		return PreparedStatementsStyleNative
 	}
 	return style
+}
+
+func WithAsync(ctx context.Context) context.Context {
+	return context.WithValue(ctx, AsyncContextKey, true)
+}
+
+func IsAsync(ctx context.Context) bool {
+	async, ok := ctx.Value(AsyncContextKey).(bool)
+	return ok && async
 }

@@ -6,7 +6,8 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/client"
 )
 
-type ExtendableRows interface {
+type ExtendableRowsWithResult interface {
 	driver.Rows
 	ProcessAndAppendResponse(response *client.Response) error
+	Result() (driver.Result, error)
 }

@@ -1,4 +1,4 @@
-package statement
+package rows
 
 import "github.com/firebolt-db/firebolt-go-sdk/logging"
 

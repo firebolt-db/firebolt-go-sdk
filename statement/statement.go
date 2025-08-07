@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql/driver"
 
+	"github.com/firebolt-db/firebolt-go-sdk/rows"
+
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 )
 
 type Executor interface {
-	ExecutePreparedQueries(ctx context.Context, queries []PreparedQuery, args []driver.NamedValue, isQuery bool) (driver.Rows, error)
+	ExecutePreparedQueries(ctx context.Context, queries []PreparedQuery, args []driver.NamedValue, isQuery bool) (rows.ExtendableRowsWithResult, error)
 }
 
 type fireboltStmt struct {
@@ -64,5 +66,5 @@ func (stmt *fireboltStmt) ExecContext(ctx context.Context, args []driver.NamedVa
 	if err != nil {
 		return nil, err
 	}
-	return FireboltResult{}, nil
+	return rows.FireboltResult{}, nil
 }

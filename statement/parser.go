@@ -81,7 +81,7 @@ func (s *SetStatement) Format(args []driver.NamedValue) (string, map[string]stri
 	if len(args) != 0 {
 		return "", map[string]string{}, fmt.Errorf("parameters are not supported in SET statements")
 	}
-	return "", map[string]string{s.key: s.value}, nil
+	return fmt.Sprintf("--Validating SET %s=%s", s.key, s.value), map[string]string{s.key: s.value}, nil
 }
 
 func (s *SetStatement) OnSuccess(control client.ConnectionControl) {

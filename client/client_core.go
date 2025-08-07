@@ -3,6 +3,8 @@ package client
 import (
 	"context"
 
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
+
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
@@ -42,6 +44,9 @@ func (c *ClientImplCore) getOutputFormat(ctx context.Context) string {
 
 func (c *ClientImplCore) GetQueryParams(ctx context.Context, setStatements map[string]string) (map[string]string, error) {
 	params := map[string]string{"output_format": c.getOutputFormat(ctx)}
+	if contextUtils.IsAsync(ctx) {
+		return nil, errorUtils.AsyncNotSupportedError
+	}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
 	}

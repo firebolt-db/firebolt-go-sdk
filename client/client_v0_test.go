@@ -2,11 +2,15 @@ package client
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 	"time"
+
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
@@ -195,4 +199,30 @@ func prepareEnvVariablesForTest(t *testing.T, server *httptest.Server) {
 
 func cleanupEnvVariables() {
 	utils.Must(os.Setenv("FIREBOLT_ENDPOINT", originalEndpoint))
+}
+
+func TestAsyncQueryV0(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case UsernamePasswordURLSuffix:
+			_, _ = w.Write(utils.GetAuthResponse(10000))
+		default:
+			// We don't expect the client to get to this point
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	prepareEnvVariablesForTest(t, server)
+	client := clientFactoryV0(server.URL)
+
+	ctx := contextUtils.WithAsync(context.Background())
+
+	_, err := client.Query(ctx, server.URL, selectOne, map[string]string{}, ConnectionControl{})
+	if err == nil {
+		t.Error("Expected an error when executing async query without an async handler")
+	}
+	if !errors.Is(err, errorUtils.AsyncNotSupportedError) {
+		t.Errorf("Expected AsyncNotSupportedError, got: %v", err)
+	}
 }

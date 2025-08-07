@@ -57,6 +57,10 @@ func (r *Response) Content() ([]byte, error) {
 	return r.content, err
 }
 
+func (r *Response) IsAsyncResponse() bool {
+	return r.statusCode == 202
+}
+
 // Collect arguments for request function
 type requestParameters struct {
 	ctx         context.Context

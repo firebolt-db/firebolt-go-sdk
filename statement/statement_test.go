@@ -5,6 +5,8 @@ import (
 	"database/sql/driver"
 	"testing"
 
+	"github.com/firebolt-db/firebolt-go-sdk/rows"
+
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
@@ -14,7 +16,7 @@ type driverExecerMock struct {
 	lastQuery []PreparedQuery
 }
 
-func (c *driverExecerMock) ExecutePreparedQueries(ctx context.Context, queries []PreparedQuery, args []driver.NamedValue, isQuery bool) (driver.Rows, error) {
+func (c *driverExecerMock) ExecutePreparedQueries(ctx context.Context, queries []PreparedQuery, args []driver.NamedValue, isQuery bool) (rows.ExtendableRowsWithResult, error) {
 	c.callCount += 1
 	c.lastQuery = queries
 	return nil, nil
