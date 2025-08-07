@@ -340,6 +340,7 @@ func TestAdditionalHeaders(t *testing.T) {
 }
 
 func TestAsyncQuery(t *testing.T) {
+	validatedAsync := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ServiceAccountLoginURLSuffix:
@@ -348,6 +349,7 @@ func TestAsyncQuery(t *testing.T) {
 			if r.URL.Query().Get("async") != "true" {
 				t.Errorf("Did not set async query parameter to true in async context")
 			}
+			validatedAsync = true
 			w.WriteHeader(http.StatusOK)
 		}
 	}))
@@ -359,4 +361,8 @@ func TestAsyncQuery(t *testing.T) {
 	ctx := contextUtils.WithAsync(context.Background())
 
 	_, _ = client.Query(ctx, server.URL, selectOne, map[string]string{}, ConnectionControl{})
+
+	if !validatedAsync {
+		t.Errorf("Async query was not validated correctly")
+	}
 }
