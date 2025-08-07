@@ -6,14 +6,14 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
+
 	"github.com/firebolt-db/firebolt-go-sdk/statement"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/rows"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
-	"github.com/firebolt-db/firebolt-go-sdk/utils"
-
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 )
 
@@ -148,7 +148,7 @@ func (c *fireboltConnection) setEngineURL(engineUrl string) {
 	c.engineUrl = engineUrl
 }
 
-func (c *fireboltConnection) resetParameters() {
+func (c *fireboltConnection) resetAllParameters() {
 	ignoreParameters := append(statement.GetUseParametersList(), statement.GetDisallowedParametersList()...)
 	if c.parameters != nil {
 		for k := range c.parameters {
@@ -163,5 +163,30 @@ func (c *fireboltConnection) resetParameters() {
 				delete(c.connector.cachedParameters, k)
 			}
 		}
+	}
+}
+
+func (c *fireboltConnection) resetParametersList(parametersList []string) {
+	if c.parameters != nil {
+		for k := range c.parameters {
+			if utils.ContainsString(parametersList, k) {
+				delete(c.parameters, k)
+			}
+		}
+	}
+	if c.connector.cachedParameters != nil {
+		for k := range c.connector.cachedParameters {
+			if utils.ContainsString(parametersList, k) {
+				delete(c.connector.cachedParameters, k)
+			}
+		}
+	}
+}
+
+func (c *fireboltConnection) resetParameters(parametersList *[]string) {
+	if parametersList == nil {
+		c.resetAllParameters()
+	} else {
+		c.resetParametersList(*parametersList)
 	}
 }

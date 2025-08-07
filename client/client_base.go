@@ -16,11 +16,12 @@ import (
 const jsonOutputFormat = "JSON_Compact"
 const jsonLinesOutputFormat = "JSONLines_Compact"
 const protocolVersionHeader = "Firebolt-Protocol-Version"
-const protocolVersion = "2.3"
+const protocolVersion = "2.4"
 
 const updateParametersHeader = "Firebolt-Update-Parameters"
 const updateEndpointHeader = "Firebolt-Update-Endpoint"
 const resetSessionHeader = "Firebolt-Reset-Session"
+const removeParametersHeader = "Firebolt-Remove-Parameters"
 
 var allowedUpdateParameters = []string{"database"}
 
@@ -42,7 +43,7 @@ type BaseClient struct {
 // it's passed to Query method to allow it to update connection parameters and engine URL
 type ConnectionControl struct {
 	UpdateParameters func(string, string)
-	ResetParameters  func()
+	ResetParameters  func(*[]string) // if list is nil, reset all parameters
 	SetEngineURL     func(string)
 }
 
@@ -126,7 +127,10 @@ func (c *BaseClient) processResponseHeaders(headers http.Header, control Connect
 		}
 	}
 	if _, ok := headers[resetSessionHeader]; ok {
-		control.ResetParameters()
+		control.ResetParameters(nil)
+	}
+	if parameters, ok := headers[removeParametersHeader]; ok {
+		control.ResetParameters(&parameters)
 	}
 
 	return nil

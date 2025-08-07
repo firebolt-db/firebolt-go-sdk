@@ -325,14 +325,52 @@ func TestResetSession(t *testing.T) {
 	}
 
 	_, err := client.Query(context.TODO(), server.URL, selectOne, params, ConnectionControl{
-		ResetParameters: func() {
-			resetCalled = true
+		ResetParameters: func(r *[]string) {
+			if r == nil {
+				resetCalled = true
+			}
 		},
 	})
 	utils.RaiseIfError(t, err)
 	if !resetCalled {
 		t.Errorf("Reset session was not called")
 	}
+}
+
+func TestRemoveParameters(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == ServiceAccountLoginURLSuffix {
+			_, _ = w.Write(utils.GetAuthResponse(10000))
+		} else {
+			w.Header().Add(removeParametersHeader, "key1")
+			w.Header().Add(removeParametersHeader, "key2")
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+	prepareEnvVariablesForTest(t, server)
+	client := clientFactory(server.URL)
+
+	params := map[string]string{
+		"key1": "value1",
+		"key2": "value2",
+		"key3": "value3",
+	}
+	var resetCalledWith *[]string
+
+	_, err := client.Query(context.TODO(), server.URL, selectOne, params, ConnectionControl{
+		ResetParameters: func(r *[]string) {
+			resetCalledWith = r
+		},
+	})
+	utils.RaiseIfError(t, err)
+	if resetCalledWith == nil {
+		t.Errorf("Reset parameters wasn't called or was called with nil argument")
+	}
+	if len(*resetCalledWith) != 2 || (*resetCalledWith)[0] != "key1" || (*resetCalledWith)[1] != "key2" {
+		t.Errorf("Reset parameters was called with unexpected keys: %v", *resetCalledWith)
+	}
+
 }
 
 func TestAdditionalHeaders(t *testing.T) {
