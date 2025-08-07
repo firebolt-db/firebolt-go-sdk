@@ -17,6 +17,22 @@ import (
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 )
 
+type fireboltTransaction struct {
+	conn *fireboltConnection
+}
+
+// Commit commits the transaction
+func (t *fireboltTransaction) Commit() error {
+	_, err := t.conn.ExecContext(context.Background(), "COMMIT", nil)
+	return err
+}
+
+// Rollback rolls back the transaction
+func (t *fireboltTransaction) Rollback() error {
+	_, err := t.conn.ExecContext(context.Background(), "ROLLBACK", nil)
+	return err
+}
+
 type fireboltConnection struct {
 	client     client.Client
 	engineUrl  string
@@ -47,9 +63,13 @@ func (c *fireboltConnection) Close() error {
 	return nil
 }
 
-// Begin is not implemented, as firebolt doesn't support transactions
+// Begin executes a BEGIN statement and returns a transaction.
 func (c *fireboltConnection) Begin() (driver.Tx, error) {
-	return nil, fmt.Errorf("transactions are not implemented in firebolt")
+	_, err := c.ExecContext(context.Background(), "BEGIN", nil)
+	if err != nil {
+		return nil, err
+	}
+	return &fireboltTransaction{conn: c}, nil
 }
 
 // ExecContext sends the query to the engine and returns empty fireboltResult
