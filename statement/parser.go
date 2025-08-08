@@ -292,6 +292,10 @@ func GetDisallowedParametersList() []string {
 	return []string{"output_format"}
 }
 
+func GetNotPersistentParametersList() []string {
+	return []string{"transaction_id", "transaction_sequence_id"}
+}
+
 func validateSetStatement(key string) error {
 	for _, denyKey := range GetUseParametersList() {
 		if key == denyKey {

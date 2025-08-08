@@ -40,7 +40,7 @@ func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 
 	if d.lastUsedDsn != dsn || d.lastUsedDsn == "" {
 
-		d.lastUsedDsn = "" //nolint
+		d.lastUsedDsn = "" //nolintd
 		logging.Infolog.Println("constructing new client")
 		// parsing dsn string to get configuration settings
 		settings, err := ParseDSNString(dsn)
@@ -76,7 +76,7 @@ type FireboltConnector struct {
 // Connect returns a connection to the database
 func (c *FireboltConnector) Connect(ctx context.Context) (driver.Conn, error) {
 	logging.Infolog.Printf("firebolt connection is created")
-	return &fireboltConnection{c.client, c.engineUrl, c.cachedParameters, c}, nil
+	return &fireboltConnection{c.client, c.engineUrl, copyMap(c.cachedParameters), c}, nil
 }
 
 // Driver returns the underlying driver of the Connector

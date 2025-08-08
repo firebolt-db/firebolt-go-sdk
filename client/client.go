@@ -165,7 +165,8 @@ func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, da
 		SetEngineURL: func(s string) {
 			engineURL = s
 		},
-		ResetParameters: func() { /* empty because we only want to collect new parameters without resetting anything*/ },
+		ResetParameters: func(_ *[]string) { /* empty because we only want to collect new parameters without resetting anything*/
+		},
 	}
 	if databaseName != "" {
 		sql := fmt.Sprintf("USE DATABASE \"%s\"", databaseName)

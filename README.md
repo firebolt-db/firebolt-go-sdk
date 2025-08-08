@@ -357,6 +357,66 @@ func main() {
     }
 }
 ```
+
+### Transaction support
+The SDK supports transactions using the `sql.Tx` interface. Firebolt uses **snapshot isolation** for DML (INSERT, UPDATE, DELETE) statements and **strict serializability** for DDL (CREATE, ALTER, DROP) statements.
+Here is an example of how to use transactions:
+
+```go
+package main
+
+import (
+    "context"
+    "database/sql"
+    "fmt"
+    "log"
+	
+    firebolt "github.com/firebolt-db/firebolt-go-sdk"
+)
+
+func main() {
+	// set your Firebolt credentials to construct a dsn string
+	clientId := ""
+	clientSecret := ""
+	accountName := ""
+	databaseName := ""
+	engineName := ""
+	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s", databaseName, accountName, clientId, clientSecret, engineName)
+
+	// open a Firebolt connection
+	db, err := sql.Open("firebolt", dsn)
+	if err != nil {
+		log.Fatalf("error during opening a driver: %v", err)
+	}
+	defer db.Close()
+	log.Printf("successfully opened a driver with dsn: %s", dsn)
+	
+	// Start a transaction
+	tx, err := db.Begin()
+	if err != nil {
+        log.Fatalf("error starting transaction: %v", err)
+    }
+	
+	// Execute a sql query within the transaction
+	_, err = tx.ExecContext(context.Background(), "INSERT INTO test_table VALUES (?, ?)", 1, "value")
+	
+	// Rollback the transaction if there was an error
+	if err != nil {
+        log.Printf("error executing query within transaction: %v", err)
+        if rollbackErr := tx.Rollback(); rollbackErr != nil {
+            log.Fatalf("error rolling back transaction: %v", rollbackErr)
+        }
+        return
+    }
+	
+	// Commit the transaction if everything was successful
+	if err = tx.Commit(); err != nil {
+        log.Fatalf("error committing transaction: %v", err)
+    } else {
+        log.Println("transaction committed successfully")
+    }
+}
+```
 ### Error handling
 The SDK provides specific error types that can be checked using Go's `errors.Is()` function. Here's how to handle different types of errors:
 
