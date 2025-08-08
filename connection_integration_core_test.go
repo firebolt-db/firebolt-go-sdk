@@ -476,3 +476,18 @@ func TestConnectionSetStatement(t *testing.T) {
 func TestConnectionQueryTimestampTZTypeAsia(t *testing.T) {
 	testConnectionQueryTimestampTZTypeAsia(t, "timezone")
 }
+
+func TestConnectionTransactionCommit(t *testing.T) {
+	testConnectionTransactionCommit(t)
+	testConnectionTransactionCommitOnConn(t)
+}
+
+func TestConnectionTransactionRollback(t *testing.T) {
+	testConnectionTransactionRollback(t)
+	testConnectionTransactionRollbackOnConn(t)
+}
+
+func TestConnectionParallelTransactions(t *testing.T) {
+	testConnectionParallelTransactions(t)
+	testConnectionParallelTransactionsOnConn(t)
+}
