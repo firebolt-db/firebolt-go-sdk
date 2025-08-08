@@ -161,7 +161,9 @@ func (c *fireboltConnection) setParameter(key, value string) {
 	if c.connector.cachedParameters == nil {
 		c.connector.cachedParameters = make(map[string]string)
 	}
-	c.connector.cachedParameters[key] = value
+	if !utils.ContainsString(statement.GetNotPersistentParametersList(), key) {
+		c.connector.cachedParameters[key] = value
+	}
 }
 
 func (c *fireboltConnection) setEngineURL(engineUrl string) {

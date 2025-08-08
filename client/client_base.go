@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/firebolt-db/firebolt-go-sdk/utils"
-
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
@@ -22,8 +20,6 @@ const updateParametersHeader = "Firebolt-Update-Parameters"
 const updateEndpointHeader = "Firebolt-Update-Endpoint"
 const resetSessionHeader = "Firebolt-Reset-Session"
 const removeParametersHeader = "Firebolt-Remove-Parameters"
-
-var allowedUpdateParameters = []string{"database"}
 
 type Client interface {
 	GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error)
@@ -78,11 +74,7 @@ func handleUpdateParameters(updateParameters func(string, string), updateParamet
 			logging.Infolog.Printf("Warning: invalid parameter assignment %s", parameter)
 			continue
 		}
-		if utils.ContainsString(allowedUpdateParameters, kv[0]) {
-			updateParameters(kv[0], kv[1])
-		} else {
-			logging.Infolog.Printf("Warning: received unknown update parameter %s", kv[0])
-		}
+		updateParameters(kv[0], kv[1])
 	}
 }
 
