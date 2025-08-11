@@ -4,24 +4,41 @@ on:
   schedule:
     - cron: '0 2 * * *' # 2 am UTC every day
 jobs:
+  resolve-go-versions:
+    name: Resolve latest Go versions (3 minors)
+    runs-on: ubuntu-latest
+    outputs:
+      go_matrix: ${{ steps.compute.outputs.go_matrix }}
+    steps:
+      - name: Get non-deprecated stable versions of GO
+        id: compute
+        shell: bash
+        run: |
+          set -euo pipefail
+          json=$(curl -s https://go.dev/dl/?mode=json)
+          # Take latest three stable releases as listed by Go (already ordered newest first)
+          matrix=$(echo "$json" | jq -c '[.[] | select(.stable==true) | .version][0:3] | map(sub("^go";"") | sub("\\.[0-9]+$";""))')
+          echo "go_matrix=$matrix" >> "$GITHUB_OUTPUT"
   code-check:
     uses: ./.github/workflows/code-check.yml
   tests:
+    needs: resolve-go-versions
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false # finish all jobs even if one fails
       max-parallel: 2
       matrix:
         os: ['macos-13', 'windows-latest', 'ubuntu-latest']
-        go-version: ['1.16', '1.17', '1.18', '1.19']
+        go-version: ${{ fromJSON(needs.resolve-go-versions.outputs.go_matrix) }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
+          check-latest: true
 
       - name: Install go tools
         run: go get golang.org/x/tools/cmd/cover
