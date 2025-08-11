@@ -65,7 +65,7 @@ func (c *fireboltConnection) Close() error {
 
 // Begin executes a BEGIN statement and returns a transaction.
 func (c *fireboltConnection) Begin() (driver.Tx, error) {
-	_, err := c.ExecContext(context.Background(), "BEGIN", nil)
+	_, err := c.ExecContext(context.Background(), "BEGIN TRANSACTION", nil)
 	if err != nil {
 		return nil, err
 	}
