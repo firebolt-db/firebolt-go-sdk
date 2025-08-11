@@ -10,7 +10,7 @@ on:
         required: false
 
 jobs:
-  resolve-go-version:
+  find-latest-go-version:
     runs-on: ubuntu-latest
     outputs:
       latest_go: ${{ steps.get-go-version.outputs.latest_go }}
@@ -22,7 +22,7 @@ jobs:
           echo "::set-output name=latest_go::$latest_go"
 
   integration-tests:
-    needs: resolve-go-version
+    needs: find-latest-go-version
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
@@ -30,7 +30,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ needs.resolve-go-version.outputs.latest_go }}
+          go-version: ${{ needs.find-latest-go-version.outputs.latest_go }}
           check-latest: true
 
       - name: Setup database and engine

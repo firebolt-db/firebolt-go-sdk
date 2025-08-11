@@ -4,7 +4,7 @@ on:
   schedule:
     - cron: '0 2 * * *' # 2 am UTC every day
 jobs:
-  resolve-go-versions:
+  find-latest-go-versions:
     name: Resolve latest Go versions (3 minors)
     runs-on: ubuntu-latest
     outputs:
@@ -22,14 +22,14 @@ jobs:
   code-check:
     uses: ./.github/workflows/code-check.yml
   tests:
-    needs: resolve-go-versions
+    needs: find-latest-go-versions
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false # finish all jobs even if one fails
       max-parallel: 2
       matrix:
         os: ['macos-13', 'windows-latest', 'ubuntu-latest']
-        go-version: ${{ fromJSON(needs.resolve-go-versions.outputs.go_matrix) }}
+        go-version: ${{ fromJSON(needs.find-latest-go-versions.outputs.go_matrix) }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2

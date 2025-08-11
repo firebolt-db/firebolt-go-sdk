@@ -26,7 +26,7 @@ on:
 env:
   DEFAULT_IMAGE_TAG: ${{ vars.DEFAULT_CORE_IMAGE_TAG }}
 jobs:
-  resolve-go-version:
+  find-latest-go-version:
     runs-on: ubuntu-latest
     outputs:
       latest_go: ${{ steps.get-go-version.outputs.latest_go }}
@@ -37,7 +37,7 @@ jobs:
           latest_go=${latest_version#go}
           echo "::set-output name=latest_go::$latest_go"
   integration-tests:
-    needs: resolve-go-version
+    needs: find-latest-go-version
     runs-on: ${{ inputs.os_name }}
     env:
       DOCKER_COMPOSE_FILE: ${{ github.workspace }}/.github/workflows/core/docker-compose.yaml
@@ -52,7 +52,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: ${{ needs.resolve-go-version.outputs.latest_go }}
+          go-version: ${{ needs.find-latest-go-version.outputs.latest_go }}
           check-latest: true
 
       - name: Log in to GitHub Container Registry
