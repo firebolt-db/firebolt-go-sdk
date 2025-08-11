@@ -10,15 +10,28 @@ on:
         required: false
 
 jobs:
+  find-latest-go-version:
+    runs-on: ubuntu-latest
+    outputs:
+      latest_go: ${{ steps.get-go-version.outputs.latest_go }}
+    steps:
+      - id: get-go-version
+        run: |
+          latest_version=$(curl -s https://go.dev/dl/?mode=json | jq -r '.[] | select(.stable == true) | .version' | head -n1)
+          latest_go=${latest_version#go}
+          echo "::set-output name=latest_go::$latest_go"
+
   integration-tests:
+    needs: find-latest-go-version
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
         uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: '1.19.0'
+          go-version: ${{ needs.find-latest-go-version.outputs.latest_go }}
+          check-latest: true
 
       - name: Setup database and engine
         id: setup
