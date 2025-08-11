@@ -610,3 +610,443 @@ func testTypesScannable(t *testing.T, allTypesSQLPath string) {
 		}
 	})
 }
+
+func testConnectionTransactionCommit(t *testing.T) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		tableName := "transaction_commit_test"
+
+		dropTableSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
+		createTableSQL := fmt.Sprintf("CREATE TABLE %s (id INT, name STRING) PRIMARY INDEX id", tableName)
+		insertSQL := fmt.Sprintf("INSERT INTO %s (id, name) VALUES (0, 'some_text')", tableName)
+		checkTableSQL := fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '%s'", tableName)
+		selectSQL := fmt.Sprintf("SELECT * FROM %s", tableName)
+
+		db, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		if _, err := db.ExecContext(ctx, dropTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+		if _, err = tx.ExecContext(ctx, createTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		if _, err = tx.ExecContext(ctx, insertSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		// Validate that table wasn't created yet outside the transaction
+		rows, err := db.QueryContext(ctx, checkTableSQL)
+		if err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		var count int
+		if rows.Next() {
+			if err = rows.Scan(&count); err != nil {
+				t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
+			}
+			if count != 0 {
+				t.Fatalf("Table transaction_commit_test already exists, but it shouldn't")
+			}
+		} else {
+			t.Fatalf(NEXT_STATEMENT_ERROR_MSG)
+		}
+
+		if err = tx.Commit(); err != nil {
+			t.Errorf("Commit returned an error: %v", err)
+			t.FailNow()
+		}
+
+		// Now validate that table exists and data was inserted
+		rows, err = db.QueryContext(ctx, selectSQL)
+		if err != nil {
+			t.Errorf(STATEMENT_ERROR_MSG, err)
+			t.FailNow()
+		}
+
+		var id int
+		var name string
+
+		utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+		err = rows.Scan(&id, &name)
+		if err != nil {
+			t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
+			t.FailNow()
+		}
+		utils.AssertEqual(id, 0, t, "id is not equal")
+		utils.AssertEqual(name, "some_text", t, "name is not equal")
+
+		utils.AssertEqual(rows.Next(), false, t, "Next() returned true when it shouldn't")
+
+	})
+}
+
+func testConnectionTransactionCommitOnConn(t *testing.T) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		tableName := "transaction_commit_conn_test"
+
+		dropTableSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
+		createTableSQL := fmt.Sprintf("CREATE TABLE %s (id INT, name STRING) PRIMARY INDEX id", tableName)
+		insertSQL := fmt.Sprintf("INSERT INTO %s (id, name) VALUES (0, 'some_text')", tableName)
+		checkTableSQL := fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '%s'", tableName)
+		selectSQL := fmt.Sprintf("SELECT * FROM %s", tableName)
+
+		db, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+		conn, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+		txConn, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		if _, err := conn.ExecContext(ctx, dropTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		tx, err := txConn.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+		if _, err = tx.ExecContext(ctx, createTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		if _, err = tx.ExecContext(ctx, insertSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		// Validate that table wasn't created yet outside the transaction
+		rows, err := conn.QueryContext(ctx, checkTableSQL)
+		if err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		var count int
+		if rows.Next() {
+			if err = rows.Scan(&count); err != nil {
+				t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
+			}
+			if count != 0 {
+				t.Fatalf("Table transaction_commit_test already exists, but it shouldn't")
+			}
+		} else {
+			t.Fatalf(NEXT_STATEMENT_ERROR_MSG)
+		}
+
+		if err = tx.Commit(); err != nil {
+			t.Errorf("Commit returned an error: %v", err)
+			t.FailNow()
+		}
+
+		// Now validate that table exists and data was inserted
+		rows, err = conn.QueryContext(ctx, selectSQL)
+		if err != nil {
+			t.Errorf(STATEMENT_ERROR_MSG, err)
+			t.FailNow()
+		}
+
+		var id int
+		var name string
+
+		utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+		err = rows.Scan(&id, &name)
+		if err != nil {
+			t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
+			t.FailNow()
+		}
+		utils.AssertEqual(id, 0, t, "id is not equal")
+		utils.AssertEqual(name, "some_text", t, "name is not equal")
+
+		utils.AssertEqual(rows.Next(), false, t, "Next() returned true when it shouldn't")
+
+	})
+}
+
+func testConnectionTransactionRollback(t *testing.T) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		tableName := "transaction_rollback_test"
+
+		dropTableSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
+		createTableSQL := fmt.Sprintf("CREATE TABLE %s (id INT, name STRING) PRIMARY INDEX id", tableName)
+		insertSQL := fmt.Sprintf("INSERT INTO %s (id, name) VALUES (0, 'some_text')", tableName)
+		checkTableSQL := fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '%s'", tableName)
+
+		db, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		if _, err := db.ExecContext(ctx, dropTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		tx, err := db.Begin()
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+		if _, err = tx.ExecContext(ctx, createTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		if _, err = tx.ExecContext(ctx, insertSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		if err = tx.Rollback(); err != nil {
+			t.Errorf("Rollback returned an error: %v", err)
+			t.FailNow()
+		}
+
+		rows, err := db.QueryContext(ctx, checkTableSQL)
+		if err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		var count int
+		if rows.Next() {
+			if err = rows.Scan(&count); err != nil {
+				t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
+			}
+			if count != 0 {
+				t.Fatalf("Table transaction_rollback_test already exists, but it shouldn't")
+			}
+		} else {
+			t.Fatalf(NEXT_STATEMENT_ERROR_MSG)
+		}
+	})
+}
+
+func testConnectionTransactionRollbackOnConn(t *testing.T) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		tableName := "transaction_rollback_conn_test"
+
+		dropTableSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
+		createTableSQL := fmt.Sprintf("CREATE TABLE %s (id INT, name STRING) PRIMARY INDEX id", tableName)
+		insertSQL := fmt.Sprintf("INSERT INTO %s (id, name) VALUES (0, 'some_text')", tableName)
+		checkTableSQL := fmt.Sprintf("SELECT COUNT(*) FROM information_schema.tables WHERE table_name = '%s'", tableName)
+
+		db, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+		conn, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+		txConn, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		if _, err := conn.ExecContext(ctx, dropTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		tx, err := txConn.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+		if _, err = tx.ExecContext(ctx, createTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		if _, err = tx.ExecContext(ctx, insertSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		if err = tx.Rollback(); err != nil {
+			t.Errorf("Rollback returned an error: %v", err)
+			t.FailNow()
+		}
+
+		rows, err := conn.QueryContext(ctx, checkTableSQL)
+		if err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		var count int
+		if rows.Next() {
+			if err = rows.Scan(&count); err != nil {
+				t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
+			}
+			if count != 0 {
+				t.Fatalf("Table transaction_rollback_test already exists, but it shouldn't")
+			}
+		} else {
+			t.Fatalf(NEXT_STATEMENT_ERROR_MSG)
+		}
+	})
+}
+
+func txValidateResult(t *testing.T, ctx context.Context, tx *sql.Tx, sql string, id int, name string) {
+	rows, err := tx.QueryContext(ctx, sql)
+	if err != nil {
+		t.Fatalf(STATEMENT_ERROR_MSG, err)
+	}
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	var resultID int
+	var resultName string
+	err = rows.Scan(&resultID, &resultName)
+	if err != nil {
+		t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
+	}
+	utils.AssertEqual(resultID, id, t, "id is not equal")
+	utils.AssertEqual(resultName, name, t, "name is not equal")
+	utils.AssertEqual(rows.Next(), false, t, "Next() returned true when it shouldn't")
+}
+
+type queryer interface {
+	QueryContext(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error)
+}
+
+func queryableValidateFinalResults(t *testing.T, ctx context.Context, q queryer, selectSQL string, id1, id2 int, name1, name2 string) {
+	rows, err := q.QueryContext(ctx, selectSQL)
+	if err != nil {
+		t.Fatalf(STATEMENT_ERROR_MSG, err)
+	}
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	var id int
+	var name string
+	err = rows.Scan(&id, &name)
+	if err != nil {
+		t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
+	}
+	utils.AssertEqual(id, id1, t, "id1 is not equal after commit")
+	utils.AssertEqual(name, name1, t, "name1 is not equal after commit")
+
+	utils.AssertEqual(rows.Next(), true, t, NEXT_STATEMENT_ERROR_MSG)
+	err = rows.Scan(&id, &name)
+	if err != nil {
+		t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
+	}
+	utils.AssertEqual(id, id2, t, "id2 is not equal after commit")
+	utils.AssertEqual(name, name2, t, "name2 is not equal after commit")
+
+	utils.AssertEqual(rows.Next(), false, t, "Next() returned true when it shouldn't after commit")
+}
+
+func testConnectionParallelTransactions(t *testing.T) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		tableName := "parallel_transactions_test"
+
+		dropTableSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
+		createTableSQL := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INT, name STRING) PRIMARY INDEX id", tableName)
+		insertSQL := fmt.Sprintf("INSERT INTO %s (id, name) VALUES (?, ?)", tableName)
+		selectSQL := fmt.Sprintf("SELECT * FROM %s ORDER BY id", tableName)
+
+		db, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		if _, err := db.ExecContext(ctx, dropTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		if _, err := db.ExecContext(ctx, createTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		tx1, err := db.Begin()
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+		tx2, err := db.Begin()
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+
+		if _, err = tx1.ExecContext(ctx, insertSQL, 1, "first"); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		if _, err = tx2.ExecContext(ctx, insertSQL, 2, "second"); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		txValidateResult(t, ctx, tx1, selectSQL, 1, "first")
+		txValidateResult(t, ctx, tx2, selectSQL, 2, "second")
+
+		if err = tx1.Commit(); err != nil {
+			t.Fatalf("Commit returned an error: %v", err)
+		}
+
+		if err = tx2.Commit(); err != nil {
+			t.Fatalf("Commit returned an error: %v", err)
+		}
+
+		// Now validate that table exists and data was inserted
+		queryableValidateFinalResults(t, ctx, db, selectSQL, 1, 2, "first", "second")
+	})
+}
+
+func testConnectionParallelTransactionsOnConn(t *testing.T) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		tableName := "parallel_transactions_conn_test"
+
+		dropTableSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
+		createTableSQL := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %s (id INT, name STRING) PRIMARY INDEX id", tableName)
+		insertSQL := fmt.Sprintf("INSERT INTO %s (id, name) VALUES (?, ?)", tableName)
+		selectSQL := fmt.Sprintf("SELECT * FROM %s ORDER BY id", tableName)
+
+		db, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+		conn, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		if _, err := conn.ExecContext(ctx, dropTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		if _, err := conn.ExecContext(ctx, createTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		tx1Conn, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+		tx2Conn, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		tx1, err := tx1Conn.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+		tx2, err := tx2Conn.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+
+		if _, err = tx1.ExecContext(ctx, insertSQL, 1, "first"); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		if _, err = tx2.ExecContext(ctx, insertSQL, 2, "second"); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		txValidateResult(t, ctx, tx1, selectSQL, 1, "first")
+		txValidateResult(t, ctx, tx2, selectSQL, 2, "second")
+
+		if err = tx1.Commit(); err != nil {
+			t.Fatalf("Commit returned an error: %v", err)
+		}
+
+		if err = tx2.Commit(); err != nil {
+			t.Fatalf("Commit returned an error: %v", err)
+		}
+
+		// Now validate that table exists and data was inserted
+		queryableValidateFinalResults(t, ctx, conn, selectSQL, 1, 2, "first", "second")
+	})
+}

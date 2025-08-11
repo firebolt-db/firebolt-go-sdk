@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/firebolt-db/firebolt-go-sdk/utils"
-
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
@@ -16,13 +14,12 @@ import (
 const jsonOutputFormat = "JSON_Compact"
 const jsonLinesOutputFormat = "JSONLines_Compact"
 const protocolVersionHeader = "Firebolt-Protocol-Version"
-const protocolVersion = "2.3"
+const protocolVersion = "2.4"
 
 const updateParametersHeader = "Firebolt-Update-Parameters"
 const updateEndpointHeader = "Firebolt-Update-Endpoint"
 const resetSessionHeader = "Firebolt-Reset-Session"
-
-var allowedUpdateParameters = []string{"database"}
+const removeParametersHeader = "Firebolt-Remove-Parameters"
 
 type Client interface {
 	GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error)
@@ -42,7 +39,7 @@ type BaseClient struct {
 // it's passed to Query method to allow it to update connection parameters and engine URL
 type ConnectionControl struct {
 	UpdateParameters func(string, string)
-	ResetParameters  func()
+	ResetParameters  func(*[]string) // if list is nil, reset all parameters
 	SetEngineURL     func(string)
 }
 
@@ -77,11 +74,7 @@ func handleUpdateParameters(updateParameters func(string, string), updateParamet
 			logging.Infolog.Printf("Warning: invalid parameter assignment %s", parameter)
 			continue
 		}
-		if utils.ContainsString(allowedUpdateParameters, kv[0]) {
-			updateParameters(kv[0], kv[1])
-		} else {
-			logging.Infolog.Printf("Warning: received unknown update parameter %s", kv[0])
-		}
+		updateParameters(kv[0], kv[1])
 	}
 }
 
@@ -126,7 +119,10 @@ func (c *BaseClient) processResponseHeaders(headers http.Header, control Connect
 		}
 	}
 	if _, ok := headers[resetSessionHeader]; ok {
-		control.ResetParameters()
+		control.ResetParameters(nil)
+	}
+	if parameters, ok := headers[removeParametersHeader]; ok {
+		control.ResetParameters(&parameters)
 	}
 
 	return nil

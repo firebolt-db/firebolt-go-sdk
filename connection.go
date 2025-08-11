@@ -6,16 +6,32 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
+
 	"github.com/firebolt-db/firebolt-go-sdk/statement"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/rows"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
-	"github.com/firebolt-db/firebolt-go-sdk/utils"
-
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 )
+
+type fireboltTransaction struct {
+	conn *fireboltConnection
+}
+
+// Commit commits the transaction
+func (t *fireboltTransaction) Commit() error {
+	_, err := t.conn.ExecContext(context.Background(), "COMMIT", nil)
+	return err
+}
+
+// Rollback rolls back the transaction
+func (t *fireboltTransaction) Rollback() error {
+	_, err := t.conn.ExecContext(context.Background(), "ROLLBACK", nil)
+	return err
+}
 
 type fireboltConnection struct {
 	client     client.Client
@@ -47,9 +63,13 @@ func (c *fireboltConnection) Close() error {
 	return nil
 }
 
-// Begin is not implemented, as firebolt doesn't support transactions
+// Begin executes a BEGIN statement and returns a transaction.
 func (c *fireboltConnection) Begin() (driver.Tx, error) {
-	return nil, fmt.Errorf("transactions are not implemented in firebolt")
+	_, err := c.ExecContext(context.Background(), "BEGIN TRANSACTION", nil)
+	if err != nil {
+		return nil, err
+	}
+	return &fireboltTransaction{conn: c}, nil
 }
 
 // ExecContext sends the query to the engine and returns empty fireboltResult
@@ -141,14 +161,16 @@ func (c *fireboltConnection) setParameter(key, value string) {
 	if c.connector.cachedParameters == nil {
 		c.connector.cachedParameters = make(map[string]string)
 	}
-	c.connector.cachedParameters[key] = value
+	if !utils.ContainsString(statement.GetNotPersistentParametersList(), key) {
+		c.connector.cachedParameters[key] = value
+	}
 }
 
 func (c *fireboltConnection) setEngineURL(engineUrl string) {
 	c.engineUrl = engineUrl
 }
 
-func (c *fireboltConnection) resetParameters() {
+func (c *fireboltConnection) resetAllParameters() {
 	ignoreParameters := append(statement.GetUseParametersList(), statement.GetDisallowedParametersList()...)
 	if c.parameters != nil {
 		for k := range c.parameters {
@@ -163,5 +185,30 @@ func (c *fireboltConnection) resetParameters() {
 				delete(c.connector.cachedParameters, k)
 			}
 		}
+	}
+}
+
+func (c *fireboltConnection) resetParametersList(parametersList []string) {
+	if c.parameters != nil {
+		for k := range c.parameters {
+			if utils.ContainsString(parametersList, k) {
+				delete(c.parameters, k)
+			}
+		}
+	}
+	if c.connector.cachedParameters != nil {
+		for k := range c.connector.cachedParameters {
+			if utils.ContainsString(parametersList, k) {
+				delete(c.connector.cachedParameters, k)
+			}
+		}
+	}
+}
+
+func (c *fireboltConnection) resetParameters(parametersList *[]string) {
+	if parametersList == nil {
+		c.resetAllParameters()
+	} else {
+		c.resetParametersList(*parametersList)
 	}
 }
