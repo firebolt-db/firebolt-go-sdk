@@ -21,7 +21,8 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        go-version: '1.18.0'
+        # code-check is being called from multiple places, the go-version should be taking the version as parameter
+        go-version: '1.25.1'
 
     - name: Set up Python
       uses: actions/setup-python@v5
