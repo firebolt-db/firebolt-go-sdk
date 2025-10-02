@@ -307,6 +307,14 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	})
 }
 
+type DescribeResult struct {
+	ParameterTypes interface{} `json:"parameter_types"`
+	ResultColumns  []struct {
+		Name string `json:"name"`
+		Type string `json:"type"`
+	} `json:"result_columns"`
+}
+
 func TestConnectionDescribeQueryRawResult(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
@@ -341,13 +349,6 @@ func TestConnectionDescribeQueryRawResult(t *testing.T) {
 	if err = rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 		t.FailNow()
-	}
-	type DescribeResult struct {
-		ParameterTypes interface{} `json:"parameter_types"`
-		ResultColumns  []struct {
-			Name string `json:"name"`
-			Type string `json:"type"`
-		} `json:"result_columns"`
 	}
 	var result DescribeResult
 	err = json.Unmarshal([]byte(dest), &result)
