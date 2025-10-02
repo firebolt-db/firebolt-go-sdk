@@ -1,19 +1,35 @@
-name: Nightly code check
+name: Nightly code check V1
 on:
   workflow_dispatch:
   schedule:
     - cron: '0 2 * * *' # 2 am UTC every day
 jobs:
+  find-latest-go-versions:
+    name: Resolve latest Go versions (3 minors)
+    runs-on: ubuntu-latest
+    outputs:
+      go_matrix: ${{ steps.compute.outputs.go_matrix }}
+    steps:
+      - name: Get non-deprecated stable versions of GO
+        id: compute
+        shell: bash
+        run: |
+          set -euo pipefail
+          json=$(curl -s https://go.dev/dl/?mode=json)
+          # Take latest three stable releases as listed by Go (already ordered newest first)
+          matrix=$(echo "$json" | jq -c '[.[] | select(.stable==true) | .version][0:3] | map(sub("^go";"") | sub("\\.[0-9]+$";""))')
+          echo "go_matrix=$matrix" >> "$GITHUB_OUTPUT"
   code-check:
     uses: ./.github/workflows/code-check.yml
   tests:
+    needs: find-latest-go-versions
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false # finish all jobs even if one fails
       max-parallel: 2
       matrix:
         os: ['macos-13', 'windows-latest', 'ubuntu-latest']
-        go-version: ['1.16', '1.17', '1.18', '1.19']
+        go-version: ${{ fromJSON(needs.find-latest-go-versions.outputs.go_matrix) }}
     steps:
       - name: Check out code
         uses: actions/checkout@v2
@@ -70,7 +86,8 @@ jobs:
           echo "covered=$percentage_whole" >>  $GITHUB_OUTPUT
 
       - name: Create Coverage Badge
-        uses: schneegans/dynamic-badges-action@v1.2.0
+        # this is v1.2.0
+        uses: schneegans/dynamic-badges-action@5ba090896c84b3521c7a75bd8f4de12656e3f426
         continue-on-error: true
         with:
           auth: ${{ secrets.GIST_PAT }}
