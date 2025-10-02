@@ -307,12 +307,41 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	})
 }
 
+// DescribeResult represents the structure of a describe query result
 type DescribeResult struct {
 	ParameterTypes interface{} `json:"parameter_types"`
 	ResultColumns  []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
 	} `json:"result_columns"`
+}
+
+// validateDescribeColumns validates that the describe query returns the expected columns
+func validateDescribeColumns(t *testing.T, columns []*sql.ColumnType) {
+	if len(columns) != 1 {
+		t.Errorf("Expected 1 column, got %d", len(columns))
+		t.FailNow()
+	}
+	if columns[0].Name() != "describe" || columns[0].DatabaseTypeName() != "text" || columns[0].ScanType() != reflect.TypeOf("") {
+		t.Errorf("First column is not as expected: %+v", columns[0])
+		t.FailNow()
+	}
+}
+
+// validateDescribeResult validates the parsed describe result
+func validateDescribeResult(t *testing.T, result DescribeResult) {
+	if len(result.ResultColumns) != 2 {
+		t.Errorf("Expected 2 result columns, got %d", len(result.ResultColumns))
+		t.FailNow()
+	}
+	if result.ResultColumns[0].Name != "col1" || result.ResultColumns[0].Type != "INTEGER" {
+		t.Errorf("First column is incorrect: %+v", result.ResultColumns[0])
+		t.FailNow()
+	}
+	if result.ResultColumns[1].Name != "col2" || result.ResultColumns[1].Type != "TEXT" {
+		t.Errorf("Second column is incorrect: %+v", result.ResultColumns[1])
+		t.FailNow()
+	}
 }
 
 func TestConnectionDescribeQueryRawResult(t *testing.T) {
@@ -328,46 +357,33 @@ func TestConnectionDescribeQueryRawResult(t *testing.T) {
 		t.Errorf(STATEMENT_ERROR_MSG, err)
 		t.FailNow()
 	}
+
 	columns, err := rows.ColumnTypes()
 	if err != nil {
 		t.Errorf("ColumnTypes failed with %v", err)
 		t.FailNow()
 	}
-	if len(columns) != 1 {
-		t.Errorf("Expected 1 column, got %d", len(columns))
-		t.FailNow()
-	}
-	if columns[0].Name() != "describe" || columns[0].DatabaseTypeName() != "text" || columns[0].ScanType() != reflect.TypeOf("") {
-		t.Errorf("First column is not as expected: %+v", columns[0])
-		t.FailNow()
-	}
+
+	validateDescribeColumns(t, columns)
+
 	var dest string
 	if !rows.Next() {
 		t.Errorf("Describe query didn't return any rows, while it should")
 		t.FailNow()
 	}
-	if err = rows.Scan(&dest); err != nil {
+	if err := rows.Scan(&dest); err != nil {
 		t.Errorf(SCAN_STATEMENT_ERROR_MSG, err)
 		t.FailNow()
 	}
+
 	var result DescribeResult
-	err = json.Unmarshal([]byte(dest), &result)
-	if err != nil {
+	if err := json.Unmarshal([]byte(dest), &result); err != nil {
 		t.Errorf("Unmarshal of describe result failed with %v", err)
 		t.FailNow()
 	}
-	if len(result.ResultColumns) != 2 {
-		t.Errorf("Expected 2 result columns, got %d", len(result.ResultColumns))
-		t.FailNow()
-	}
-	if result.ResultColumns[0].Name != "col1" || result.ResultColumns[0].Type != "INTEGER" {
-		t.Errorf("First column is incorrect: %+v", result.ResultColumns[0])
-		t.FailNow()
-	}
-	if result.ResultColumns[1].Name != "col2" || result.ResultColumns[1].Type != "TEXT" {
-		t.Errorf("Second column is incorrect: %+v", result.ResultColumns[1])
-		t.FailNow()
-	}
+
+	validateDescribeResult(t, result)
+
 	if rows.Next() {
 		t.Errorf("Describe query returned rows, while it shouldn't")
 		t.FailNow()
