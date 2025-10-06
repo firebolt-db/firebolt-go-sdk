@@ -309,7 +309,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 
 // DescribeResult represents the structure of a describe query result
 type DescribeResult struct {
-	ParameterTypes interface{} `json:"parameter_types"`
+	ParameterTypes map[string]string `json:"parameter_types"`
 	ResultColumns  []struct {
 		Name string `json:"name"`
 		Type string `json:"type"`
@@ -330,6 +330,7 @@ func validateDescribeColumns(t *testing.T, columns []*sql.ColumnType) {
 
 // validateDescribeResult validates the parsed describe result
 func validateDescribeResult(t *testing.T, result DescribeResult) {
+	// Result Columns
 	if len(result.ResultColumns) != 2 {
 		t.Errorf("Expected 2 result columns, got %d", len(result.ResultColumns))
 		t.FailNow()
@@ -342,17 +343,28 @@ func validateDescribeResult(t *testing.T, result DescribeResult) {
 		t.Errorf("Second column is incorrect: %+v", result.ResultColumns[1])
 		t.FailNow()
 	}
+	// Parameter Types
+	if len(result.ParameterTypes) != 1 {
+		t.Errorf("Expected 1 parameter type, got %d", len(result.ParameterTypes))
+		t.FailNow()
+	}
+	if result.ParameterTypes["$1"] != "TEXT" {
+		t.Errorf("Parameter type is incorrect: %+v", result.ParameterTypes)
+		t.FailNow()
+	}
 }
 
-func TestConnectionDescribeQueryRawResult(t *testing.T) {
+func TestConnectionDescribeQueryResult(t *testing.T) {
 	conn, err := sql.Open("firebolt", dsnMock)
 	if err != nil {
 		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
 		t.FailNow()
 	}
 	context := contextUtils.WithDescribe(context.Background())
+	preparedContext := contextUtils.WithPreparedStatementsStyle(
+		context, contextUtils.PreparedStatementsStyleFbNumeric)
 
-	rows, err := conn.QueryContext(context, "SELECT 1 as col1, 'text' as col2")
+	rows, err := conn.QueryContext(preparedContext, "SELECT 1 as col1, $1 as col2", "text")
 	if err != nil {
 		t.Errorf(STATEMENT_ERROR_MSG, err)
 		t.FailNow()

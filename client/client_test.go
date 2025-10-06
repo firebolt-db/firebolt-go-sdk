@@ -412,11 +412,8 @@ func TestDescribeQuery(t *testing.T) {
 		case ServiceAccountLoginURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
 		default:
-			if r.URL.Query().Get("describe") != "true" {
-				t.Errorf("Did not set describe query parameter to true in describe context")
-			}
-			if r.URL.Query().Get("advanced_mode") != "1" {
-				t.Errorf("Did not set advanced_mode query parameter to 1 in describe context")
+			if r.URL.Query().Get("execution_mode") != "describe_parameters" {
+				t.Errorf("Did not set execution_mode query parameter to describe_parameters in describe context")
 			}
 			validatedDescribe = true
 			w.WriteHeader(http.StatusOK)

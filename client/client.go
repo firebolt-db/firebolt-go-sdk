@@ -139,8 +139,7 @@ func (c *ClientImpl) GetQueryParams(ctx context.Context, setStatements map[strin
 		params["async"] = "true"
 	}
 	if contextUtils.IsDescribe(ctx) {
-		params["advanced_mode"] = "1"
-		params["describe"] = "true"
+		params["execution_mode"] = "describe_parameters"
 	}
 	for setKey, setValue := range setStatements {
 		params[setKey] = setValue
