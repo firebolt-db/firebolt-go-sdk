@@ -12,10 +12,10 @@ import (
 )
 
 type FireboltDriver struct {
-	engineUrl    string
-	cachedParams map[string]string
-	client       client.Client
-	lastUsedDsn  string
+	// engineUrl    string
+	// cachedParams map[string]string
+	// client       client.Client
+	// lastUsedDsn  string
 }
 
 // Open parses the dsn string, and if correct tries to establish a connection
@@ -38,31 +38,31 @@ func copyMap(original map[string]string) map[string]string {
 func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 	logging.Infolog.Println("Opening firebolt connector")
 
-	if d.lastUsedDsn != dsn || d.lastUsedDsn == "" {
+	// if d.lastUsedDsn != dsn || d.lastUsedDsn == "" {
 
-		d.lastUsedDsn = "" //nolintd
-		logging.Infolog.Println("constructing new client")
-		// parsing dsn string to get configuration settings
-		settings, err := ParseDSNString(dsn)
-		if err != nil {
-			return nil, errors.Wrap(errors.DSNParseError, err)
-		}
-
-		// authenticating and getting access token
-		logging.Infolog.Println("dsn parsed correctly, trying to authenticate")
-		d.client, err = client.ClientFactory(settings, client.GetHostNameURL())
-		if err != nil {
-			return nil, errors.ConstructNestedError("error during initializing client", err)
-		}
-
-		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), settings.EngineName, settings.Database)
-		if err != nil {
-			return nil, errors.ConstructNestedError("error during getting connection parameters", err)
-		}
-		d.lastUsedDsn = dsn //nolint
+	// d.lastUsedDsn = "" //nolintd
+	logging.Infolog.Println("constructing new client")
+	// parsing dsn string to get configuration settings
+	settings, err := ParseDSNString(dsn)
+	if err != nil {
+		return nil, errors.Wrap(errors.DSNParseError, err)
 	}
 
-	return &FireboltConnector{d.engineUrl, d.client, copyMap(d.cachedParams), d}, nil
+	// authenticating and getting access token
+	logging.Infolog.Println("dsn parsed correctly, trying to authenticate")
+	clientInstance, err := client.ClientFactory(settings, client.GetHostNameURL())
+	if err != nil {
+		return nil, errors.ConstructNestedError("error during initializing client", err)
+	}
+
+	engineUrl, cachedParams, err := clientInstance.GetConnectionParameters(context.TODO(), settings.EngineName, settings.Database)
+	if err != nil {
+		return nil, errors.ConstructNestedError("error during getting connection parameters", err)
+	}
+	// 	d.lastUsedDsn = dsn //nolint
+	// }
+
+	return &FireboltConnector{engineUrl, clientInstance, cachedParams, d}, nil
 }
 
 // FireboltConnector is an intermediate type between a Connection and a Driver which stores session data
