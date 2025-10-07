@@ -12,10 +12,6 @@ import (
 )
 
 type FireboltDriver struct {
-	// engineUrl    string
-	// cachedParams map[string]string
-	// client       client.Client
-	// lastUsedDsn  string
 }
 
 // Open parses the dsn string, and if correct tries to establish a connection

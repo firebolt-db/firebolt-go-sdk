@@ -7,49 +7,56 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/client"
 )
 
-type driverOption func(d *FireboltDriver)
-type driverOptionWithError func(d *FireboltDriver) error
+// ConnectorConfig holds the configuration for creating a FireboltConnector
+type ConnectorConfig struct {
+	engineUrl    string
+	client       client.Client
+	cachedParams map[string]string
+}
+
+type driverOption func(config *ConnectorConfig)
+type driverOptionWithError func(config *ConnectorConfig) error
 
 func NoError(option driverOption) driverOptionWithError {
-	return func(d *FireboltDriver) error {
-		option(d)
+	return func(config *ConnectorConfig) error {
+		option(config)
 		return nil
 	}
 }
 
 // WithEngineUrl defines engine url for the driver
 func WithEngineUrl(engineUrl string) driverOption {
-	return func(d *FireboltDriver) {
-		d.engineUrl = engineUrl
+	return func(config *ConnectorConfig) {
+		config.engineUrl = engineUrl
 	}
 }
 
 // WithDatabaseName defines database name for the driver
 func WithDatabaseName(databaseName string) driverOption {
-	return func(d *FireboltDriver) {
-		if d.cachedParams == nil {
-			d.cachedParams = map[string]string{}
+	return func(config *ConnectorConfig) {
+		if config.cachedParams == nil {
+			config.cachedParams = map[string]string{}
 		}
-		d.cachedParams["database"] = databaseName
+		config.cachedParams["database"] = databaseName
 	}
 }
 
 // WithAccountID defines account ID for the driver
 func WithAccountID(accountID string) driverOption {
-	return func(d *FireboltDriver) {
-		if d.cachedParams == nil {
-			d.cachedParams = map[string]string{}
+	return func(config *ConnectorConfig) {
+		if config.cachedParams == nil {
+			config.cachedParams = map[string]string{}
 		}
 		if accountID != "" {
-			d.cachedParams["account_id"] = accountID
+			config.cachedParams["account_id"] = accountID
 		}
 	}
 }
 
 func withClientOption(setter func(baseClient *client.BaseClient)) driverOption {
-	return func(d *FireboltDriver) {
-		if d.client != nil {
-			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
+	return func(config *ConnectorConfig) {
+		if config.client != nil {
+			if clientImpl, ok := config.client.(*client.ClientImpl); ok {
 				setter(&clientImpl.BaseClient)
 			}
 			// ignore V0 client since it's not supported
@@ -62,7 +69,7 @@ func withClientOption(setter func(baseClient *client.BaseClient)) driverOption {
 			}
 			cl.ParameterGetter = cl.GetQueryParams
 			setter(&cl.BaseClient)
-			d.client = cl
+			config.client = cl
 		}
 	}
 }
@@ -85,18 +92,18 @@ func WithUserAgent(userAgent string) driverOption {
 
 // WithClientParams defines client parameters for the driver
 func WithClientParams(accountID string, token string, userAgent string) driverOption {
-	return func(d *FireboltDriver) {
-		WithAccountID(accountID)(d)
-		WithToken(token)(d)
-		WithUserAgent(userAgent)(d)
+	return func(config *ConnectorConfig) {
+		WithAccountID(accountID)(config)
+		WithToken(token)(config)
+		WithUserAgent(userAgent)(config)
 	}
 }
 
 // WithAccountName defines account name for the driver
 func WithAccountName(accountName string) driverOptionWithError {
-	return func(d *FireboltDriver) error {
-		if d.client != nil {
-			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
+	return func(config *ConnectorConfig) error {
+		if config.client != nil {
+			if clientImpl, ok := config.client.(*client.ClientImpl); ok {
 				clientImpl.AccountName = accountName
 			}
 			// ignore V0 client since it's not supported
@@ -109,7 +116,7 @@ func WithAccountName(accountName string) driverOptionWithError {
 				AccountName: accountName,
 			}
 			cl.ParameterGetter = cl.GetQueryParams
-			d.client = cl
+			config.client = cl
 		}
 		return nil
 	}
@@ -117,12 +124,12 @@ func WithAccountName(accountName string) driverOptionWithError {
 
 // WithDatabaseAndEngineName defines database name and engine name for the driver
 func WithDatabaseAndEngineName(databaseName, engineName string) driverOptionWithError {
-	return func(d *FireboltDriver) error {
-		if d.client == nil {
+	return func(config *ConnectorConfig) error {
+		if config.client == nil {
 			return errors.New("client must be initialized before setting database and engine name")
 		}
 		var err error
-		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), engineName, databaseName)
+		config.engineUrl, config.cachedParams, err = config.client.GetConnectionParameters(context.TODO(), engineName, databaseName)
 		if err != nil {
 			return err
 		}
@@ -132,34 +139,34 @@ func WithDatabaseAndEngineName(databaseName, engineName string) driverOptionWith
 
 // FireboltConnectorWithOptions builds a custom connector
 func FireboltConnectorWithOptions(opts ...driverOption) *FireboltConnector {
-	d := &FireboltDriver{}
+	config := &ConnectorConfig{}
 
 	for _, opt := range opts {
-		opt(d)
+		opt(config)
 	}
 
 	return &FireboltConnector{
-		d.engineUrl,
-		d.client,
-		d.cachedParams,
-		d,
+		config.engineUrl,
+		config.client,
+		config.cachedParams,
+		&FireboltDriver{},
 	}
 }
 
 // FireboltConnectorWithOptionsWithErrors builds a custom connector with error handling
 func FireboltConnectorWithOptionsWithErrors(opts ...driverOptionWithError) (*FireboltConnector, error) {
-	d := &FireboltDriver{}
+	config := &ConnectorConfig{}
 
 	for _, opt := range opts {
-		if err := opt(d); err != nil {
+		if err := opt(config); err != nil {
 			return nil, err
 		}
 	}
 
 	return &FireboltConnector{
-		d.engineUrl,
-		d.client,
-		d.cachedParams,
-		d,
+		config.engineUrl,
+		config.client,
+		config.cachedParams,
+		&FireboltDriver{},
 	}, nil
 }
