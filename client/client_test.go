@@ -404,3 +404,31 @@ func TestAsyncQuery(t *testing.T) {
 		t.Errorf("Async query was not validated correctly")
 	}
 }
+
+func TestDescribeQuery(t *testing.T) {
+	validatedDescribe := false
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case ServiceAccountLoginURLSuffix:
+			_, _ = w.Write(utils.GetAuthResponse(10000))
+		default:
+			if r.URL.Query().Get("execution_mode") != "describe_parameters" {
+				t.Errorf("Did not set execution_mode query parameter to describe_parameters in describe context")
+			}
+			validatedDescribe = true
+			w.WriteHeader(http.StatusOK)
+		}
+	}))
+	defer server.Close()
+
+	prepareEnvVariablesForTest(t, server)
+	client := clientFactory(server.URL)
+
+	ctx := contextUtils.WithDescribe(context.Background())
+
+	_, _ = client.Query(ctx, server.URL, selectOne, map[string]string{}, ConnectionControl{})
+
+	if !validatedDescribe {
+		t.Errorf("Describe query was not validated correctly")
+	}
+}
