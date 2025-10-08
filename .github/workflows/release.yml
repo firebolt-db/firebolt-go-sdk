@@ -37,12 +37,13 @@ jobs:
     - name: Get changes since last release
       id: changes
       run: |
-        OLD_TAG=$(git describe --tags --abbrev=0 | sed 's/^v//')
+        OLD_TAG=$(git describe --tags --abbrev=0)
         CHANGES=$(git log $OLD_TAG..HEAD --pretty=format:%s)
         echo "changes<<EOF" >> $GITHUB_OUTPUT
         echo "$CHANGES" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
-        echo "old_tag=$OLD_TAG" >> $GITHUB_OUTPUT
+        # Strip 'v' prefix from the old tag if it exists
+        echo "old_tag=($OLD_TAG | sed 's/^v//')" >> $GITHUB_OUTPUT
 
     - name: Generate version
       id: version
