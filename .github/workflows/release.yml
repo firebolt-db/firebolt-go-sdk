@@ -43,7 +43,7 @@ jobs:
         echo "$CHANGES" >> $GITHUB_OUTPUT
         echo "EOF" >> $GITHUB_OUTPUT
         # Strip 'v' prefix from the old tag if it exists
-        echo "old_tag=($OLD_TAG | sed 's/^v//')" >> $GITHUB_OUTPUT
+        echo "old_tag=$($OLD_TAG | sed 's/^v//')" >> $GITHUB_OUTPUT
 
     - name: Generate version
       id: version
