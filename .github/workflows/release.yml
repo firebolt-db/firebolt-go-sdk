@@ -37,7 +37,7 @@ jobs:
     - name: Get changes since last release
       id: changes
       run: |
-        OLD_TAG=$(git describe --tags --abbrev=0)
+        OLD_TAG=$(git describe --tags --abbrev=0 | sed 's/^v//')
         CHANGES=$(git log $OLD_TAG..HEAD --pretty=format:%s)
         echo "changes<<EOF" >> $GITHUB_OUTPUT
         echo "$CHANGES" >> $GITHUB_OUTPUT
