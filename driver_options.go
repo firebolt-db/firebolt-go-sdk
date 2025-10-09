@@ -20,6 +20,8 @@ func NoError(option driverOption) driverOptionWithError {
 // WithEngineUrl defines engine url for the driver
 func WithEngineUrl(engineUrl string) driverOption {
 	return func(d *FireboltDriver) {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.engineUrl = engineUrl
 	}
 }
@@ -27,6 +29,8 @@ func WithEngineUrl(engineUrl string) driverOption {
 // WithDatabaseName defines database name for the driver
 func WithDatabaseName(databaseName string) driverOption {
 	return func(d *FireboltDriver) {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		if d.cachedParams == nil {
 			d.cachedParams = map[string]string{}
 		}
@@ -37,6 +41,8 @@ func WithDatabaseName(databaseName string) driverOption {
 // WithAccountID defines account ID for the driver
 func WithAccountID(accountID string) driverOption {
 	return func(d *FireboltDriver) {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		if d.cachedParams == nil {
 			d.cachedParams = map[string]string{}
 		}
@@ -48,11 +54,12 @@ func WithAccountID(accountID string) driverOption {
 
 func withClientOption(setter func(baseClient *client.BaseClient)) driverOption {
 	return func(d *FireboltDriver) {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		if d.client != nil {
 			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
 				setter(&clientImpl.BaseClient)
 			}
-			// ignore V0 client since it's not supported
 		} else {
 			cl := &client.ClientImpl{
 				ConnectedToSystemEngine: true,
@@ -95,11 +102,12 @@ func WithClientParams(accountID string, token string, userAgent string) driverOp
 // WithAccountName defines account name for the driver
 func WithAccountName(accountName string) driverOptionWithError {
 	return func(d *FireboltDriver) error {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		if d.client != nil {
 			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
 				clientImpl.AccountName = accountName
 			}
-			// ignore V0 client since it's not supported
 		} else {
 			cl := &client.ClientImpl{
 				ConnectedToSystemEngine: true,
@@ -118,6 +126,8 @@ func WithAccountName(accountName string) driverOptionWithError {
 // WithDatabaseAndEngineName defines database name and engine name for the driver
 func WithDatabaseAndEngineName(databaseName, engineName string) driverOptionWithError {
 	return func(d *FireboltDriver) error {
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		if d.client == nil {
 			return errors.New("client must be initialized before setting database and engine name")
 		}

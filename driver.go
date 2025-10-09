@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"sync"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
 
@@ -12,6 +13,7 @@ import (
 )
 
 type FireboltDriver struct {
+	mu           sync.RWMutex
 	engineUrl    string
 	cachedParams map[string]string
 	client       client.Client
@@ -38,29 +40,39 @@ func copyMap(original map[string]string) map[string]string {
 func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 	logging.Infolog.Println("Opening firebolt connector")
 
-	if d.lastUsedDsn != dsn || d.lastUsedDsn == "" {
-
-		d.lastUsedDsn = "" //nolintd
-		logging.Infolog.Println("constructing new client")
-		// parsing dsn string to get configuration settings
-		settings, err := ParseDSNString(dsn)
-		if err != nil {
-			return nil, errors.Wrap(errors.DSNParseError, err)
-		}
-
-		// authenticating and getting access token
-		logging.Infolog.Println("dsn parsed correctly, trying to authenticate")
-		d.client, err = client.ClientFactory(settings, client.GetHostNameURL())
-		if err != nil {
-			return nil, errors.ConstructNestedError("error during initializing client", err)
-		}
-
-		d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), settings.EngineName, settings.Database)
-		if err != nil {
-			return nil, errors.ConstructNestedError("error during getting connection parameters", err)
-		}
-		d.lastUsedDsn = dsn //nolint
+	d.mu.RLock()
+	if d.lastUsedDsn == dsn && d.lastUsedDsn != "" {
+		connector := &FireboltConnector{d.engineUrl, d.client, copyMap(d.cachedParams), d}
+		d.mu.RUnlock()
+		return connector, nil
 	}
+	d.mu.RUnlock()
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if d.lastUsedDsn == dsn && d.lastUsedDsn != "" {
+		return &FireboltConnector{d.engineUrl, d.client, copyMap(d.cachedParams), d}, nil
+	}
+
+	d.lastUsedDsn = ""
+	logging.Infolog.Println("constructing new client")
+	settings, err := ParseDSNString(dsn)
+	if err != nil {
+		return nil, errors.Wrap(errors.DSNParseError, err)
+	}
+
+	logging.Infolog.Println("dsn parsed correctly, trying to authenticate")
+	d.client, err = client.ClientFactory(settings, client.GetHostNameURL())
+	if err != nil {
+		return nil, errors.ConstructNestedError("error during initializing client", err)
+	}
+
+	d.engineUrl, d.cachedParams, err = d.client.GetConnectionParameters(context.TODO(), settings.EngineName, settings.Database)
+	if err != nil {
+		return nil, errors.ConstructNestedError("error during getting connection parameters", err)
+	}
+	d.lastUsedDsn = dsn
 
 	return &FireboltConnector{d.engineUrl, d.client, copyMap(d.cachedParams), d}, nil
 }
