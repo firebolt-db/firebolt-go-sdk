@@ -11,15 +11,15 @@ on:
         description: 'Trigger a major release (optional). Leave empty for regular release.'
 
 jobs:
-  # integration-tests:
-  #   uses: ./.github/workflows/integration-tests.yml
-  #   secrets: inherit
+  integration-tests:
+    uses: ./.github/workflows/integration-tests.yml
+    secrets: inherit
 
   publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    # needs: integration-tests
+    needs: integration-tests
     steps:    
     - name: Check out code
       uses: actions/checkout@v2
