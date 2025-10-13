@@ -60,6 +60,7 @@ func withClientOption(setter func(baseClient *client.BaseClient)) driverOption {
 			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
 				setter(&clientImpl.BaseClient)
 			}
+			// ignore V0 client since it's not supported
 		} else {
 			cl := &client.ClientImpl{
 				ConnectedToSystemEngine: true,
@@ -108,6 +109,7 @@ func WithAccountName(accountName string) driverOptionWithError {
 			if clientImpl, ok := d.client.(*client.ClientImpl); ok {
 				clientImpl.AccountName = accountName
 			}
+			// ignore V0 client since it's not supported
 		} else {
 			cl := &client.ClientImpl{
 				ConnectedToSystemEngine: true,
