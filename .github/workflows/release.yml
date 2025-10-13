@@ -27,17 +27,6 @@ jobs:
         fetch-depth: 0 
         ref: main
         token: ${{ secrets.RELEASE_PAT }}
-
-    - name: Set up Python 3.9
-      uses: actions/setup-python@v2
-      with:
-        python-version: 3.9
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install argparse build semver twine
-      shell: bash
    
     - name: Setup git config
       run: |
@@ -45,41 +34,40 @@ jobs:
         git config user.email "<>"
       shell: bash
 
-    - name: Checkout action repo
-      uses: actions/checkout@v2
-      with:
-        repository: firebolt-db/action-python-release
-        path: release_action
-
-    - name: Generate new version tag
-      id: tag_generation
+    - name: Get changes since last release
+      id: changes
       run: |
         OLD_TAG=$(git describe --tags --abbrev=0)
-        OLD_VERSION=$(echo $OLD_TAG | cut -c 2-)
-        echo "Old tag was ${OLD_TAG}"
-        CHANGE_LOG=$(git log $OLD_TAG..HEAD --pretty=format:%s)
-        NEW_VERSION=$(python3 release_action/scripts/generate_version_tag.py "${CHANGE_LOG}" $OLD_VERSION --prerelease_tag "${{ inputs.pre-release-tag }}" --major_release "${{ inputs.major-release }}")
-        NEW_TAG="v"$NEW_VERSION
-        echo "new_tag=$NEW_TAG" >>  $GITHUB_OUTPUT
-        echo "new_version=$NEW_VERSION" >>  $GITHUB_OUTPUT
-      shell: bash
+        CHANGES=$(git log $OLD_TAG..HEAD --pretty=format:%s)
+        echo "changes<<EOF" >> $GITHUB_OUTPUT
+        echo "$CHANGES" >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+        # Strip 'v' prefix from the old tag if it exists
+        echo "old_tag=$(echo $OLD_TAG | sed 's/^v//')" >> $GITHUB_OUTPUT
+
+    - name: Generate version
+      id: version
+      uses: firebolt-db/action-generate-version@v1
+      with:
+        changes: ${{ steps.changes.outputs.changes }}
+        old-tag: ${{ steps.changes.outputs.old_tag }}
 
     - name: Version bump
       run: |
         # Bump version = <number> in version file
-        sed -i "s/SdkVersion string = .*/SdkVersion string = \"${{ steps.tag_generation.outputs.new_version }}\"/g" version/version.go
+        sed -i "s/SdkVersion string = .*/SdkVersion string = \"v${{ steps.version.outputs.new-tag }}\"/g" version/version.go
         git add version/version.go
-        git commit -m "Automatic version bump to ${{ steps.tag_generation.outputs.new_tag }}"
+        git commit -m "Automatic version bump to v${{ steps.version.outputs.new-tag }}"
         git push origin main
       shell: bash
         
     - name: Publish tag on github
       run: |
-        git tag ${{ steps.tag_generation.outputs.new_tag }}
-        git push origin ${{ steps.tag_generation.outputs.new_tag }}
+        git tag v${{ steps.version.outputs.new-tag }}
+        git push origin v${{ steps.version.outputs.new-tag }}
       shell: bash
         
     - name: Run go list
       run: |
-        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@${{ steps.tag_generation.outputs.new_tag }}
+        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@v${{ steps.version.outputs.new-tag }}
       shell: bash
