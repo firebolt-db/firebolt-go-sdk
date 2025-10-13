@@ -13,7 +13,7 @@ import (
 )
 
 type FireboltDriver struct {
-	mu           sync.RWMutex
+	mutex        sync.RWMutex
 	engineUrl    string
 	cachedParams map[string]string
 	client       client.Client
@@ -40,16 +40,16 @@ func copyMap(original map[string]string) map[string]string {
 func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 	logging.Infolog.Println("Opening firebolt connector")
 
-	d.mu.RLock()
+	d.mutex.RLock()
 	if d.lastUsedDsn == dsn && d.lastUsedDsn != "" {
 		connector := &FireboltConnector{d.engineUrl, d.client, copyMap(d.cachedParams), d}
-		d.mu.RUnlock()
+		d.mutex.RUnlock()
 		return connector, nil
 	}
-	d.mu.RUnlock()
+	d.mutex.RUnlock()
 
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
 
 	if d.lastUsedDsn == dsn && d.lastUsedDsn != "" {
 		return &FireboltConnector{d.engineUrl, d.client, copyMap(d.cachedParams), d}, nil
