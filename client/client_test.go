@@ -111,7 +111,7 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
 			fetchTokenCount++
-			_, _ = w.Write(utils.GetAuthResponse(1))
+			_, _ = w.Write(utils.GetAuthResponse(10))
 		} else {
 			w.WriteHeader(http.StatusOK)
 		}
@@ -125,10 +125,10 @@ func TestFetchTokenWhenExpired(t *testing.T) {
 	client.AccessTokenGetter = client.getAccessToken
 	_ = client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
 	// Waiting for the token to get expired
-	time.Sleep(2 * time.Millisecond)
+	time.Sleep(15 * time.Millisecond)
 	_ = client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
 
-	token, _ := getAccessTokenUsernamePassword("client_id", "", server.URL, "")
+	token, _ := getAccessTokenServiceAccount("client_id", "", server.URL, "")
 
 	if token != "aMysteriousToken" {
 		t.Error(missingTokenError)
