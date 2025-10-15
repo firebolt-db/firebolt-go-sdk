@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 // TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
@@ -108,5 +109,40 @@ func TestResetParametersList(t *testing.T) {
 	}
 	if _, exists := connector.cachedParameters["another_key"]; !exists {
 		t.Errorf("resetParameters removed parameter that shouldn't have been removed in connector")
+	}
+}
+
+// TestDescribeResultStructure tests that the DescribeResult struct has the expected fields
+func TestDescribeResultStructure(t *testing.T) {
+	// Test that we can create and use a DescribeResult
+	result := types.DescribeResult{
+		ParameterTypes: map[string]string{"$1": "TEXT"},
+		ResultColumns: []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		}{
+			{Name: "col1", Type: "INTEGER"},
+		},
+	}
+
+	// Test that we can access the fields
+	if len(result.ResultColumns) != 1 {
+		t.Errorf("Expected 1 result column, got %d", len(result.ResultColumns))
+	}
+
+	if result.ResultColumns[0].Name != "col1" {
+		t.Errorf("Expected column name 'col1', got '%s'", result.ResultColumns[0].Name)
+	}
+
+	if result.ResultColumns[0].Type != "INTEGER" {
+		t.Errorf("Expected column type 'INTEGER', got '%s'", result.ResultColumns[0].Type)
+	}
+
+	if len(result.ParameterTypes) != 1 {
+		t.Errorf("Expected 1 parameter type, got %d", len(result.ParameterTypes))
+	}
+
+	if result.ParameterTypes["$1"] != "TEXT" {
+		t.Errorf("Expected parameter type 'TEXT', got '%s'", result.ParameterTypes["$1"])
 	}
 }
