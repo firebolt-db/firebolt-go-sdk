@@ -309,8 +309,6 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	})
 }
 
-
-
 // validateDescribeColumns validates that the describe query returns the expected columns
 func validateDescribeColumns(t *testing.T, columns []*sql.ColumnType) {
 	if len(columns) != 1 {
@@ -417,7 +415,7 @@ func TestConnectionDescribeFunction(t *testing.T) {
 		if driverConn == nil {
 			return fmt.Errorf("failed to get raw connection")
 		}
-		
+
 		describeConn, ok := driverConn.(DescribeConnection)
 		if !ok {
 			return errors.New("connection does not support describe functionality")
@@ -431,10 +429,10 @@ func TestConnectionDescribeFunction(t *testing.T) {
 
 		// Validate the result
 		validateDescribeResult(t, *result)
-		
+
 		return nil
 	})
-	
+
 	if err != nil {
 		t.Errorf("Raw connection test failed: %v", err)
 		t.FailNow()
