@@ -121,7 +121,12 @@ func (c *fireboltConnection) Describe(ctx context.Context, query string, args ..
 	if err != nil {
 		return nil, errorUtils.ConstructNestedError("error executing describe query", err)
 	}
-	defer rows.Close()
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			// Informational only, cannot return error from defer
+			fmt.Printf("error closing rows: %v\n", closeErr)
+		}
+	}()
 
 	// Read the JSON result using driver.Rows interface
 	dest := make([]driver.Value, 1) // describe returns one column
