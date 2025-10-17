@@ -1,9 +1,11 @@
 package fireboltgosdk
 
 import (
+	"context"
 	"testing"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
@@ -144,5 +146,49 @@ func TestDescribeResultStructure(t *testing.T) {
 
 	if result.ParameterTypes["$1"] != "TEXT" {
 		t.Errorf("Expected parameter type 'TEXT', got '%s'", result.ParameterTypes["$1"])
+	}
+}
+
+// TestDescribeFunctionPreparedStatementsStyleValidation tests that the Describe function
+// fails when the context doesn't have PreparedStatementsStyleFbNumeric
+func TestDescribeFunctionPreparedStatementsStyleValidation(t *testing.T) {
+	emptyClient := &client.ClientImpl{}
+	fireboltConnection := fireboltConnection{emptyClient, "engine_url", map[string]string{}, nil}
+
+	const testQuery = "SELECT 1 as col1, $1 as col2"
+
+	// Test with default context (PreparedStatementsStyleNative)
+	ctx := context.Background()
+	_, err := fireboltConnection.Describe(ctx, testQuery, "text")
+	if err == nil {
+		t.Error("Expected Describe to fail with default context, but it didn't")
+	}
+	expectedError := "Describe function requires PreparedStatementsStyleFbNumeric context parameter"
+	if err.Error() != expectedError {
+		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
+	}
+
+	// Test with explicit PreparedStatementsStyleNative
+	nativeCtx := contextUtils.WithPreparedStatementsStyle(ctx, contextUtils.PreparedStatementsStyleNative)
+	_, err = fireboltConnection.Describe(nativeCtx, testQuery, "text")
+	if err == nil {
+		t.Error("Expected Describe to fail with PreparedStatementsStyleNative context, but it didn't")
+	}
+	if err.Error() != expectedError {
+		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
+	}
+
+	// Test with PreparedStatementsStyleFbNumeric - this should NOT fail at the validation step
+	// (it may fail later for other reasons like missing mock setup, but validation should pass)
+	fbNumericCtx := contextUtils.WithPreparedStatementsStyle(ctx, contextUtils.PreparedStatementsStyleFbNumeric)
+	_, err = fireboltConnection.Describe(fbNumericCtx, testQuery, "text")
+	// This should not fail due to prepared statements style validation
+	if err != nil && err.Error() == expectedError {
+		t.Error("Describe failed validation with PreparedStatementsStyleFbNumeric context, but it shouldn't")
+	}
+	// The function may still fail for other reasons (like no mock setup), but it should not be due to the prepared statements style validation
+	if err != nil && err.Error() != expectedError {
+		// This is expected - the function will fail due to other reasons but not the validation we added
+		t.Logf("Describe failed with a different error (as expected): %v", err)
 	}
 }
