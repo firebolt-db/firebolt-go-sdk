@@ -24,7 +24,9 @@ jobs:
         go-version: '1.25.x'
 
     - name: Sync vendor directory
-      run: go mod vendor
+      run: |
+        rm -r vendor || true
+        go mod vendor
 
     - name: Set up Python
       uses: actions/setup-python@v5

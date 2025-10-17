@@ -421,8 +421,9 @@ func TestConnectionDescribeFunction(t *testing.T) {
 			return errors.New("connection does not support describe functionality")
 		}
 
+		preparedContext := contextUtils.WithPreparedStatementsStyle(context.Background(), contextUtils.PreparedStatementsStyleFbNumeric)
 		// Test the Describe function
-		result, err := describeConn.Describe(context.Background(), "SELECT 1 as col1, $1 as col2", "text")
+		result, err := describeConn.Describe(preparedContext, "SELECT 1 as col1, $1 as col2", "text")
 		if err != nil {
 			return fmt.Errorf("Describe function failed: %v", err)
 		}

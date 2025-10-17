@@ -104,6 +104,11 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 // Describe executes a query with describe context and returns the unmarshalled DescribeResult.
 // This function is only usable when accessed through conn.Raw().
 func (c *fireboltConnection) Describe(ctx context.Context, query string, args ...interface{}) (*types.DescribeResult, error) {
+	// Validate that the context uses Firebolt numeric prepared statements style
+	if contextUtils.GetPreparedStatementsStyle(ctx) != contextUtils.PreparedStatementsStyleFbNumeric {
+		return nil, errors.New("Describe function requires PreparedStatementsStyleFbNumeric context parameter")
+	}
+
 	// Convert args to driver.NamedValue format
 	driverValues := make([]driver.NamedValue, len(args))
 	for i, arg := range args {
