@@ -21,8 +21,10 @@ jobs:
     - name: Set up Go
       uses: actions/setup-go@v5
       with:
-        # code-check is being called from multiple places, the go-version should be taking the version as parameter
-        go-version: '1.25.1'
+        go-version: '1.25.x'
+
+    - name: Sync vendor directory
+      run: go mod vendor
 
     - name: Set up Python
       uses: actions/setup-python@v5
