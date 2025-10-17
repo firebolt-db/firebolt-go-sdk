@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
 	"reflect"
@@ -16,6 +17,7 @@ import (
 	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/rows"
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
@@ -307,15 +309,6 @@ func TestConnectionPreparedStatement(t *testing.T) {
 	})
 }
 
-// DescribeResult represents the structure of a describe query result
-type DescribeResult struct {
-	ParameterTypes map[string]string `json:"parameter_types"`
-	ResultColumns  []struct {
-		Name string `json:"name"`
-		Type string `json:"type"`
-	} `json:"result_columns"`
-}
-
 // validateDescribeColumns validates that the describe query returns the expected columns
 func validateDescribeColumns(t *testing.T, columns []*sql.ColumnType) {
 	if len(columns) != 1 {
@@ -329,7 +322,7 @@ func validateDescribeColumns(t *testing.T, columns []*sql.ColumnType) {
 }
 
 // validateDescribeResult validates the parsed describe result
-func validateDescribeResult(t *testing.T, result DescribeResult) {
+func validateDescribeResult(t *testing.T, result types.DescribeResult) {
 	// Result Columns
 	if len(result.ResultColumns) != 2 {
 		t.Errorf("Expected 2 result columns, got %d", len(result.ResultColumns))
@@ -388,7 +381,7 @@ func TestConnectionDescribeQueryResult(t *testing.T) {
 		t.FailNow()
 	}
 
-	var result DescribeResult
+	var result types.DescribeResult
 	if err := json.Unmarshal([]byte(dest), &result); err != nil {
 		t.Errorf("Unmarshal of describe result failed with %v", err)
 		t.FailNow()
@@ -398,6 +391,50 @@ func TestConnectionDescribeQueryResult(t *testing.T) {
 
 	if rows.Next() {
 		t.Errorf("Describe query returned rows, while it shouldn't")
+		t.FailNow()
+	}
+}
+
+func TestConnectionDescribeFunction(t *testing.T) {
+	db, err := sql.Open("firebolt", dsnMock)
+	if err != nil {
+		t.Errorf(OPEN_CONNECTION_ERROR_MSG)
+		t.FailNow()
+	}
+
+	// Get a connection from the database
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		t.Errorf("failed to get database connection: %v", err)
+		t.FailNow()
+	}
+	defer conn.Close()
+
+	// Test the Describe function using Raw connection
+	err = conn.Raw(func(driverConn interface{}) error {
+		if driverConn == nil {
+			return fmt.Errorf("failed to get raw connection")
+		}
+
+		describeConn, ok := driverConn.(DescribeConnection)
+		if !ok {
+			return errors.New("connection does not support describe functionality")
+		}
+
+		// Test the Describe function
+		result, err := describeConn.Describe(context.Background(), "SELECT 1 as col1, $1 as col2", "text")
+		if err != nil {
+			return fmt.Errorf("Describe function failed: %v", err)
+		}
+
+		// Validate the result
+		validateDescribeResult(t, *result)
+
+		return nil
+	})
+
+	if err != nil {
+		t.Errorf("Raw connection test failed: %v", err)
 		t.FailNow()
 	}
 }

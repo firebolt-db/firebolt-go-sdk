@@ -3,12 +3,14 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql/driver"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 
 	"github.com/firebolt-db/firebolt-go-sdk/statement"
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/rows"
@@ -31,6 +33,11 @@ func (t *fireboltTransaction) Commit() error {
 func (t *fireboltTransaction) Rollback() error {
 	_, err := t.conn.ExecContext(context.Background(), "ROLLBACK", nil)
 	return err
+}
+
+// DescribeConnection interface provides access to query description functionality
+type DescribeConnection interface {
+	Describe(ctx context.Context, query string, args ...interface{}) (*types.DescribeResult, error)
 }
 
 type fireboltConnection struct {
@@ -92,6 +99,55 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 		return nil, errorUtils.ConstructNestedError("error during preparing a statement", err)
 	}
 	return c.ExecutePreparedQueries(ctx, stmt.Queries, args, true)
+}
+
+// Describe executes a query with describe context and returns the unmarshalled DescribeResult.
+// This function is only usable when accessed through conn.Raw().
+func (c *fireboltConnection) Describe(ctx context.Context, query string, args ...interface{}) (*types.DescribeResult, error) {
+	// Convert args to driver.NamedValue format
+	driverValues := make([]driver.NamedValue, len(args))
+	for i, arg := range args {
+		driverValues[i] = driver.NamedValue{
+			Ordinal: i + 1,
+			Value:   arg,
+		}
+	}
+
+	// Create a describe context
+	describeCtx := contextUtils.WithDescribe(ctx)
+
+	// Execute the query with describe context
+	rows, err := c.QueryContext(describeCtx, query, driverValues)
+	if err != nil {
+		return nil, errorUtils.ConstructNestedError("error executing describe query", err)
+	}
+	defer func() {
+		if closeErr := rows.Close(); closeErr != nil {
+			// Informational only, cannot return error from defer
+			fmt.Printf("error closing rows: %v\n", closeErr)
+		}
+	}()
+
+	// Read the JSON result using driver.Rows interface
+	dest := make([]driver.Value, 1) // describe returns one column
+	err = rows.Next(dest)
+	if err != nil {
+		return nil, errorUtils.ConstructNestedError("error reading describe result", err)
+	}
+
+	// Extract the JSON string from the result
+	jsonResult, ok := dest[0].(string)
+	if !ok {
+		return nil, errors.New("describe result is not a string")
+	}
+
+	// Unmarshal the JSON into DescribeResult
+	var result types.DescribeResult
+	if err := json.Unmarshal([]byte(jsonResult), &result); err != nil {
+		return nil, errorUtils.ConstructNestedError("error unmarshalling describe result", err)
+	}
+
+	return &result, nil
 }
 
 func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRowsWithResult {
