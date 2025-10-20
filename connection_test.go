@@ -152,13 +152,13 @@ func TestDescribeResultStructure(t *testing.T) {
 	}
 }
 
-// TestDescribeFunctionPreparedStatementsStyleValidation tests that the Describe function
-// fails when the context doesn't have PreparedStatementsStyleFbNumeric
-func TestDescribeFunctionPreparedStatementsStyleValidation(t *testing.T) {
+// TestDescribeFunctionDoesNotSupportQmark tests that the Describe function
+// returns an error when using the default context (which implies qmark style)
+func TestDescribeFunctionDoesNotSupportQmark(t *testing.T) {
 	emptyClient := &client.ClientImpl{}
 	fireboltConnection := fireboltConnection{emptyClient, "engine_url", map[string]string{}, nil}
 
-	const testQuery = "SELECT 1 as col1, $1 as col2"
+	const testQuery = "SELECT 1 as col1, ? as col2"
 
 	// Test with default context (PreparedStatementsStyleNative)
 	ctx := context.Background()
@@ -169,25 +169,6 @@ func TestDescribeFunctionPreparedStatementsStyleValidation(t *testing.T) {
 	expectedError := "Describe function requires PreparedStatementsStyleFbNumeric context parameter"
 	if err.Error() != expectedError {
 		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
-	}
-
-	// Test with explicit PreparedStatementsStyleNative
-	nativeCtx := contextUtils.WithPreparedStatementsStyle(ctx, contextUtils.PreparedStatementsStyleNative)
-	_, err = fireboltConnection.Describe(nativeCtx, testQuery, "text")
-	if err == nil {
-		t.Error("Expected Describe to fail with PreparedStatementsStyleNative context, but it didn't")
-	}
-	if err.Error() != expectedError {
-		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
-	}
-
-	// Test with PreparedStatementsStyleFbNumeric - this should NOT fail at the validation step
-	// (it may fail later for other reasons like missing mock setup, but validation should pass)
-	fbNumericCtx := contextUtils.WithPreparedStatementsStyle(ctx, contextUtils.PreparedStatementsStyleFbNumeric)
-	_, err = fireboltConnection.Describe(fbNumericCtx, testQuery, "text")
-	// This should not fail due to prepared statements style validation
-	if err != nil && err.Error() == expectedError {
-		t.Error("Describe failed validation with PreparedStatementsStyleFbNumeric context, but it shouldn't")
 	}
 }
 
@@ -207,6 +188,7 @@ func (m *mockClientForDescribe) Query(ctx context.Context, engineUrl, query stri
 		}{
 			{Name: "col1", Type: "int"},
 			{Name: "col2", Type: "text"},
+			{Name: "col3", Type: "int"},
 		},
 	}
 
@@ -240,13 +222,9 @@ func (m *mockClientForDescribe) GetConnectionParameters(ctx context.Context, eng
 	return "mock-engine-url", map[string]string{}, nil
 }
 
-func (m *mockClientForDescribe) IsNewVersion() bool {
-	return true
-}
-
-// TestDescribeFunctionCorrectUsage tests the successful execution of the Describe function
+// TestDescribeFunctionFbNumeric tests the successful execution of the Describe function
 // with proper context and mock client that returns a valid describe response
-func TestDescribeFunctionCorrectUsage(t *testing.T) {
+func TestDescribeFunctionFbNumeric(t *testing.T) {
 	mockClient := &mockClientForDescribe{}
 	fireboltConnection := fireboltConnection{mockClient, "engine_url", map[string]string{}, nil}
 
@@ -282,8 +260,8 @@ func TestDescribeFunctionCorrectUsage(t *testing.T) {
 		t.Errorf("Expected parameter $2 to be int, got %s", result.ParameterTypes["$2"])
 	}
 
-	if len(result.ResultColumns) != 2 {
-		t.Errorf("Expected 2 result columns, got %d", len(result.ResultColumns))
+	if len(result.ResultColumns) != 3 {
+		t.Errorf("Expected 3 result columns, got %d", len(result.ResultColumns))
 	}
 
 	if result.ResultColumns[0].Name != "col1" || result.ResultColumns[0].Type != "int" {
@@ -294,5 +272,10 @@ func TestDescribeFunctionCorrectUsage(t *testing.T) {
 	if result.ResultColumns[1].Name != "col2" || result.ResultColumns[1].Type != "text" {
 		t.Errorf("Expected second column to be (col2, text), got (%s, %s)",
 			result.ResultColumns[1].Name, result.ResultColumns[1].Type)
+	}
+
+	if result.ResultColumns[2].Name != "col3" || result.ResultColumns[2].Type != "int" {
+		t.Errorf("Expected third column to be (col3, int), got (%s, %s)",
+			result.ResultColumns[2].Name, result.ResultColumns[2].Type)
 	}
 }
