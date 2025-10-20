@@ -1,9 +1,14 @@
 package fireboltgosdk
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
 	"testing"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
+	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
@@ -144,5 +149,133 @@ func TestDescribeResultStructure(t *testing.T) {
 
 	if result.ParameterTypes["$1"] != "TEXT" {
 		t.Errorf("Expected parameter type 'TEXT', got '%s'", result.ParameterTypes["$1"])
+	}
+}
+
+// TestDescribeFunctionDoesNotSupportQmark tests that the Describe function
+// returns an error when using the default context (which implies qmark style)
+func TestDescribeFunctionDoesNotSupportQmark(t *testing.T) {
+	emptyClient := &client.ClientImpl{}
+	fireboltConnection := fireboltConnection{emptyClient, "engine_url", map[string]string{}, nil}
+
+	const testQuery = "SELECT 1 as col1, ? as col2"
+
+	// Test with default context (PreparedStatementsStyleNative)
+	ctx := context.Background()
+	_, err := fireboltConnection.Describe(ctx, testQuery, "text")
+	if err == nil {
+		t.Error("Expected Describe to fail with default context, but it didn't")
+	}
+	expectedError := "Describe function requires PreparedStatementsStyleFbNumeric context parameter"
+	if err.Error() != expectedError {
+		t.Errorf("Expected error '%s', got '%s'", expectedError, err.Error())
+	}
+}
+
+// mockClientForDescribe is a test client that returns a proper describe response
+type mockClientForDescribe struct{}
+
+func (m *mockClientForDescribe) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control client.ConnectionControl) (*client.Response, error) {
+	// Create a mock DescribeResult
+	describeResult := types.DescribeResult{
+		ParameterTypes: map[string]string{
+			"$1": "text",
+			"$2": "int",
+		},
+		ResultColumns: []struct {
+			Name string `json:"name"`
+			Type string `json:"type"`
+		}{
+			{Name: "col1", Type: "int"},
+			{Name: "col2", Type: "text"},
+			{Name: "col3", Type: "int"},
+		},
+	}
+
+	// Marshal the result to JSON
+	jsonResult, err := json.Marshal(describeResult)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create a QueryResponse that contains the JSON result
+	queryResponse := types.QueryResponse{
+		Meta: []types.Column{{Name: "describe_result", Type: "text"}},
+		Data: [][]interface{}{{string(jsonResult)}},
+		Rows: 1,
+	}
+
+	// Marshal the QueryResponse
+	responseData, err := json.Marshal(queryResponse)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create response body reader
+	reader := io.NopCloser(bytes.NewReader(responseData))
+
+	// Return a successful Response
+	return client.MakeResponse(reader, 200, nil, nil), nil
+}
+
+func (m *mockClientForDescribe) GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error) {
+	return "mock-engine-url", map[string]string{}, nil
+}
+
+// TestDescribeFunctionFbNumeric tests the successful execution of the Describe function
+// with proper context and mock client that returns a valid describe response
+func TestDescribeFunctionFbNumeric(t *testing.T) {
+	mockClient := &mockClientForDescribe{}
+	fireboltConnection := fireboltConnection{mockClient, "engine_url", map[string]string{}, nil}
+
+	const testQuery = "SELECT 1 as col1, $1 as col2, $2 as col3"
+
+	// Create context with PreparedStatementsStyleFbNumeric
+	ctx := context.Background()
+	fbNumericCtx := contextUtils.WithPreparedStatementsStyle(ctx, contextUtils.PreparedStatementsStyleFbNumeric)
+
+	// Call Describe with proper context and parameters
+	result, err := fireboltConnection.Describe(fbNumericCtx, testQuery, "text_value", 42)
+
+	if err != nil {
+		t.Errorf("Describe function failed unexpectedly: %v", err)
+		return
+	}
+
+	if result == nil {
+		t.Error("Describe function returned nil result")
+		return
+	}
+
+	// Verify the result structure
+	if len(result.ParameterTypes) != 2 {
+		t.Errorf("Expected 2 parameter types, got %d", len(result.ParameterTypes))
+	}
+
+	if result.ParameterTypes["$1"] != "text" {
+		t.Errorf("Expected parameter $1 to be text, got %s", result.ParameterTypes["$1"])
+	}
+
+	if result.ParameterTypes["$2"] != "int" {
+		t.Errorf("Expected parameter $2 to be int, got %s", result.ParameterTypes["$2"])
+	}
+
+	if len(result.ResultColumns) != 3 {
+		t.Errorf("Expected 3 result columns, got %d", len(result.ResultColumns))
+	}
+
+	if result.ResultColumns[0].Name != "col1" || result.ResultColumns[0].Type != "int" {
+		t.Errorf("Expected first column to be (col1, int), got (%s, %s)",
+			result.ResultColumns[0].Name, result.ResultColumns[0].Type)
+	}
+
+	if result.ResultColumns[1].Name != "col2" || result.ResultColumns[1].Type != "text" {
+		t.Errorf("Expected second column to be (col2, text), got (%s, %s)",
+			result.ResultColumns[1].Name, result.ResultColumns[1].Type)
+	}
+
+	if result.ResultColumns[2].Name != "col3" || result.ResultColumns[2].Type != "int" {
+		t.Errorf("Expected third column to be (col3, int), got (%s, %s)",
+			result.ResultColumns[2].Name, result.ResultColumns[2].Type)
 	}
 }
