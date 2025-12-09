@@ -28,7 +28,7 @@ jobs:
       fail-fast: false # finish all jobs even if one fails
       max-parallel: 2
       matrix:
-        os: ['macos-13', 'windows-latest', 'ubuntu-latest']
+        os: ['macos-latest']
         go-version: ${{ fromJSON(needs.find-latest-go-versions.outputs.go_matrix) }}
     steps:
       - name: Check out code
