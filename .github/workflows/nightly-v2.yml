@@ -28,14 +28,14 @@ jobs:
       fail-fast: false # finish all jobs even if one fails
       max-parallel: 2
       matrix:
-        os: ['macos-13', 'windows-latest', 'ubuntu-latest']
+        os: ['macos-latest', 'windows-latest', 'ubuntu-latest']
         go-version: ${{ fromJSON(needs.find-latest-go-versions.outputs.go_matrix) }}
     steps:
       - name: Check out code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v6
 
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ matrix.go-version }}
           check-latest: true
@@ -43,10 +43,10 @@ jobs:
       - name: Install go tools
         run: go get golang.org/x/tools/cmd/cover
 
-      - name: Set up Python 3.9
-        uses: actions/setup-python@v2
+      - name: Set up Python 3.14
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.9"
+          python-version: "3.14"
 
       - name: Setup database and engine
         id: setup
