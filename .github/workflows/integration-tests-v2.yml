@@ -28,7 +28,7 @@ jobs:
       - name: Check out code
         uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v5
+        uses: actions/setup-go@v6
         with:
           go-version: ${{ needs.find-latest-go-version.outputs.latest_go }}
           check-latest: true
