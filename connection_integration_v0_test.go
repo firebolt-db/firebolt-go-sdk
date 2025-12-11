@@ -46,7 +46,7 @@ func TestConnectionPreparedStatementV0(t *testing.T) {
 	loc, _ := time.LoadLocation("Europe/Berlin")
 
 	d := time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC)
-	ts := time.Date(2021, 1, 1, 2, 10, 20, 0, time.UTC)
+	ts := time.Date(2021, 1, 1, 2, 10, 20, 3000, time.UTC)
 	tstz := time.Date(2021, 1, 1, 2, 10, 20, 3000, loc)
 	ba := []byte("hello_world_123ツ\n\u0048")
 

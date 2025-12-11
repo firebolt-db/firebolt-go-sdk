@@ -42,32 +42,32 @@ jobs:
       - name: Install go tools
         run: go get golang.org/x/tools/cmd/cover
 
-      - name: Set up Python 3.14
+      - name: Set up Python 3.11
         uses: actions/setup-python@v6
         with:
-          python-version: "3.14"
+          python-version: "3.11"
 
       - name: Setup database and engine
         id: setup
         uses: firebolt-db/integration-testing-setup@v1
         with:
-          firebolt-username: ${{ secrets.FIREBOLT_PROD_USERNAME }}
-          firebolt-password: ${{ secrets.FIREBOLT_PROD_PASSWORD }}
-          api-endpoint: "api.app.firebolt.io"
+          firebolt-username: ${{ secrets.FIREBOLT_STG_USERNAME }}
+          firebolt-password: ${{ secrets.FIREBOLT_STG_PASSWORD }}
+          api-endpoint: "api.staging.firebolt.io"
           region: "us-east-1"
           instance-type: "B2"
           db_suffix: ${{ matrix.os }}_${{ matrix.go-version }}
 
       - name: Run integration tests
         env:
-          USER_NAME: ${{ secrets.FIREBOLT_PROD_USERNAME }}
-          PASSWORD: ${{ secrets.FIREBOLT_PROD_PASSWORD }}
+          USER_NAME: ${{ secrets.FIREBOLT_STG_USERNAME }}
+          PASSWORD: ${{ secrets.FIREBOLT_STG_PASSWORD }}
           DATABASE_NAME: ${{ steps.setup.outputs.database_name }}
           ENGINE_NAME: ${{ steps.setup.outputs.engine_name }}
           ENGINE_URL: ${{ steps.setup.outputs.engine_url }}
           STOPPED_ENGINE_NAME: ${{ steps.setup.outputs.stopped_engine_name }}
           STOPPED_ENGINE_URL: ${{ steps.setup.outputs.stopped_engine_url }}
-          FIREBOLT_ENDPOINT: "api.app.firebolt.io"
+          FIREBOLT_ENDPOINT: "api.staging.firebolt.io"
           ACCOUNT_NAME: "firebolt"
           SERVICE_ACCOUNT_CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STAGING }}
           SERVICE_ACCOUNT_CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STAGING }}
