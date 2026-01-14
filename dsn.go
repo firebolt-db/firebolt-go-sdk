@@ -1,8 +1,10 @@
 package fireboltgosdk
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -36,6 +38,7 @@ func ParseDSNString(dsn string) (*types.FireboltSettings, error) {
 func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 	var result types.FireboltSettings
 	result.NewVersion = true
+	result.DefaultQueryParams = make(map[string]string)
 
 	// Set database if it's provided
 	if len(dsnMatch[1]) > 0 {
@@ -53,6 +56,15 @@ func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 			result.ClientSecret = m[2]
 		case "url":
 			result.Url = m[2]
+		case "defaultParams":
+			// Parse defaultParams as URL-encoded JSON-encoded map[string]string
+			decodedValue, err := url.QueryUnescape(m[2])
+			if err != nil {
+				return nil, fmt.Errorf("failed to URL decode defaultParams: %w", err)
+			}
+			if err := json.Unmarshal([]byte(decodedValue), &result.DefaultQueryParams); err != nil {
+				return nil, fmt.Errorf("failed to parse defaultParams JSON: %w", err)
+			}
 		default:
 			return nil, fmt.Errorf("unknown parameter name %s", m[1])
 		}
@@ -62,6 +74,7 @@ func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 
 func makeSettingsV0(dsnMatch []string) (*types.FireboltSettings, error) {
 	var result types.FireboltSettings
+	result.DefaultQueryParams = make(map[string]string)
 
 	result.ClientID = dsnMatch[1]
 	result.ClientSecret = dsnMatch[2]
@@ -78,6 +91,15 @@ func makeSettingsV0(dsnMatch []string) (*types.FireboltSettings, error) {
 		switch m[1] {
 		case "account_name":
 			result.AccountName = m[2]
+		case "defaultParams":
+			// Parse defaultParams as URL-encoded JSON-encoded map[string]string
+			decodedValue, err := url.QueryUnescape(m[2])
+			if err != nil {
+				return nil, fmt.Errorf("failed to URL decode defaultParams: %w", err)
+			}
+			if err := json.Unmarshal([]byte(decodedValue), &result.DefaultQueryParams); err != nil {
+				return nil, fmt.Errorf("failed to parse defaultParams JSON: %w", err)
+			}
 		default:
 			return nil, fmt.Errorf("unknown parameter name %s", m[1])
 		}

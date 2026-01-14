@@ -1,6 +1,8 @@
 package fireboltgosdk
 
 import (
+	"encoding/json"
+	"net/url"
 	"testing"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
@@ -37,6 +39,16 @@ func runDSNTest(t *testing.T, input string, expectedSettings types.FireboltSetti
 
 	if settings.NewVersion != expectedSettings.NewVersion {
 		t.Errorf("for NewVersion got %t want %t", settings.NewVersion, expectedSettings.NewVersion)
+	}
+
+	// Check DefaultQueryParams
+	if len(settings.DefaultQueryParams) != len(expectedSettings.DefaultQueryParams) {
+		t.Errorf("for DefaultQueryParams length got %d want %d", len(settings.DefaultQueryParams), len(expectedSettings.DefaultQueryParams))
+	}
+	for k, v := range expectedSettings.DefaultQueryParams {
+		if settings.DefaultQueryParams[k] != v {
+			t.Errorf("for DefaultQueryParams[%s] got %s want %s", k, settings.DefaultQueryParams[k], v)
+		}
 	}
 }
 
@@ -120,4 +132,64 @@ func TestDSNCoreHappyPath(t *testing.T) {
 func TestDSNCoreFailed(t *testing.T) {
 	runDSNTestFail(t, "firebolt:///user:password?url=http")
 	runDSNTestFail(t, "firebolt:///test_db?url=http&k=v")
+}
+
+func TestDSNWithDefaultParams(t *testing.T) {
+	// Test with URL-encoded JSON defaultParams
+	defaultParamsJSON := `{"pgfire_dbname":"account@db@engine","advanced_mode":"true"}`
+	encodedParams := "defaultParams=" + defaultParamsJSON
+	
+	settings, err := ParseDSNString("firebolt:///test_db?account_name=test_acc&engine=test_eng&" + encodedParams)
+	if err != nil {
+		t.Errorf("ParseDSNString failed: %v", err)
+		return
+	}
+	
+	expectedParams := map[string]string{
+		"pgfire_dbname": "account@db@engine",
+		"advanced_mode": "true",
+	}
+	
+	if len(settings.DefaultQueryParams) != len(expectedParams) {
+		t.Errorf("DefaultQueryParams length got %d want %d", len(settings.DefaultQueryParams), len(expectedParams))
+	}
+	for k, v := range expectedParams {
+		if settings.DefaultQueryParams[k] != v {
+			t.Errorf("DefaultQueryParams[%s] got %s want %s", k, settings.DefaultQueryParams[k], v)
+		}
+	}
+}
+
+func TestDSNWithDefaultParamsURLEncoded(t *testing.T) {
+	// Test with properly URL-encoded JSON defaultParams
+	defaultParams := map[string]string{
+		"pgfire_dbname": "account@db@engine",
+		"advanced_mode": "true",
+	}
+	defaultParamsJSON, _ := json.Marshal(defaultParams)
+	encodedParams := url.QueryEscape(string(defaultParamsJSON))
+	
+	dsn := "firebolt:///test_db?account_name=test_acc&engine=test_eng&defaultParams=" + encodedParams
+	settings, err := ParseDSNString(dsn)
+	if err != nil {
+		t.Errorf("ParseDSNString failed: %v", err)
+		return
+	}
+	
+	if len(settings.DefaultQueryParams) != len(defaultParams) {
+		t.Errorf("DefaultQueryParams length got %d want %d", len(settings.DefaultQueryParams), len(defaultParams))
+	}
+	for k, v := range defaultParams {
+		if settings.DefaultQueryParams[k] != v {
+			t.Errorf("DefaultQueryParams[%s] got %s want %s", k, settings.DefaultQueryParams[k], v)
+		}
+	}
+}
+
+func TestDSNWithInvalidDefaultParams(t *testing.T) {
+	// Test with invalid JSON in defaultParams
+	runDSNTestFail(t, "firebolt:///test_db?defaultParams=invalid_json")
+	
+	// Test with invalid URL encoding
+	runDSNTestFail(t, "firebolt:///test_db?defaultParams=%")
 }

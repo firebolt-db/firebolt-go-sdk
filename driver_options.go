@@ -142,6 +142,24 @@ func WithDatabaseAndEngineName(databaseName, engineName string) driverOptionWith
 	}
 }
 
+// WithDefaultQueryParams defines default query parameters that will be seeded into the connection
+// These parameters will be included in all HTTP requests and can be overridden by SET statements
+func WithDefaultQueryParams(params map[string]string) driverOption {
+	return func(d *FireboltDriver) {
+		d.mutex.Lock()
+		defer d.mutex.Unlock()
+		if d.cachedParams == nil {
+			d.cachedParams = make(map[string]string)
+		}
+		// Seed defaults only if they don't already exist
+		for k, v := range params {
+			if _, exists := d.cachedParams[k]; !exists {
+				d.cachedParams[k] = v
+			}
+		}
+	}
+}
+
 // FireboltConnectorWithOptions builds a custom connector
 func FireboltConnectorWithOptions(opts ...driverOption) *FireboltConnector {
 	d := &FireboltDriver{}

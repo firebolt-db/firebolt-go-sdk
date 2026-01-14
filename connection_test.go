@@ -279,3 +279,45 @@ func TestDescribeFunctionFbNumeric(t *testing.T) {
 			result.ResultColumns[2].Name, result.ResultColumns[2].Type)
 	}
 }
+
+func TestDefaultQueryParamsSeededInConnection(t *testing.T) {
+	connector := FireboltConnector{}
+	connector.cachedParameters = map[string]string{
+		"database":      "db",
+		"pgfire_dbname": "account@db@engine",
+		"advanced_mode": "true",
+	}
+	emptyClient := client.ClientImpl{}
+	connector.client = &emptyClient
+	connector.engineUrl = "engine_url"
+	
+	// Connect should copy cachedParameters to connection parameters
+	ctx := context.Background()
+	conn, err := connector.Connect(ctx)
+	if err != nil {
+		t.Errorf("Connect failed: %v", err)
+		return
+	}
+	
+	fbConn := conn.(*fireboltConnection)
+	
+	// Check that default params are in connection parameters
+	if fbConn.parameters["pgfire_dbname"] != "account@db@engine" {
+		t.Errorf("default param pgfire_dbname not in connection parameters, got %v", fbConn.parameters)
+	}
+	if fbConn.parameters["advanced_mode"] != "true" {
+		t.Errorf("default param advanced_mode not in connection parameters, got %v", fbConn.parameters)
+	}
+	
+	// Test that SET can override default params
+	fbConn.setParameter("pgfire_dbname", "new_value")
+	if fbConn.parameters["pgfire_dbname"] != "new_value" {
+		t.Errorf("SET should override default param, got %s want new_value", fbConn.parameters["pgfire_dbname"])
+	}
+	
+	// Test that UNSET can remove default params
+	fbConn.resetParameters(&[]string{"pgfire_dbname"})
+	if _, exists := fbConn.parameters["pgfire_dbname"]; exists {
+		t.Errorf("UNSET should remove default param")
+	}
+}
