@@ -72,7 +72,7 @@ func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 	if err != nil {
 		return nil, errors.ConstructNestedError("error during getting connection parameters", err)
 	}
-	
+
 	// Seed default query parameters into cachedParams (only if they don't already exist)
 	if d.cachedParams == nil {
 		d.cachedParams = make(map[string]string)
@@ -82,7 +82,7 @@ func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 			d.cachedParams[k] = v
 		}
 	}
-	
+
 	d.lastUsedDsn = dsn
 
 	return &FireboltConnector{d.engineUrl, d.client, copyMap(d.cachedParams), d}, nil
