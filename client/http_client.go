@@ -118,7 +118,12 @@ func extractAdditionalHeaders(ctx context.Context) map[string]string {
 // if accessToken is passed, it is used for authorization
 // returns Response struct
 func DoHttpRequest(reqParams requestParameters) *Response {
-	req, _ := http.NewRequestWithContext(reqParams.ctx, reqParams.method, MakeCanonicalUrl(reqParams.url), strings.NewReader(reqParams.bodyStr))
+	canonicalUrl := MakeCanonicalUrl(reqParams.url)
+	req, err := http.NewRequestWithContext(reqParams.ctx, reqParams.method, canonicalUrl, strings.NewReader(reqParams.bodyStr))
+	if err != nil {
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError(
+			fmt.Sprintf("error creating HTTP request: method=%s, url=%s", reqParams.method, canonicalUrl), err))
+	}
 
 	// adding sdk usage tracking
 	req.Header.Set("User-Agent", reqParams.userAgent)
