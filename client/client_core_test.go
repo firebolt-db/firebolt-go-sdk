@@ -45,3 +45,35 @@ func TestAsyncQueryCore(t *testing.T) {
 		t.Errorf("Expected AsyncNotSupportedError, got: %v", err)
 	}
 }
+
+func TestGetConnectionParametersCore(t *testing.T) {
+	apiEndpoint := "http://localhost:1234"
+	client := clientFactoryCore(apiEndpoint)
+
+	t.Run("with database", func(t *testing.T) {
+		databaseName := "my_db"
+		url, params, err := client.GetConnectionParameters(context.Background(), "", databaseName)
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if url != apiEndpoint {
+			t.Errorf("Expected url %s, got %s", apiEndpoint, url)
+		}
+		if params["database"] != databaseName {
+			t.Errorf("Expected database parameter %s, got %s", databaseName, params["database"])
+		}
+	})
+
+	t.Run("without database", func(t *testing.T) {
+		url, params, err := client.GetConnectionParameters(context.Background(), "", "")
+		if err != nil {
+			t.Fatalf("Unexpected error: %v", err)
+		}
+		if url != apiEndpoint {
+			t.Errorf("Expected url %s, got %s", apiEndpoint, url)
+		}
+		if _, ok := params["database"]; ok {
+			t.Errorf("Did not expect database parameter, but got %s", params["database"])
+		}
+	})
+}

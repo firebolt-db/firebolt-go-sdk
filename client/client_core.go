@@ -58,6 +58,10 @@ func (c *ClientImplCore) getAccessToken() (string, error) {
 }
 
 // GetConnectionParameters returns engine URL and parameters based on engineName and databaseName
-func (c *ClientImplCore) GetConnectionParameters(_ context.Context, _, _ string) (string, map[string]string, error) {
-	return c.ApiEndpoint, make(map[string]string), nil
+func (c *ClientImplCore) GetConnectionParameters(_ context.Context, _, databaseName string) (string, map[string]string, error) {
+	params := make(map[string]string)
+	if databaseName != "" {
+		params["database"] = databaseName
+	}
+	return c.ApiEndpoint, params, nil
 }
