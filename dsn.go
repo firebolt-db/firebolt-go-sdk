@@ -1,7 +1,6 @@
 package fireboltgosdk
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
@@ -13,9 +12,9 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
 
-const dsnPattern = `^firebolt://(?:/(?P<database>\w+))?(?:\?(?P<parameters>\w+\=[^=&]+(?:\&\w+=[^=&]+)*))?$`
-const dsnPatternV0 = `^firebolt://(?P<username>.*@?.*):(?P<password>.*)@(?P<database>\w+)(?:/(?P<engine>[^?]+))?(?:\?(?P<parameters>\w+\=[^=&]+(?:\&\w+=[^=&]+)*))?$`
-const paramsPattern = `(?P<key>\w+)=(?P<value>[^=&]+)`
+const dsnPattern = `^firebolt://(?:/(?P<database>\w+))?(?:\?(?P<parameters>[\w\.]+=[^=&]+(?:\&[\w\.]+=[^=&]+)*))?$`
+const dsnPatternV0 = `^firebolt://(?P<username>.*@?.*):(?P<password>.*)@(?P<database>\w+)(?:/(?P<engine>[^?]+))?(?:\?(?P<parameters>[\w\.]+=[^=&]+(?:\&[\w\.]+=[^=&]+)*))?$`
+const paramsPattern = `(?P<key>[\w\.]+)=(?P<value>[^=&]+)`
 
 // ParseDSNString parses a dsn in a format: firebolt://username:password@db_name[/engine_name][?account_name=organization]
 // returns a settings object where all parsed values are populated
@@ -45,28 +44,37 @@ func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 		result.Database = dsnMatch[1]
 	}
 	for _, m := range parseParams(dsnMatch[2]) {
-		switch m[1] {
+		key := m[1]
+		value := m[2]
+
+		// Decode URL-encoded value
+		decodedValue, err := url.QueryUnescape(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to URL decode parameter %s: %w", key, err)
+		}
+
+		// Check if this is a default_param.* prefixed parameter
+		if strings.HasPrefix(key, "default_param.") {
+			// Strip the prefix and add to DefaultQueryParams
+			paramKey := strings.TrimPrefix(key, "default_param.")
+			result.DefaultQueryParams[paramKey] = decodedValue
+			continue
+		}
+
+		// Handle regular parameters
+		switch key {
 		case "account_name":
-			result.AccountName = m[2]
+			result.AccountName = decodedValue
 		case "engine":
-			result.EngineName = m[2]
+			result.EngineName = decodedValue
 		case "client_id":
-			result.ClientID = m[2]
+			result.ClientID = decodedValue
 		case "client_secret":
-			result.ClientSecret = m[2]
+			result.ClientSecret = decodedValue
 		case "url":
-			result.Url = m[2]
-		case "defaultParams":
-			// Parse defaultParams as URL-encoded JSON-encoded map[string]string
-			decodedValue, err := url.QueryUnescape(m[2])
-			if err != nil {
-				return nil, fmt.Errorf("failed to URL decode defaultParams: %w", err)
-			}
-			if err := json.Unmarshal([]byte(decodedValue), &result.DefaultQueryParams); err != nil {
-				return nil, fmt.Errorf("failed to parse defaultParams JSON: %w", err)
-			}
+			result.Url = decodedValue
 		default:
-			return nil, fmt.Errorf("unknown parameter name %s", m[1])
+			return nil, fmt.Errorf("unknown parameter name %s", key)
 		}
 	}
 	return &result, nil
@@ -88,20 +96,29 @@ func makeSettingsV0(dsnMatch []string) (*types.FireboltSettings, error) {
 	}
 
 	for _, m := range parseParams(dsnMatch[5]) {
-		switch m[1] {
+		key := m[1]
+		value := m[2]
+
+		// Decode URL-encoded value
+		decodedValue, err := url.QueryUnescape(value)
+		if err != nil {
+			return nil, fmt.Errorf("failed to URL decode parameter %s: %w", key, err)
+		}
+
+		// Check if this is a default_param.* prefixed parameter
+		if strings.HasPrefix(key, "default_param.") {
+			// Strip the prefix and add to DefaultQueryParams
+			paramKey := strings.TrimPrefix(key, "default_param.")
+			result.DefaultQueryParams[paramKey] = decodedValue
+			continue
+		}
+
+		// Handle regular parameters
+		switch key {
 		case "account_name":
-			result.AccountName = m[2]
-		case "defaultParams":
-			// Parse defaultParams as URL-encoded JSON-encoded map[string]string
-			decodedValue, err := url.QueryUnescape(m[2])
-			if err != nil {
-				return nil, fmt.Errorf("failed to URL decode defaultParams: %w", err)
-			}
-			if err := json.Unmarshal([]byte(decodedValue), &result.DefaultQueryParams); err != nil {
-				return nil, fmt.Errorf("failed to parse defaultParams JSON: %w", err)
-			}
+			result.AccountName = decodedValue
 		default:
-			return nil, fmt.Errorf("unknown parameter name %s", m[1])
+			return nil, fmt.Errorf("unknown parameter name %s", key)
 		}
 	}
 
