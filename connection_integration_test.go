@@ -653,6 +653,10 @@ func TestConnectionTransactionRollback(t *testing.T) {
 	testConnectionTransactionRollbackOnConn(t)
 }
 
+func TestConnectionTransactionCommitFailureRollback(t *testing.T) {
+	testConnectionTransactionCommitFailureRollback(t)
+}
+
 func TestConnectionParallelTransactions(t *testing.T) {
 	testConnectionParallelTransactions(t)
 	testConnectionParallelTransactionsOnConn(t)

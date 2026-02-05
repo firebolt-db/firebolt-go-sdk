@@ -26,7 +26,13 @@ type fireboltTransaction struct {
 // Commit commits the transaction
 func (t *fireboltTransaction) Commit() error {
 	_, err := t.conn.ExecContext(context.Background(), "COMMIT", nil)
-	return err
+	if err != nil {
+		if rbErr := t.Rollback(); rbErr != nil {
+			return fmt.Errorf("commit failed: %w, rollback also failed: %v", err, rbErr)
+		}
+		return err
+	}
+	return nil
 }
 
 // Rollback rolls back the transaction
