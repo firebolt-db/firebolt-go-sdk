@@ -925,7 +925,7 @@ func testConnectionTransactionCommitFailureRollback(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Begin returned an error: %v", err)
 		}
-		defer txA.Rollback() //not used since failure happens on commit which closes the tx, done for Sonar
+		defer func() { _ = txA.Rollback() }() //not used since failure happens on commit which closes the tx, done for Sonar
 
 		if _, err = txA.ExecContext(ctx, updateASQL); err != nil {
 			t.Fatalf(STATEMENT_ERROR_MSG, err)
@@ -935,7 +935,7 @@ func testConnectionTransactionCommitFailureRollback(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Begin returned an error: %v", err)
 		}
-		defer txB.Rollback() //not used since failure happens on commit which closes the tx, done for Sonar
+		defer func() { _ = txB.Rollback() }() //not used since failure happens on commit which closes the tx, done for Sonar
 
 		if _, err = txB.ExecContext(ctx, updateBSQL); err != nil {
 			t.Fatalf(STATEMENT_ERROR_MSG, err)

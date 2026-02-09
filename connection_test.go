@@ -365,7 +365,7 @@ func TestTransactionCommitFailureAutoRollback(t *testing.T) {
 		t.Errorf("Begin failed: %v", err)
 		return
 	}
-	defer tx.Rollback() //not used since failure happens on commit which closes the tx, done for Sonar
+	defer func() { _ = tx.Rollback() }() //not used since failure happens on commit which closes the tx, done for Sonar
 
 	_, err = tx.(*fireboltTransaction).conn.ExecContext(context.Background(), "INSERT INTO test VALUES (1)", nil)
 	if err != nil {
