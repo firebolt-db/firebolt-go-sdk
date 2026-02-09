@@ -330,11 +330,11 @@ type mockClientForTransactionCommitFailure struct {
 
 func (m *mockClientForTransactionCommitFailure) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control client.ConnectionControl) (*client.Response, error) {
 	m.queryCalls = append(m.queryCalls, query)
-	
+
 	if query == "COMMIT" {
 		return nil, io.ErrUnexpectedEOF
 	}
-	
+
 	queryResponse := types.QueryResponse{
 		Meta: []types.Column{},
 		Data: [][]interface{}{},
@@ -365,6 +365,7 @@ func TestTransactionCommitFailureAutoRollback(t *testing.T) {
 		t.Errorf("Begin failed: %v", err)
 		return
 	}
+	defer tx.Rollback() //not used since failure happens on commit which closes the tx, done for Sonar
 
 	_, err = tx.(*fireboltTransaction).conn.ExecContext(context.Background(), "INSERT INTO test VALUES (1)", nil)
 	if err != nil {

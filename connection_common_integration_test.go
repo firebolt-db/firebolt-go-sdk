@@ -885,15 +885,14 @@ func testConnectionTransactionRollbackOnConn(t *testing.T) {
 
 func testConnectionTransactionCommitFailureRollback(t *testing.T) {
 	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
-		tableName := "transaction_conflict_test"
 		startTime := time.Now().UTC().Format("2006-01-02 15:04:05")
 
-		dropTableSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
-		createTableSQL := fmt.Sprintf("CREATE TABLE %s (id INT, v INT) PRIMARY INDEX id", tableName)
-		insertSQL := fmt.Sprintf("INSERT INTO %s VALUES (1, 0)", tableName)
-		updateASQL := fmt.Sprintf("UPDATE %s SET v = 10 WHERE id = 1", tableName)
-		updateBSQL := fmt.Sprintf("UPDATE %s SET v = 20 WHERE id = 1", tableName)
-		selectSQL := fmt.Sprintf("SELECT v FROM %s WHERE id = 1", tableName)
+		dropTableSQL := "DROP TABLE IF EXISTS transaction_conflict_test"
+		createTableSQL := "CREATE TABLE transaction_conflict_test (id INT, v INT) PRIMARY INDEX id"
+		insertSQL := "INSERT INTO transaction_conflict_test VALUES (1, 0)"
+		updateASQL := "UPDATE transaction_conflict_test SET v = 10 WHERE id = 1"
+		updateBSQL := "UPDATE transaction_conflict_test SET v = 20 WHERE id = 1"
+		selectSQL := "SELECT v FROM transaction_conflict_test WHERE id = 1"
 
 		db, err := sql.Open("firebolt", dsnMock)
 		if err != nil {
@@ -926,6 +925,7 @@ func testConnectionTransactionCommitFailureRollback(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Begin returned an error: %v", err)
 		}
+		defer txA.Rollback() //not used since failure happens on commit which closes the tx, done for Sonar
 
 		if _, err = txA.ExecContext(ctx, updateASQL); err != nil {
 			t.Fatalf(STATEMENT_ERROR_MSG, err)
@@ -935,6 +935,7 @@ func testConnectionTransactionCommitFailureRollback(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Begin returned an error: %v", err)
 		}
+		defer txA.Rollback() //not used since failure happens on commit which closes the tx, done for Sonar
 
 		if _, err = txB.ExecContext(ctx, updateBSQL); err != nil {
 			t.Fatalf(STATEMENT_ERROR_MSG, err)
