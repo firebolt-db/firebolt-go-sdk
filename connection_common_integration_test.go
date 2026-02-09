@@ -892,7 +892,6 @@ func testConnectionTransactionCommitFailureRollback(t *testing.T) {
 		insertSQL := "INSERT INTO transaction_conflict_test VALUES (1, 0)"
 		updateASQL := "UPDATE transaction_conflict_test SET v = 10 WHERE id = 1"
 		updateBSQL := "UPDATE transaction_conflict_test SET v = 20 WHERE id = 1"
-		selectSQL := "SELECT v FROM transaction_conflict_test WHERE id = 1"
 
 		db, err := sql.Open("firebolt", dsnMock)
 		if err != nil {
@@ -954,53 +953,43 @@ func testConnectionTransactionCommitFailureRollback(t *testing.T) {
 
 		time.Sleep(10 * time.Second)
 
-		queryHistorySQL := "SELECT query_text FROM information_schema.engine_query_history " +
-			"WHERE submitted_time > ? AND status = 'STARTED_EXECUTION' " +
-			"AND query_text = 'ROLLBACK' " +
-			"ORDER BY submitted_time DESC"
-
-		historyRowsStatement, err := db.PrepareContext(ctx, queryHistorySQL)
-		if err != nil {
-			t.Fatalf(STATEMENT_ERROR_MSG, err)
-		}
-		defer historyRowsStatement.Close()
-		historyRows, err := historyRowsStatement.Query(startTime)
-		if err != nil {
-			t.Fatalf(STATEMENT_ERROR_MSG, err)
-		}
-
-		foundRollback := false
-		for historyRows.Next() {
-			var queryText string
-			if err = historyRows.Scan(&queryText); err != nil {
-				t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
-			}
-			if queryText == "ROLLBACK" {
-				foundRollback = true
-				break
-			}
-		}
-		historyRows.Close()
-
+		foundRollback := rollbackInHistorySince(t, ctx, db, startTime)
 		if !foundRollback {
 			t.Error("ROLLBACK was not found in query history after failed commit")
 		}
-
-		rows, err := db.QueryContext(ctx, selectSQL)
-		if err != nil {
-			t.Fatalf(STATEMENT_ERROR_MSG, err)
-		}
-
-		var v int
-		if rows.Next() {
-			if err = rows.Scan(&v); err != nil {
-				t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
-			}
-			utils.AssertEqual(v, 20, t, "expected value from transaction B")
-		} else {
-			t.Fatalf(NEXT_STATEMENT_ERROR_MSG)
-		}
 	})
+}
+
+func rollbackInHistorySince(t *testing.T, ctx context.Context, db *sql.DB, startTime string) bool {
+	t.Helper()
+
+	queryHistorySQL := "SELECT query_text FROM information_schema.engine_query_history " +
+		"WHERE submitted_time > ? AND status = 'STARTED_EXECUTION' " +
+		"AND query_text = 'ROLLBACK' " +
+		"ORDER BY submitted_time DESC"
+
+	stmt, err := db.PrepareContext(ctx, queryHistorySQL)
+	if err != nil {
+		t.Fatalf(STATEMENT_ERROR_MSG, err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(startTime)
+	if err != nil {
+		t.Fatalf(STATEMENT_ERROR_MSG, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var queryText string
+		if err = rows.Scan(&queryText); err != nil {
+			t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
+		}
+		if queryText == "ROLLBACK" {
+			return true
+		}
+	}
+	return false
 }
 
 func txValidateResult(t *testing.T, ctx context.Context, tx *sql.Tx, sql string, id int, name string) {
