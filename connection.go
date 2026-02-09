@@ -28,6 +28,7 @@ func (t *fireboltTransaction) Commit() error {
 	_, err := t.conn.ExecContext(context.Background(), "COMMIT", nil)
 	if err != nil {
 		if rbErr := t.Rollback(); rbErr != nil {
+			//todo FIR-52274
 			return fmt.Errorf("commit failed: %w, rollback also failed: %v", err, rbErr)
 		}
 		return err

@@ -935,7 +935,7 @@ func testConnectionTransactionCommitFailureRollback(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Begin returned an error: %v", err)
 		}
-		defer txA.Rollback() //not used since failure happens on commit which closes the tx, done for Sonar
+		defer txB.Rollback() //not used since failure happens on commit which closes the tx, done for Sonar
 
 		if _, err = txB.ExecContext(ctx, updateBSQL); err != nil {
 			t.Fatalf(STATEMENT_ERROR_MSG, err)
@@ -954,14 +954,17 @@ func testConnectionTransactionCommitFailureRollback(t *testing.T) {
 
 		time.Sleep(10 * time.Second)
 
-		queryHistorySQL := fmt.Sprintf(
-			"SELECT query_text FROM information_schema.engine_query_history "+
-				"WHERE submitted_time > '%s' AND status = 'STARTED_EXECUTION' "+
-				"AND query_text = 'ROLLBACK' "+
-				"ORDER BY submitted_time DESC",
-			startTime,
-		)
-		historyRows, err := db.QueryContext(ctx, queryHistorySQL)
+		queryHistorySQL := "SELECT query_text FROM information_schema.engine_query_history " +
+			"WHERE submitted_time > ? AND status = 'STARTED_EXECUTION' " +
+			"AND query_text = 'ROLLBACK' " +
+			"ORDER BY submitted_time DESC"
+
+		historyRowsStatement, err := db.PrepareContext(ctx, queryHistorySQL)
+		if err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+		defer historyRowsStatement.Close()
+		historyRows, err := historyRowsStatement.Query(startTime)
 		if err != nil {
 			t.Fatalf(STATEMENT_ERROR_MSG, err)
 		}
