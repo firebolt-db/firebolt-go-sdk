@@ -31,9 +31,8 @@ func (t *fireboltTransaction) Commit() error {
 			//todo FIR-52274
 			return fmt.Errorf("commit failed: %w, rollback also failed: %v", err, rbErr)
 		}
-		return err
 	}
-	return nil
+	return err
 }
 
 // Rollback rolls back the transaction
