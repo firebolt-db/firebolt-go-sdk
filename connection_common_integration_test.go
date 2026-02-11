@@ -883,6 +883,115 @@ func testConnectionTransactionRollbackOnConn(t *testing.T) {
 	})
 }
 
+func testConnectionTransactionCommitFailureRollback(t *testing.T) {
+	utils.RunInMemoryAndStream(t, func(t *testing.T, ctx context.Context) {
+		startTime := time.Now().UTC().Format("2006-01-02 15:04:05")
+
+		dropTableSQL := "DROP TABLE IF EXISTS transaction_conflict_test"
+		createTableSQL := "CREATE TABLE transaction_conflict_test (id INT, v INT) PRIMARY INDEX id"
+		insertSQL := "INSERT INTO transaction_conflict_test VALUES (1, 0)"
+		updateASQL := "UPDATE transaction_conflict_test SET v = 10 WHERE id = 1"
+		updateBSQL := "UPDATE transaction_conflict_test SET v = 20 WHERE id = 1"
+
+		db, err := sql.Open("firebolt", dsnMock)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		if _, err := db.ExecContext(ctx, dropTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		if _, err := db.ExecContext(ctx, createTableSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		if _, err := db.ExecContext(ctx, insertSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		connA, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		connB, err := db.Conn(ctx)
+		if err != nil {
+			t.Fatalf(OPEN_CONNECTION_ERROR_MSG)
+		}
+
+		txA, err := connA.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+		defer func() { _ = txA.Rollback() }() //not used since failure happens on commit which closes the tx, done for Sonar
+
+		if _, err = txA.ExecContext(ctx, updateASQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		txB, err := connB.BeginTx(ctx, nil)
+		if err != nil {
+			t.Fatalf("Begin returned an error: %v", err)
+		}
+		defer func() { _ = txB.Rollback() }() //not used since failure happens on commit which closes the tx, done for Sonar
+
+		if _, err = txB.ExecContext(ctx, updateBSQL); err != nil {
+			t.Fatalf(STATEMENT_ERROR_MSG, err)
+		}
+
+		if err = txB.Commit(); err != nil {
+			t.Errorf("Commit returned an error: %v", err)
+			t.FailNow()
+		}
+
+		err = txA.Commit()
+		if err == nil {
+			t.Errorf("Commit should have failed due to write/write conflict")
+			t.FailNow()
+		}
+
+		time.Sleep(10 * time.Second)
+
+		foundRollback := rollbackInHistorySince(t, ctx, db, startTime)
+		if !foundRollback {
+			t.Error("ROLLBACK was not found in query history after failed commit")
+		}
+	})
+}
+
+func rollbackInHistorySince(t *testing.T, ctx context.Context, db *sql.DB, startTime string) bool {
+	t.Helper()
+
+	queryHistorySQL := "SELECT query_text FROM information_schema.engine_query_history " +
+		"WHERE submitted_time > ? AND status = 'STARTED_EXECUTION' " +
+		"AND query_text = 'ROLLBACK' " +
+		"ORDER BY submitted_time DESC"
+
+	stmt, err := db.PrepareContext(ctx, queryHistorySQL)
+	if err != nil {
+		t.Fatalf(STATEMENT_ERROR_MSG, err)
+	}
+	defer stmt.Close()
+
+	rows, err := stmt.Query(startTime)
+	if err != nil {
+		t.Fatalf(STATEMENT_ERROR_MSG, err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var queryText string
+		if err = rows.Scan(&queryText); err != nil {
+			t.Fatalf(SCAN_STATEMENT_ERROR_MSG, err)
+		}
+		if queryText == "ROLLBACK" {
+			return true
+		}
+	}
+	return false
+}
+
 func txValidateResult(t *testing.T, ctx context.Context, tx *sql.Tx, sql string, id int, name string) {
 	rows, err := tx.QueryContext(ctx, sql)
 	if err != nil {

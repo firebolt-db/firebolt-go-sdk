@@ -10,6 +10,7 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/client"
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
+	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
 
 // TestConnectionPrepareStatement, tests that prepare statement doesn't result into an error
@@ -319,5 +320,75 @@ func TestDefaultQueryParamsSeededInConnection(t *testing.T) {
 	fbConn.resetParameters(&[]string{"pgfire_dbname"})
 	if _, exists := fbConn.parameters["pgfire_dbname"]; exists {
 		t.Errorf("UNSET should remove default param")
+	}
+}
+
+// mockClientForTransactionCommitFailure records all queries and fails on COMMIT
+type mockClientForTransactionCommitFailure struct {
+	queryCalls []string
+}
+
+func (m *mockClientForTransactionCommitFailure) Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control client.ConnectionControl) (*client.Response, error) {
+	m.queryCalls = append(m.queryCalls, query)
+
+	if query == "COMMIT" {
+		return nil, io.ErrUnexpectedEOF
+	}
+
+	queryResponse := types.QueryResponse{
+		Meta: []types.Column{},
+		Data: [][]interface{}{},
+		Rows: 0,
+	}
+	responseData, _ := json.Marshal(queryResponse)
+	reader := io.NopCloser(bytes.NewReader(responseData))
+	return client.MakeResponse(reader, 200, nil, nil), nil
+}
+
+func (m *mockClientForTransactionCommitFailure) GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error) {
+	return "mock-engine-url", map[string]string{}, nil
+}
+
+// TestTransactionCommitFailureAutoRollback verifies that when a transaction's Commit() fails,
+// the transaction is automatically rolled back to clean up resources
+func TestTransactionCommitFailureAutoRollback(t *testing.T) {
+	mockClient := &mockClientForTransactionCommitFailure{queryCalls: []string{}}
+	connector := FireboltConnector{
+		client:           mockClient,
+		engineUrl:        "mock-engine-url",
+		cachedParameters: map[string]string{},
+	}
+	conn := fireboltConnection{mockClient, "mock-engine-url", map[string]string{}, &connector}
+
+	tx, err := conn.Begin()
+	if err != nil {
+		t.Errorf("Begin failed: %v", err)
+		return
+	}
+	defer func() { _ = tx.Rollback() }() //not used since failure happens on commit which closes the tx, done for Sonar
+
+	_, err = tx.(*fireboltTransaction).conn.ExecContext(context.Background(), "INSERT INTO test VALUES (1)", nil)
+	if err != nil {
+		t.Errorf("ExecContext failed: %v", err)
+		return
+	}
+
+	err = tx.Commit()
+	if err == nil {
+		t.Error("Commit should have failed but didn't")
+		return
+	}
+
+	if !utils.ContainsString(mockClient.queryCalls, "BEGIN TRANSACTION") {
+		t.Error("BEGIN TRANSACTION was not called")
+	}
+	if !utils.ContainsString(mockClient.queryCalls, "INSERT INTO test VALUES (1)") {
+		t.Error("INSERT was not called")
+	}
+	if !utils.ContainsString(mockClient.queryCalls, "COMMIT") {
+		t.Error("COMMIT was not called")
+	}
+	if !utils.ContainsString(mockClient.queryCalls, "ROLLBACK") {
+		t.Error("ROLLBACK was not automatically called after commit failure")
 	}
 }
