@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/astaxie/beego/cache"
+	"github.com/firebolt-db/firebolt-go-sdk/cache"
 	"github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
@@ -25,15 +25,7 @@ type AuthenticationResponse struct {
 	Scope        string `json:"scope"`
 }
 
-var tokenCache cache.Cache
-
-func init() {
-	var err error
-	tokenCache, err = cache.NewCache("memory", `{}`)
-	if err != nil {
-		logging.Infolog.Println(fmt.Errorf("could not create memory cache to store access tokens: %v", err))
-	}
-}
+var tokenCache = cache.New()
 
 // jsonStrictUnmarshall unmarshalls json into object, and returns an error
 // if some fields are missing, or extra fields are present
@@ -76,12 +68,7 @@ func getAccessTokenUsernamePassword(username string, password string, apiEndpoin
 			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
 		logging.Infolog.Printf("Authentication was successful")
-		if tokenCache != nil {
-			err = tokenCache.Put(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
-			if err != nil {
-				logging.Infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
-			}
-		}
+		tokenCache.Put(getCacheKey(username, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
 		return authResp.AccessToken, nil
 	}
 }
@@ -132,12 +119,7 @@ func getAccessTokenServiceAccount(clientId string, clientSecret string, apiEndpo
 			return "", errors.ConstructNestedError("failed to unmarshal authentication response with error", err)
 		}
 		logging.Infolog.Printf("Authentication was successful")
-		if tokenCache != nil {
-			err = tokenCache.Put(getCacheKey(clientId, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
-			if err != nil {
-				logging.Infolog.Println(fmt.Errorf("failed to cache access token: %v", err))
-			}
-		}
+		tokenCache.Put(getCacheKey(clientId, apiEndpoint), authResp.AccessToken, time.Duration(authResp.ExpiresIn)*time.Millisecond)
 		return authResp.AccessToken, nil
 	}
 }
@@ -173,12 +155,7 @@ func getServiceAccountAuthEndpoint(apiEndpoint string) (string, error) {
 
 // deleteAccessTokenFromCache deletes an access token from the cache if available
 func deleteAccessTokenFromCache(username, apiEndpoint string) {
-	if tokenCache != nil {
-		err := tokenCache.Delete(getCacheKey(username, apiEndpoint))
-		if err != nil {
-			logging.Infolog.Println(fmt.Errorf("could not remove token from the memory cache: %v", err))
-		}
-	}
+	tokenCache.Delete(getCacheKey(username, apiEndpoint))
 }
 
 // getCacheKey calculates an access token key using the username and the apiEndpoint provided
@@ -188,11 +165,9 @@ func getCacheKey(clientID, apiEndpoint string) string {
 
 // getCachedAccessToken returns a cached access token or empty when a token could not be found
 func getCachedAccessToken(clientID, apiEndpoint string) string {
-	if tokenCache != nil {
-		var cachedToken = tokenCache.Get(getCacheKey(clientID, apiEndpoint))
-		if cachedToken != nil {
-			return fmt.Sprint(cachedToken)
-		}
+	cachedToken := tokenCache.Get(getCacheKey(clientID, apiEndpoint))
+	if cachedToken != nil {
+		return fmt.Sprint(cachedToken)
 	}
 	return ""
 }

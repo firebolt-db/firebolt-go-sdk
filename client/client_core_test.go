@@ -3,7 +3,6 @@ package client
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,10 +17,6 @@ func clientFactoryCore(url string) Client {
 	}
 	client.AccessTokenGetter = client.getAccessToken
 	client.ParameterGetter = client.GetQueryParams
-	err := initialiseCaches()
-	if err != nil {
-		log.Printf("Error while initializing caches: %s", err)
-	}
 	return client
 }
 
