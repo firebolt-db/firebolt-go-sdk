@@ -10,35 +10,17 @@ import (
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 
+	"github.com/firebolt-db/firebolt-go-sdk/cache"
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
-
-	"github.com/astaxie/beego/cache"
 )
 
-// Static caches on pacakge level
-var AccountCache cache.Cache
-var URLCache cache.Cache
+var urlCache = cache.New()
 
 type ClientImpl struct {
 	ConnectedToSystemEngine bool
 	AccountName             string
 	BaseClient
-}
-
-func initialiseCaches() error {
-	var err error
-	if AccountCache == nil {
-		if AccountCache, err = cache.NewCache("memory", `{}`); err != nil {
-			return fmt.Errorf("could not create account cache: %v", err)
-		}
-	}
-	if URLCache == nil {
-		if URLCache, err = cache.NewCache("memory", `{}`); err != nil {
-			return fmt.Errorf("could not create url cache: %v", err)
-		}
-	}
-	return nil
 }
 
 func MakeClient(settings *types.FireboltSettings, apiEndpoint string) (*ClientImpl, error) {
@@ -53,10 +35,6 @@ func MakeClient(settings *types.FireboltSettings, apiEndpoint string) (*ClientIm
 	}
 	client.ParameterGetter = client.GetQueryParams
 	client.AccessTokenGetter = client.getAccessToken
-
-	if err := initialiseCaches(); err != nil {
-		logging.Infolog.Printf("Error during cache initialisation: %v", err)
-	}
 
 	return client, nil
 }
@@ -80,19 +58,15 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 	}
 
 	url := fmt.Sprintf(c.ApiEndpoint+EngineUrlByAccountName, accountName)
-	// Check if the URL is in the cache
-	if URLCache != nil {
-		val := URLCache.Get(url)
-		if val != nil {
-			if systemEngineURLResponse, ok := val.(SystemEngineURLResponse); ok {
-				logging.Infolog.Printf("Resolved account %s to system engine URL %s from cache", accountName, systemEngineURLResponse.EngineUrl)
-				engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
-				if err != nil {
-					return "", nil, errorUtils.ConstructNestedError("error during splitting system engine URL", err)
-				}
-				parameters := constructParameters(databaseName, queryParams)
-				return engineUrl, parameters, nil
+	if val := urlCache.Get(url); val != nil {
+		if systemEngineURLResponse, ok := val.(SystemEngineURLResponse); ok {
+			logging.Infolog.Printf("Resolved account %s to system engine URL %s from cache", accountName, systemEngineURLResponse.EngineUrl)
+			engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
+			if err != nil {
+				return "", nil, errorUtils.ConstructNestedError("error during splitting system engine URL", err)
 			}
+			parameters := constructParameters(databaseName, queryParams)
+			return engineUrl, parameters, nil
 		}
 	}
 
@@ -113,9 +87,7 @@ func (c *ClientImpl) getSystemEngineURLAndParameters(ctx context.Context, accoun
 	if err := json.Unmarshal(content, &systemEngineURLResponse); err != nil {
 		return "", nil, errorUtils.ConstructNestedError("error during unmarshalling system engine URL response", errors.New(string(content)))
 	}
-	if URLCache != nil {
-		URLCache.Put(url, systemEngineURLResponse, 0) //nolint:errcheck
-	}
+	urlCache.Put(url, systemEngineURLResponse, 0)
 	engineUrl, queryParams, err := splitEngineEndpoint(systemEngineURLResponse.EngineUrl)
 	if err != nil {
 		return "", nil, errorUtils.ConstructNestedError("error during splitting system engine URL", err)

@@ -3,13 +3,9 @@ package client
 import (
 	"context"
 
-	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
-
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
-
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
-
-	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
 
 type ClientImplCore struct {
@@ -27,10 +23,6 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 	}
 	client.ParameterGetter = client.GetQueryParams
 	client.AccessTokenGetter = client.getAccessToken
-
-	if err := initialiseCaches(); err != nil {
-		logging.Infolog.Printf("Error during cache initialisation: %v", err)
-	}
 
 	return client, nil
 }
