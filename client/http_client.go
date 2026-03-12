@@ -1,12 +1,15 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"strings"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
@@ -71,6 +74,18 @@ type requestParameters struct {
 	params      map[string]string
 	bodyStr     string
 	contentType string
+}
+
+// requestParametersMultipart collects arguments for a multipart form upload.
+type requestParametersMultipart struct {
+	ctx         context.Context
+	accessToken string
+	url         string
+	userAgent   string
+	params      map[string]string
+	sql         string
+	fileData    []byte
+	fileName    string
 }
 
 // checkErrorResponse, checks whether error Response is returned instead of a desired Response.
@@ -141,6 +156,68 @@ func DoHttpRequest(reqParams requestParameters) *Response {
 	}
 
 	// add additional headers from context
+	for key, value := range extractAdditionalHeaders(reqParams.ctx) {
+		req.Header.Set(key, value)
+	}
+
+	q := req.URL.Query()
+	for key, value := range reqParams.params {
+		q.Add(key, value)
+	}
+	req.URL.RawQuery = q.Encode()
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		logging.Infolog.Println(err)
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error during a request execution", err))
+	}
+
+	return MakeResponse(resp.Body, resp.StatusCode, resp.Header, nil)
+}
+
+// DoHttpRequestMultipart sends a multipart form POST with an "sql" text field
+// and a file attachment containing the Parquet data.
+func DoHttpRequestMultipart(reqParams requestParametersMultipart) *Response {
+	var body bytes.Buffer
+	mw := multipart.NewWriter(&body)
+
+	if err := mw.WriteField("sql", reqParams.sql); err != nil {
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error writing sql form field", err))
+	}
+
+	partHeader := make(textproto.MIMEHeader)
+	partHeader.Set("Content-Disposition",
+		fmt.Sprintf(`form-data; name="%s"; filename="%s.parquet"`, reqParams.fileName, reqParams.fileName))
+	partHeader.Set("Content-Type", "application/octet-stream")
+
+	part, err := mw.CreatePart(partHeader)
+	if err != nil {
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating file form part", err))
+	}
+	if _, err := part.Write(reqParams.fileData); err != nil {
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error writing file form data", err))
+	}
+
+	if err := mw.Close(); err != nil {
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error closing multipart writer", err))
+	}
+
+	canonicalUrl := MakeCanonicalUrl(reqParams.url)
+	req, err := http.NewRequestWithContext(reqParams.ctx, "POST", canonicalUrl, &body)
+	if err != nil {
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError(
+			fmt.Sprintf("error creating HTTP request: url=%s", canonicalUrl), err))
+	}
+
+	req.Header.Set("User-Agent", reqParams.userAgent)
+	req.Header.Set(protocolVersionHeader, protocolVersion)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+
+	if len(reqParams.accessToken) > 0 {
+		req.Header.Add("Authorization", "Bearer "+reqParams.accessToken)
+	}
+
 	for key, value := range extractAdditionalHeaders(reqParams.ctx) {
 		req.Header.Set(key, value)
 	}

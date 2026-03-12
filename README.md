@@ -417,6 +417,97 @@ func main() {
     }
 }
 ```
+### Batch insert
+The SDK supports high-performance batch insertion. Data is buffered client-side, serialised to Parquet, and uploaded via multipart form POST when `Send()` is called. Two modes are available and can be mixed freely.
+
+Access the batch API by unwrapping the raw driver connection via `(*sql.Conn).Raw`:
+
+#### Row-wise insertion
+Append one row at a time — convenient when iterating over records:
+
+```go
+package main
+
+import (
+	"context"
+	"database/sql"
+	"fmt"
+	"log"
+
+	firebolt "github.com/firebolt-db/firebolt-go-sdk"
+)
+
+func main() {
+	dsn := "firebolt:///mydb?account_name=acct&client_id=id&client_secret=secret&engine=eng"
+	db, err := sql.Open("firebolt", dsn)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	conn, err := db.Conn(context.Background())
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	err = conn.Raw(func(driverConn interface{}) error {
+		batch, err := driverConn.(firebolt.BatchConnection).PrepareBatch(
+			context.Background(),
+			"INSERT INTO events (id, name, active)")
+		if err != nil {
+			return err
+		}
+
+		// Append one row at a time
+		for i := int32(0); i < 1000; i++ {
+			if err := batch.Append(i, fmt.Sprintf("event_%d", i), true); err != nil {
+				return err
+			}
+		}
+
+		return batch.Send()
+	})
+	if err != nil {
+		log.Fatalf("batch insert failed: %v", err)
+	}
+}
+```
+
+#### Columnar insertion
+Append entire typed slices per column — ideal when data is already in columnar layout:
+
+```go
+err = conn.Raw(func(driverConn interface{}) error {
+    batch, err := driverConn.(firebolt.BatchConnection).PrepareBatch(
+        context.Background(),
+        "INSERT INTO events (id, name, active)")
+    if err != nil {
+        return err
+    }
+
+    // Append whole columns at once
+    if err := batch.Column(0).Append([]int32{1, 2, 3}); err != nil {
+        return err
+    }
+    if err := batch.Column(1).Append([]string{"a", "b", "c"}); err != nil {
+        return err
+    }
+    if err := batch.Column(2).Append([]bool{true, false, true}); err != nil {
+        return err
+    }
+
+    return batch.Send()
+})
+```
+
+#### Notes
+- `PrepareBatch` requires an explicit column list in the INSERT statement (e.g. `INSERT INTO t (col1, col2)`). Column types are discovered automatically.
+- Both modes can be mixed in the same batch; all columns must have the same number of rows when `Send()` is called.
+- After a successful `Send()` the batch is reset and can be reused for another round of appends.
+- Call `Abort()` to discard buffered data without sending.
+- Supported column types: `int`/`integer`, `long`/`bigint`, `float`/`real`, `double`, `text`, `boolean`, `date`, `timestamp`, `timestampntz`, `timestamptz`, `bytea`, `array(T)`, and nullable variants.
+
 ### Error handling
 The SDK provides specific error types that can be checked using Go's `errors.Is()` function. Here's how to handle different types of errors:
 
@@ -510,4 +601,7 @@ Each error type can be checked using `errors.Is(err, errorType)`. This allows fo
 ### Limitations
 Although, all interfaces are available, not all of them are implemented or could be implemented:
 - `driver.Result` is a dummy implementation and doesn't return the real result values.
-- Named query parameters are not supported
+- Named query parameters are not supported.
+- Batch insert requires an explicit column list; omitting it (as `INSERT INTO t`) is not supported.
+- `AppendStruct` (struct-based batch insertion) is not supported.
+- `Decimal` and nested `struct` column types are not supported in batch inserts.

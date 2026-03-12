@@ -24,6 +24,7 @@ const removeParametersHeader = "Firebolt-Remove-Parameters"
 type Client interface {
 	GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error)
 	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control ConnectionControl) (*Response, error)
+	UploadParquet(ctx context.Context, engineUrl, sql string, parquetData []byte, fileName string, parameters map[string]string, control ConnectionControl) (*Response, error)
 }
 
 type BaseClient struct {
@@ -126,6 +127,58 @@ func (c *BaseClient) processResponseHeaders(headers http.Header, control Connect
 	}
 
 	return nil
+}
+
+// UploadParquet sends a Parquet file via multipart form upload for batch INSERT.
+// The form has two parts:
+//
+//	"sql"       — the INSERT query, e.g. INSERT INTO t SELECT * FROM read_parquet('upload://<fileName>')
+//	"<fileName>"— the Parquet file bytes
+func (c *BaseClient) UploadParquet(ctx context.Context, engineUrl, sql string, parquetData []byte, fileName string, parameters map[string]string, control ConnectionControl) (*Response, error) {
+	logging.Infolog.Printf("UploadParquet to engine '%s' with query '%s' (%d bytes)", engineUrl, sql, len(parquetData))
+
+	if c.ParameterGetter == nil {
+		return nil, errors.New("ParameterGetter is not set")
+	}
+	params, err := c.ParameterGetter(ctx, parameters)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := c.requestMultipartWithAuthRetry(ctx, engineUrl, params, sql, parquetData, fileName)
+	if resp.err != nil {
+		return nil, errorUtils.ConstructNestedError("error during parquet upload request", resp.err)
+	}
+
+	if err = c.processResponseHeaders(resp.headers, control); err != nil {
+		return nil, errorUtils.ConstructNestedError("error during processing response headers", err)
+	}
+	return resp, nil
+}
+
+func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url string, params map[string]string, sql string, parquetData []byte, fileName string) *Response {
+	if c.AccessTokenGetter == nil {
+		return MakeResponse(nil, 0, nil, errors.New("AccessTokenGetter is not set"))
+	}
+
+	accessToken, err := c.AccessTokenGetter()
+	if err != nil {
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
+	}
+	resp := DoHttpRequestMultipart(requestParametersMultipart{ctx, accessToken, url, c.UserAgent, params, sql, parquetData, fileName})
+	if resp.statusCode == http.StatusUnauthorized {
+		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
+
+		accessToken, err = c.AccessTokenGetter()
+		if err != nil {
+			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
+		}
+		resp = DoHttpRequestMultipart(requestParametersMultipart{ctx, accessToken, url, c.UserAgent, params, sql, parquetData, fileName})
+		if resp.statusCode == http.StatusUnauthorized {
+			resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
+		}
+	}
+	return resp
 }
 
 // requestWithAuthRetry fetches an access token from the cache or re-authenticate when the access token is not available in the cache
