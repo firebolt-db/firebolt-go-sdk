@@ -2,6 +2,7 @@ package fireboltgosdk
 
 import (
 	"bytes"
+	"fmt"
 	"testing"
 	"time"
 
@@ -148,7 +149,9 @@ func TestBatchMixedRowAndColumnar(t *testing.T) {
 func TestBatchAbortClearsColumnarData(t *testing.T) {
 	blk, _ := newBlock([]string{"x"}, []string{"int"})
 	batch := &fireboltBatch{blk: blk}
-	batch.Column(0).Append([]int32{1, 2, 3})
+	if err := batch.Column(0).Append([]int32{1, 2, 3}); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := batch.Abort(); err != nil {
 		t.Fatal(err)
@@ -206,8 +209,12 @@ func TestRowWiseRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blk.appendRow([]interface{}{int32(1), "Alice", true})
-	blk.appendRow([]interface{}{int32(2), "Bob", false})
+	if err := blk.appendRow([]interface{}{int32(1), "Alice", true}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{int32(2), "Bob", false}); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := blk.toParquet()
 	if err != nil {
@@ -258,9 +265,15 @@ func TestColumnarRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blk.columnAt(0).appendColumn([]int32{10, 20, 30})
-	blk.columnAt(1).appendColumn([]string{"x", "y", "z"})
-	blk.columnAt(2).appendColumn([]bool{false, true, false})
+	if err := blk.columnAt(0).appendColumn([]int32{10, 20, 30}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.columnAt(1).appendColumn([]string{"x", "y", "z"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.columnAt(2).appendColumn([]bool{false, true, false}); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := blk.toParquet()
 	if err != nil {
@@ -303,9 +316,15 @@ func TestMixedModeRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blk.appendRow([]interface{}{int32(1), "row"})
-	blk.columnAt(0).appendColumn([]int32{2, 3})
-	blk.columnAt(1).appendColumn([]string{"col1", "col2"})
+	if err := blk.appendRow([]interface{}{int32(1), "row"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.columnAt(0).appendColumn([]int32{2, 3}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.columnAt(1).appendColumn([]string{"col1", "col2"}); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := blk.toParquet()
 	if err != nil {
@@ -343,9 +362,15 @@ func TestNullableRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blk.appendRow([]interface{}{int32(42)})
-	blk.appendRow([]interface{}{nil})
-	blk.appendRow([]interface{}{int32(7)})
+	if err = blk.appendRow([]interface{}{int32(42)}); err != nil {
+		t.Fatal(err)
+	}
+	if err = blk.appendRow([]interface{}{nil}); err != nil {
+		t.Fatal(err)
+	}
+	if err = blk.appendRow([]interface{}{int32(7)}); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := blk.toParquet()
 	if err != nil {
@@ -392,10 +417,12 @@ func TestAllTypesRowWiseRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blk.appendRow([]interface{}{
+	if err := blk.appendRow([]interface{}{
 		int32(42), int64(9999999), float32(3.14), float64(2.718),
 		"hello", true, dt, ts, []byte{0xDE, 0xAD},
-	})
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := blk.toParquet()
 	if err != nil {
@@ -465,8 +492,12 @@ func TestArrayColumnRowWiseRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blk.appendRow([]interface{}{[]string{"a", "b", "c"}})
-	blk.appendRow([]interface{}{[]string{"d"}})
+	if err := blk.appendRow([]interface{}{[]string{"a", "b", "c"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{[]string{"d"}}); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := blk.toParquet()
 	if err != nil {
@@ -509,9 +540,15 @@ func TestArrayColumnEmptyArrayRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blk.appendRow([]interface{}{[]int32{1, 2}})
-	blk.appendRow([]interface{}{[]int32{}})     // empty array
-	blk.appendRow([]interface{}{[]int32{3}})
+	if err := blk.appendRow([]interface{}{[]int32{1, 2}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{[]int32{}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{[]int32{3}}); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := blk.toParquet()
 	if err != nil {
@@ -550,8 +587,12 @@ func TestArrayWithOtherColumnsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	blk.appendRow([]interface{}{int32(1), []string{"a", "b"}})
-	blk.appendRow([]interface{}{int32(2), []string{"c"}})
+	if err := blk.appendRow([]interface{}{int32(1), []string{"a", "b"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{int32(2), []string{"c"}}); err != nil {
+		t.Fatal(err)
+	}
 
 	data, err := blk.toParquet()
 	if err != nil {
@@ -600,14 +641,22 @@ func TestArrayWithOtherColumnsRoundTrip(t *testing.T) {
 func TestRowAndColumnarProduceSameData(t *testing.T) {
 	makeRowBlock := func() *block {
 		blk, _ := newBlock([]string{"x", "y"}, []string{"long", "text"})
-		blk.appendRow([]interface{}{int64(1), "a"})
-		blk.appendRow([]interface{}{int64(2), "b"})
+		if err := blk.appendRow([]interface{}{int64(1), "a"}); err != nil {
+			t.Fatal(err)
+		}
+		if err := blk.appendRow([]interface{}{int64(2), "b"}); err != nil {
+			t.Fatal(err)
+		}
 		return blk
 	}
 	makeColBlock := func() *block {
 		blk, _ := newBlock([]string{"x", "y"}, []string{"long", "text"})
-		blk.columnAt(0).appendColumn([]int64{1, 2})
-		blk.columnAt(1).appendColumn([]string{"a", "b"})
+		if err := blk.columnAt(0).appendColumn([]int64{1, 2}); err != nil {
+			t.Fatal(err)
+		}
+		if err := blk.columnAt(1).appendColumn([]string{"a", "b"}); err != nil {
+			t.Fatal(err)
+		}
 		return blk
 	}
 
@@ -620,7 +669,6 @@ func TestRowAndColumnarProduceSameData(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Read back both and compare values (not raw bytes, since metadata may differ)
 	fRow, rowsRow := readParquetRows(t, dataRow)
 	fCol, rowsCol := readParquetRows(t, dataCol)
 
@@ -638,5 +686,611 @@ func TestRowAndColumnarProduceSameData(t *testing.T) {
 		if yR != yC {
 			t.Errorf("row %d y: row=%q, col=%q", i, yR, yC)
 		}
+	}
+}
+
+// ===========================================================================
+// Error handling and edge cases
+// ===========================================================================
+
+func TestAppendWrongType(t *testing.T) {
+	blk, _ := newBlock([]string{"id"}, []string{"int"})
+	batch := &fireboltBatch{blk: blk}
+
+	if err := batch.Append("not_an_int"); err == nil {
+		t.Error("expected error appending string to int column")
+	}
+}
+
+func TestAppendWrongColumnCount(t *testing.T) {
+	blk, _ := newBlock([]string{"id", "name"}, []string{"int", "text"})
+	batch := &fireboltBatch{blk: blk}
+
+	if err := batch.Append(int32(1)); err == nil {
+		t.Error("expected error for too few values")
+	}
+	if err := batch.Append(int32(1), "a", true); err == nil {
+		t.Error("expected error for too many values")
+	}
+}
+
+func TestColumnarAppendWrongType(t *testing.T) {
+	blk, _ := newBlock([]string{"id"}, []string{"int"})
+	batch := &fireboltBatch{blk: blk}
+
+	if err := batch.Column(0).Append([]string{"a", "b"}); err == nil {
+		t.Error("expected error appending []string to int column")
+	}
+}
+
+func TestColumnarAppendNonSlice(t *testing.T) {
+	blk, _ := newBlock([]string{"id"}, []string{"int"})
+	batch := &fireboltBatch{blk: blk}
+
+	if err := batch.Column(0).Append(int32(42)); err == nil {
+		t.Error("expected error appending scalar to column (requires slice)")
+	}
+}
+
+func TestDoubleAbortIsSafe(t *testing.T) {
+	blk, _ := newBlock([]string{"x"}, []string{"int"})
+	batch := &fireboltBatch{blk: blk}
+	if err := batch.Append(int32(1)); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := batch.Abort(); err != nil {
+		t.Fatalf("first Abort: %v", err)
+	}
+	if err := batch.Abort(); err != nil {
+		t.Fatalf("second Abort: %v", err)
+	}
+	if blk.blockRows() != 0 {
+		t.Errorf("blockRows() = %d after double Abort, want 0", blk.blockRows())
+	}
+}
+
+func TestAbortThenReuse(t *testing.T) {
+	blk, _ := newBlock([]string{"x"}, []string{"int"})
+	batch := &fireboltBatch{blk: blk}
+
+	if err := batch.Append(int32(1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.Append(int32(2)); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.Abort(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := batch.Append(int32(10)); err != nil {
+		t.Fatalf("Append after Abort: %v", err)
+	}
+	if blk.blockRows() != 1 {
+		t.Errorf("blockRows() = %d after reuse, want 1", blk.blockRows())
+	}
+}
+
+func TestValidateMismatchedColumnLengths(t *testing.T) {
+	blk, _ := newBlock([]string{"a", "b"}, []string{"int", "text"})
+	_ = blk.columnAt(0).appendColumn([]int32{1, 2, 3})
+	_ = blk.columnAt(1).appendColumn([]string{"x"})
+
+	if err := blk.validate(); err == nil {
+		t.Error("expected validation error for mismatched column lengths")
+	}
+}
+
+func TestUnsupportedColumnType(t *testing.T) {
+	_, err := newBlock([]string{"x"}, []string{"decimal(10,2)"})
+	if err == nil {
+		t.Error("expected error for unsupported column type")
+	}
+}
+
+func TestNewBlockColumnCountMismatch(t *testing.T) {
+	_, err := newBlock([]string{"a", "b"}, []string{"int"})
+	if err == nil {
+		t.Error("expected error for column name/type count mismatch")
+	}
+}
+
+// ===========================================================================
+// Type coercion tests
+// ===========================================================================
+
+func TestInt32CoercionFromVariousTypes(t *testing.T) {
+	blk, _ := newBlock([]string{"v"}, []string{"int"})
+	cases := []interface{}{
+		int32(1), int(2), int64(3), int16(4), int8(5),
+		uint8(6), uint16(7), float64(8.0), float32(9.0),
+	}
+	for _, v := range cases {
+		if err := blk.appendRow([]interface{}{v}); err != nil {
+			t.Errorf("appendRow(%T(%v)): %v", v, v, err)
+		}
+	}
+	if blk.blockRows() != len(cases) {
+		t.Errorf("blockRows() = %d, want %d", blk.blockRows(), len(cases))
+	}
+}
+
+func TestInt64CoercionFromVariousTypes(t *testing.T) {
+	blk, _ := newBlock([]string{"v"}, []string{"long"})
+	cases := []interface{}{
+		int64(1), int(2), int32(3), int16(4), int8(5),
+		uint8(6), uint16(7), uint32(8), float64(9.0), float32(10.0),
+	}
+	for _, v := range cases {
+		if err := blk.appendRow([]interface{}{v}); err != nil {
+			t.Errorf("appendRow(%T(%v)): %v", v, v, err)
+		}
+	}
+	if blk.blockRows() != len(cases) {
+		t.Errorf("blockRows() = %d, want %d", blk.blockRows(), len(cases))
+	}
+}
+
+func TestFloat64CoercionFromVariousTypes(t *testing.T) {
+	blk, _ := newBlock([]string{"v"}, []string{"double"})
+	cases := []interface{}{
+		float64(1.1), float32(2.2), int(3), int32(4), int64(5),
+	}
+	for _, v := range cases {
+		if err := blk.appendRow([]interface{}{v}); err != nil {
+			t.Errorf("appendRow(%T(%v)): %v", v, v, err)
+		}
+	}
+}
+
+func TestFloat32CoercionFromVariousTypes(t *testing.T) {
+	blk, _ := newBlock([]string{"v"}, []string{"float"})
+	cases := []interface{}{
+		float32(1.1), float64(2.2), int(3), int32(4), int64(5),
+	}
+	for _, v := range cases {
+		if err := blk.appendRow([]interface{}{v}); err != nil {
+			t.Errorf("appendRow(%T(%v)): %v", v, v, err)
+		}
+	}
+}
+
+// ===========================================================================
+// Nullable columnar mode
+// ===========================================================================
+
+func TestNullableColumnarAppend(t *testing.T) {
+	blk, err := newBlock([]string{"val"}, []string{"int null"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Columnar append of nullable values goes through appendColumnFallback
+	// which calls appendRow per element.
+	vals := []interface{}{int32(1), nil, int32(3), nil, int32(5)}
+	if err := blk.columnAt(0).appendColumn(vals); err != nil {
+		t.Fatalf("appendColumn: %v", err)
+	}
+	if blk.blockRows() != 5 {
+		t.Fatalf("blockRows() = %d, want 5", blk.blockRows())
+	}
+
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatalf("toParquet: %v", err)
+	}
+
+	_, rows := readParquetRows(t, data)
+	if len(rows) != 5 {
+		t.Fatalf("expected 5 rows, got %d", len(rows))
+	}
+
+	for i, row := range rows {
+		if i%2 == 0 {
+			if row[0].IsNull() {
+				t.Errorf("row %d: expected non-null", i)
+			}
+		} else {
+			if !row[0].IsNull() {
+				t.Errorf("row %d: expected null", i)
+			}
+		}
+	}
+}
+
+func TestNullableAllTypesRoundTrip(t *testing.T) {
+	ts := time.Date(2025, 1, 15, 10, 0, 0, 0, time.UTC)
+	dt := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
+
+	types := []struct {
+		name    string
+		fbType  string
+		val     interface{}
+		checker func(t *testing.T, v parquet.Value)
+	}{
+		{"ni", "int null", int32(42), func(t *testing.T, v parquet.Value) {
+			if v.Int32() != 42 {
+				t.Errorf("ni = %d, want 42", v.Int32())
+			}
+		}},
+		{"nl", "long null", int64(99), func(t *testing.T, v parquet.Value) {
+			if v.Int64() != 99 {
+				t.Errorf("nl = %d, want 99", v.Int64())
+			}
+		}},
+		{"nf", "float null", float32(1.5), func(t *testing.T, v parquet.Value) {
+			if v.Float() != 1.5 {
+				t.Errorf("nf = %v, want 1.5", v.Float())
+			}
+		}},
+		{"nd", "double null", float64(2.5), func(t *testing.T, v parquet.Value) {
+			if v.Double() != 2.5 {
+				t.Errorf("nd = %v, want 2.5", v.Double())
+			}
+		}},
+		{"nt", "text null", "hello", func(t *testing.T, v parquet.Value) {
+			if string(v.ByteArray()) != "hello" {
+				t.Errorf("nt = %q, want hello", v.ByteArray())
+			}
+		}},
+		{"nb", "boolean null", true, func(t *testing.T, v parquet.Value) {
+			if !v.Boolean() {
+				t.Errorf("nb = false, want true")
+			}
+		}},
+		{"ndt", "date null", dt, func(t *testing.T, v parquet.Value) {
+			wantDays := int32(dt.Sub(epoch) / (24 * time.Hour))
+			if v.Int32() != wantDays {
+				t.Errorf("ndt = %d, want %d", v.Int32(), wantDays)
+			}
+		}},
+		{"nts", "timestamp null", ts, func(t *testing.T, v parquet.Value) {
+			if v.Int64() != ts.UnixMicro() {
+				t.Errorf("nts = %d, want %d", v.Int64(), ts.UnixMicro())
+			}
+		}},
+	}
+
+	names := make([]string, len(types))
+	fbTypes := make([]string, len(types))
+	for i, tt := range types {
+		names[i] = tt.name
+		fbTypes[i] = tt.fbType
+	}
+
+	blk, err := newBlock(names, fbTypes)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Row 0: all non-null
+	vals0 := make([]interface{}, len(types))
+	for i, tt := range types {
+		vals0[i] = tt.val
+	}
+	if err := blk.appendRow(vals0); err != nil {
+		t.Fatal(err)
+	}
+
+	// Row 1: all null
+	vals1 := make([]interface{}, len(types))
+	if err := blk.appendRow(vals1); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatalf("toParquet: %v", err)
+	}
+
+	f, rows := readParquetRows(t, data)
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+
+	// Row 0: all non-null
+	for _, tt := range types {
+		idx := colIndex(f, tt.name)
+		v := rows[0][idx]
+		if v.IsNull() {
+			t.Errorf("row 0 %s: expected non-null", tt.name)
+			continue
+		}
+		tt.checker(t, v)
+	}
+
+	// Row 1: all null
+	for _, tt := range types {
+		idx := colIndex(f, tt.name)
+		v := rows[1][idx]
+		if !v.IsNull() {
+			t.Errorf("row 1 %s: expected null, got %v", tt.name, v)
+		}
+	}
+}
+
+// ===========================================================================
+// Large batch (crosses the 4096 batchSize boundary in toParquet)
+// ===========================================================================
+
+func TestLargeBatchRowWise(t *testing.T) {
+	const n = 5000
+	blk, _ := newBlock([]string{"id", "val"}, []string{"int", "text"})
+
+	for i := 0; i < n; i++ {
+		if err := blk.appendRow([]interface{}{int32(i), fmt.Sprintf("row_%d", i)}); err != nil {
+			t.Fatalf("appendRow %d: %v", i, err)
+		}
+	}
+	if blk.blockRows() != n {
+		t.Fatalf("blockRows() = %d, want %d", blk.blockRows(), n)
+	}
+
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatalf("toParquet: %v", err)
+	}
+
+	f, rows := readParquetRows(t, data)
+	if len(rows) != n {
+		t.Fatalf("expected %d rows, got %d", n, len(rows))
+	}
+
+	idCol := colIndex(f, "id")
+	valCol := colIndex(f, "val")
+
+	for i := 0; i < n; i++ {
+		if got := rows[i][idCol].Int32(); got != int32(i) {
+			t.Errorf("row %d id = %d, want %d", i, got, i)
+		}
+		want := fmt.Sprintf("row_%d", i)
+		if got := string(rows[i][valCol].ByteArray()); got != want {
+			t.Errorf("row %d val = %q, want %q", i, got, want)
+		}
+	}
+}
+
+func TestLargeBatchColumnar(t *testing.T) {
+	const n = 5000
+	blk, _ := newBlock([]string{"id", "val"}, []string{"long", "double"})
+
+	ids := make([]int64, n)
+	vals := make([]float64, n)
+	for i := 0; i < n; i++ {
+		ids[i] = int64(i)
+		vals[i] = float64(i) * 0.1
+	}
+
+	if err := blk.columnAt(0).appendColumn(ids); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.columnAt(1).appendColumn(vals); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatalf("toParquet: %v", err)
+	}
+
+	f, rows := readParquetRows(t, data)
+	if len(rows) != n {
+		t.Fatalf("expected %d rows, got %d", n, len(rows))
+	}
+
+	idCol := colIndex(f, "id")
+	for i := 0; i < n; i++ {
+		if got := rows[i][idCol].Int64(); got != int64(i) {
+			t.Errorf("row %d id = %d, want %d", i, got, i)
+		}
+	}
+}
+
+// ===========================================================================
+// Batch reset / reuse after toParquet (simulates Send then reuse)
+// ===========================================================================
+
+func TestBlockResetAndReuse(t *testing.T) {
+	blk, _ := newBlock([]string{"x"}, []string{"int"})
+	if err := blk.appendRow([]interface{}{int32(1)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{int32(2)}); err != nil {
+		t.Fatal(err)
+	}
+
+	data1, err := blk.toParquet()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, rows1 := readParquetRows(t, data1)
+	if len(rows1) != 2 {
+		t.Fatalf("first batch: %d rows, want 2", len(rows1))
+	}
+
+	blk.reset()
+	if blk.blockRows() != 0 {
+		t.Fatalf("blockRows() = %d after reset, want 0", blk.blockRows())
+	}
+
+	if err := blk.appendRow([]interface{}{int32(10)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{int32(20)}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{int32(30)}); err != nil {
+		t.Fatal(err)
+	}
+
+	data2, err := blk.toParquet()
+	if err != nil {
+		t.Fatal(err)
+	}
+	f2, rows2 := readParquetRows(t, data2)
+	if len(rows2) != 3 {
+		t.Fatalf("second batch: %d rows, want 3", len(rows2))
+	}
+
+	xCol := colIndex(f2, "x")
+	want := []int32{10, 20, 30}
+	for i, w := range want {
+		if got := rows2[i][xCol].Int32(); got != w {
+			t.Errorf("row %d = %d, want %d", i, got, w)
+		}
+	}
+}
+
+// ===========================================================================
+// Empty batch Send is a no-op (no error)
+// ===========================================================================
+
+func TestEmptyBatchSendNoOp(t *testing.T) {
+	blk, _ := newBlock([]string{"x"}, []string{"int"})
+	batch := &fireboltBatch{blk: blk}
+
+	// Send with zero rows should be a no-op (no network call needed)
+	// Since conn is nil, a real upload would panic; if we reach here
+	// without panic/error, it means the empty check works.
+	if err := batch.Send(); err != nil {
+		t.Fatalf("empty Send: %v", err)
+	}
+}
+
+// ===========================================================================
+// Column type aliases
+// ===========================================================================
+
+func TestColumnTypeAliases(t *testing.T) {
+	aliases := []struct {
+		fbType   string
+		testVal  interface{}
+		wantRows int
+	}{
+		{"integer", int32(1), 1},
+		{"bigint", int64(1), 1},
+		{"real", float32(1.0), 1},
+		{"double precision", float64(1.0), 1},
+		{"pgdate", time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), 1},
+		{"timestampntz", time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), 1},
+		{"timestamptz", time.Date(2025, 1, 1, 12, 0, 0, 0, time.UTC), 1},
+		{"geography", "POINT(0 0)", 1},
+	}
+
+	for _, a := range aliases {
+		t.Run(a.fbType, func(t *testing.T) {
+			blk, err := newBlock([]string{"v"}, []string{a.fbType})
+			if err != nil {
+				t.Fatalf("newBlock(%q): %v", a.fbType, err)
+			}
+			if err := blk.appendRow([]interface{}{a.testVal}); err != nil {
+				t.Fatalf("appendRow: %v", err)
+			}
+			if blk.blockRows() != a.wantRows {
+				t.Errorf("blockRows() = %d, want %d", blk.blockRows(), a.wantRows)
+			}
+		})
+	}
+}
+
+// ===========================================================================
+// Bytea column round-trip
+// ===========================================================================
+
+func TestByteaRoundTrip(t *testing.T) {
+	blk, _ := newBlock([]string{"data"}, []string{"bytea"})
+	if err := blk.appendRow([]interface{}{[]byte{0x00, 0xFF, 0xAB}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{[]byte{}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := blk.appendRow([]interface{}{[]byte{0x42}}); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, rows := readParquetRows(t, data)
+	if len(rows) != 3 {
+		t.Fatalf("expected 3 rows, got %d", len(rows))
+	}
+
+	got0 := rows[0][0].ByteArray()
+	if len(got0) != 3 || got0[0] != 0x00 || got0[1] != 0xFF || got0[2] != 0xAB {
+		t.Errorf("row 0 = %x, want 00ffab", got0)
+	}
+	got1 := rows[1][0].ByteArray()
+	if len(got1) != 0 {
+		t.Errorf("row 1 = %x, want empty", got1)
+	}
+	got2 := rows[2][0].ByteArray()
+	if len(got2) != 1 || got2[0] != 0x42 {
+		t.Errorf("row 2 = %x, want 42", got2)
+	}
+}
+
+// ===========================================================================
+// Bytea from string
+// ===========================================================================
+
+func TestByteaFromString(t *testing.T) {
+	blk, _ := newBlock([]string{"data"}, []string{"bytea"})
+	if err := blk.appendRow([]interface{}{"hello"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, rows := readParquetRows(t, data)
+	if string(rows[0][0].ByteArray()) != "hello" {
+		t.Errorf("got %q, want hello", rows[0][0].ByteArray())
+	}
+}
+
+// ===========================================================================
+// Multiple Parquet batches from same block (simulate Send-reuse-Send)
+// ===========================================================================
+
+func TestMultipleSendSimulation(t *testing.T) {
+	blk, _ := newBlock([]string{"id"}, []string{"int"})
+	batch := &fireboltBatch{blk: blk}
+
+	// First "batch"
+	if err := batch.Append(int32(1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := batch.Append(int32(2)); err != nil {
+		t.Fatal(err)
+	}
+	d1, _ := blk.toParquet()
+	blk.reset()
+
+	// Second "batch"
+	if err := batch.Append(int32(10)); err != nil {
+		t.Fatal(err)
+	}
+	d2, _ := blk.toParquet()
+	blk.reset()
+
+	_, r1 := readParquetRows(t, d1)
+	_, r2 := readParquetRows(t, d2)
+
+	if len(r1) != 2 {
+		t.Errorf("batch 1: %d rows, want 2", len(r1))
+	}
+	if len(r2) != 1 {
+		t.Errorf("batch 2: %d rows, want 1", len(r2))
+	}
+	if r1[0][0].Int32() != 1 || r1[1][0].Int32() != 2 {
+		t.Errorf("batch 1 values wrong")
+	}
+	if r2[0][0].Int32() != 10 {
+		t.Errorf("batch 2 values wrong")
 	}
 }
