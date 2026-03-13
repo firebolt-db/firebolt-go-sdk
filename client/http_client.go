@@ -8,15 +8,38 @@ import (
 	"fmt"
 	"io"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/textproto"
 	"strings"
+	"time"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
+
+// NewHttpClient creates an *http.Client with a transport configured for
+// connection pooling. Callers should reuse the returned client across
+// requests so that idle TCP/TLS connections are kept alive.
+func NewHttpClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			Proxy: http.ProxyFromEnvironment,
+			DialContext: (&net.Dialer{
+				Timeout:   30 * time.Second,
+				KeepAlive: 30 * time.Second,
+			}).DialContext,
+			ForceAttemptHTTP2:     true,
+			MaxIdleConns:          100,
+			MaxIdleConnsPerHost:   10,
+			IdleConnTimeout:       90 * time.Second,
+			TLSHandshakeTimeout:   10 * time.Second,
+			ExpectContinueTimeout: 1 * time.Second,
+		},
+	}
+}
 
 type Response struct {
 	body       io.ReadCloser
@@ -128,11 +151,19 @@ func extractAdditionalHeaders(ctx context.Context) map[string]string {
 	return map[string]string{}
 }
 
+func resolveHttpClient(c *http.Client) *http.Client {
+	if c != nil {
+		return c
+	}
+	return http.DefaultClient
+}
+
 // DoHttpRequest sends a request using "POST" or "GET" method on a specified url
 // additionally it passes the parameters and a bodyStr as a payload
 // if accessToken is passed, it is used for authorization
-// returns Response struct
-func DoHttpRequest(reqParams requestParameters) *Response {
+// returns Response struct.
+// httpClient may be nil, in which case http.DefaultClient is used.
+func DoHttpRequest(httpClient *http.Client, reqParams requestParameters) *Response {
 	canonicalUrl := MakeCanonicalUrl(reqParams.url)
 	req, err := http.NewRequestWithContext(reqParams.ctx, reqParams.method, canonicalUrl, strings.NewReader(reqParams.bodyStr))
 	if err != nil {
@@ -166,8 +197,7 @@ func DoHttpRequest(reqParams requestParameters) *Response {
 	}
 	req.URL.RawQuery = q.Encode()
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := resolveHttpClient(httpClient).Do(req)
 	if err != nil {
 		logging.Infolog.Println(err)
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error during a request execution", err))
@@ -178,7 +208,8 @@ func DoHttpRequest(reqParams requestParameters) *Response {
 
 // DoHttpRequestMultipart sends a multipart form POST with an "sql" text field
 // and a file attachment containing the Parquet data.
-func DoHttpRequestMultipart(reqParams requestParametersMultipart) *Response {
+// httpClient may be nil, in which case http.DefaultClient is used.
+func DoHttpRequestMultipart(httpClient *http.Client, reqParams requestParametersMultipart) *Response {
 	var body bytes.Buffer
 	mw := multipart.NewWriter(&body)
 
@@ -228,8 +259,7 @@ func DoHttpRequestMultipart(reqParams requestParametersMultipart) *Response {
 	}
 	req.URL.RawQuery = q.Encode()
 
-	client := &http.Client{}
-	resp, err := client.Do(req)
+	resp, err := resolveHttpClient(httpClient).Do(req)
 	if err != nil {
 		logging.Infolog.Println(err)
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error during a request execution", err))

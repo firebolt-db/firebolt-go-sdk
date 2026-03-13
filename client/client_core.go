@@ -18,6 +18,7 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 		BaseClient: BaseClient{
 			ApiEndpoint: settings.Url,
 			UserAgent:   ConstructUserAgentString(),
+			HttpClient:  NewHttpClient(),
 		},
 		AccountName: settings.AccountName,
 	}

@@ -32,8 +32,17 @@ type BaseClient struct {
 	ClientSecret      string
 	ApiEndpoint       string
 	UserAgent         string
+	HttpClient        *http.Client
 	ParameterGetter   func(context.Context, map[string]string) (map[string]string, error)
 	AccessTokenGetter func() (string, error)
+}
+
+// Close releases resources held by the client, including idle HTTP connections.
+func (c *BaseClient) Close() error {
+	if c.HttpClient != nil {
+		c.HttpClient.CloseIdleConnections()
+	}
+	return nil
 }
 
 // ConnectionControl is a struct that holds methods for updating connection properties
@@ -165,7 +174,7 @@ func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url stri
 	if err != nil {
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 	}
-	resp := DoHttpRequestMultipart(requestParametersMultipart{ctx, accessToken, url, c.UserAgent, params, sql, parquetData, fileName})
+	resp := DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, url, c.UserAgent, params, sql, parquetData, fileName})
 	if resp.statusCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
@@ -173,7 +182,7 @@ func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url stri
 		if err != nil {
 			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 		}
-		resp = DoHttpRequestMultipart(requestParametersMultipart{ctx, accessToken, url, c.UserAgent, params, sql, parquetData, fileName})
+		resp = DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, url, c.UserAgent, params, sql, parquetData, fileName})
 		if resp.statusCode == http.StatusUnauthorized {
 			resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
 		}
@@ -194,7 +203,7 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 	if err != nil {
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 	}
-	resp := DoHttpRequest(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
+	resp := DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
 	if resp.statusCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
@@ -204,7 +213,7 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 		}
 		// Trying to send the same request again now that the access token has been refreshed
-		resp = DoHttpRequest(requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
+		resp = DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
 
 		// If the request still fails, wrap the error with AuthorizationError
 		if resp.statusCode == http.StatusUnauthorized {
