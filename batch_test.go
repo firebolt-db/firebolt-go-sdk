@@ -2,6 +2,7 @@ package fireboltgosdk
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -48,6 +49,10 @@ func TestParseInsertQuery(t *testing.T) {
 			query:   `INSERT INTO  ()`,
 			wantErr: true,
 		},
+		{
+			query:   `INSERT INTO t; DROP TABLE x-- (a)`,
+			wantErr: true,
+		},
 	}
 
 	for _, tc := range tests {
@@ -79,7 +84,7 @@ func TestParseInsertQuery(t *testing.T) {
 
 func TestBuildParquetInsertQuery(t *testing.T) {
 	got := buildParquetInsertQuery("my_table", []string{"col2", "col1"}, "batch_data")
-	want := `INSERT INTO my_table ("col1", "col2") SELECT * FROM read_parquet('upload://batch_data')`
+	want := `INSERT INTO "my_table" ("col1", "col2") SELECT * FROM read_parquet('upload://batch_data')`
 	if got != want {
 		t.Errorf("buildParquetInsertQuery = %q, want %q", got, want)
 	}
@@ -796,6 +801,13 @@ func TestNewBlockColumnCountMismatch(t *testing.T) {
 	}
 }
 
+func TestNewBlockDuplicateColumnName(t *testing.T) {
+	_, err := newBlock([]string{"a", "b", "a"}, []string{"int", "text", "int"})
+	if err == nil {
+		t.Error("expected error for duplicate column name")
+	}
+}
+
 // ===========================================================================
 // Type coercion tests
 // ===========================================================================
@@ -1153,7 +1165,7 @@ func TestEmptyBatchSendNoOp(t *testing.T) {
 	// Send with zero rows should be a no-op (no network call needed)
 	// Since conn is nil, a real upload would panic; if we reach here
 	// without panic/error, it means the empty check works.
-	if err := batch.Send(); err != nil {
+	if err := batch.Send(context.Background()); err != nil {
 		t.Fatalf("empty Send: %v", err)
 	}
 }

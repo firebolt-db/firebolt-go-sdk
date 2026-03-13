@@ -93,7 +93,7 @@ func TestBatchInsertRowWise(t *testing.T) {
 		if err := batch.Append(int32(3), "Charlie", float64(77.3), true, ts3); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	type row struct {
@@ -167,7 +167,7 @@ func TestBatchInsertColumnar(t *testing.T) {
 		if err := batch.Column(2).Append([]int64{100, 200, 300, 400}); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	rows, err := db.Query(fmt.Sprintf("SELECT id, name, value FROM %s ORDER BY id", table))
@@ -230,7 +230,7 @@ func TestBatchInsertMixed(t *testing.T) {
 		if err := batch.Column(1).Append([]string{"col_a", "col_b"}); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	rows, err := db.Query(fmt.Sprintf("SELECT id, name FROM %s ORDER BY id", table))
@@ -293,7 +293,7 @@ func TestBatchInsertNullable(t *testing.T) {
 		if err := batch.Append(int32(4), nil, int32(400)); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	rows, err := db.Query(fmt.Sprintf("SELECT id, name, val FROM %s ORDER BY id", table))
@@ -371,7 +371,7 @@ func TestBatchInsertDateTimestamp(t *testing.T) {
 		if err := batch.Append(d2, ts2); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	rows, err := db.Query(fmt.Sprintf("SELECT d, ts FROM %s ORDER BY d", table))
@@ -430,7 +430,7 @@ func TestBatchInsertFloatTypes(t *testing.T) {
 		if err := batch.Append(float32(0.0), float64(-1.0)); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	rows, err := db.Query(fmt.Sprintf("SELECT f, d FROM %s ORDER BY d", table))
@@ -439,7 +439,10 @@ func TestBatchInsertFloatTypes(t *testing.T) {
 	}
 	defer rows.Close()
 
-	type row struct{ f float32; d float64 }
+	type row struct {
+		f float32
+		d float64
+	}
 	want := []row{
 		{0.0, -1.0},
 		{3.14, 2.718281828},
@@ -493,7 +496,7 @@ func TestBatchInsertLarge(t *testing.T) {
 				return err
 			}
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	var count int
@@ -557,7 +560,7 @@ func TestBatchInsertLargeColumnar(t *testing.T) {
 		if err := batch.Column(1).Append(vals); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	var count int
@@ -597,14 +600,14 @@ func TestBatchReuseAfterSend(t *testing.T) {
 		if err := batch.Append(int32(2)); err != nil {
 			return err
 		}
-		if err := batch.Send(); err != nil {
+		if err := batch.Send(ctx); err != nil {
 			return fmt.Errorf("first Send: %w", err)
 		}
 		// Reuse: send more rows
 		if err := batch.Append(int32(3)); err != nil {
 			return err
 		}
-		if err := batch.Send(); err != nil {
+		if err := batch.Send(ctx); err != nil {
 			return fmt.Errorf("second Send: %w", err)
 		}
 		return nil
@@ -638,7 +641,7 @@ func TestBatchEmptySend(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	var count int
@@ -743,7 +746,7 @@ func TestBatchInsertTypeCoercion(t *testing.T) {
 		if err := batch.Append(int64(2), int32(200), int(42)); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	rows, err := db.Query(fmt.Sprintf("SELECT i32, i64, f64 FROM %s ORDER BY i32", table))
@@ -811,7 +814,7 @@ func TestBatchInsertBoolean(t *testing.T) {
 		if err := batch.Append(int32(3), true); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	rows, err := db.Query(fmt.Sprintf("SELECT id, val FROM %s ORDER BY id", table))
@@ -867,7 +870,7 @@ func TestBatchInsertNullableColumnar(t *testing.T) {
 		if err := batch.Column(1).Append([]interface{}{int32(10), nil, int32(30)}); err != nil {
 			return err
 		}
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 
 	rows, err := db.Query(fmt.Sprintf("SELECT id, val FROM %s ORDER BY id", table))

@@ -445,7 +445,8 @@ func main() {
 	}
 	defer db.Close()
 
-	conn, err := db.Conn(context.Background())
+	ctx := context.Background()
+	conn, err := db.Conn(ctx)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -453,8 +454,7 @@ func main() {
 
 	err = conn.Raw(func(driverConn interface{}) error {
 		batch, err := driverConn.(firebolt.BatchConnection).PrepareBatch(
-			context.Background(),
-			"INSERT INTO events (id, name, active)")
+			ctx, "INSERT INTO events (id, name, active)")
 		if err != nil {
 			return err
 		}
@@ -466,7 +466,7 @@ func main() {
 			}
 		}
 
-		return batch.Send()
+		return batch.Send(ctx)
 	})
 	if err != nil {
 		log.Fatalf("batch insert failed: %v", err)
@@ -480,8 +480,7 @@ Append entire typed slices per column — ideal when data is already in columnar
 ```go
 err = conn.Raw(func(driverConn interface{}) error {
     batch, err := driverConn.(firebolt.BatchConnection).PrepareBatch(
-        context.Background(),
-        "INSERT INTO events (id, name, active)")
+        ctx, "INSERT INTO events (id, name, active)")
     if err != nil {
         return err
     }
@@ -497,7 +496,7 @@ err = conn.Raw(func(driverConn interface{}) error {
         return err
     }
 
-    return batch.Send()
+    return batch.Send(ctx)
 })
 ```
 

@@ -19,6 +19,14 @@ func newBlock(columnNames []string, fireboltTypes []string) (*block, error) {
 			len(columnNames), len(fireboltTypes))
 	}
 
+	seen := make(map[string]struct{}, len(columnNames))
+	for _, name := range columnNames {
+		if _, dup := seen[name]; dup {
+			return nil, fmt.Errorf("duplicate column name %q", name)
+		}
+		seen[name] = struct{}{}
+	}
+
 	cols := make([]column, len(columnNames))
 	for i, colName := range columnNames {
 		col, err := newColumn(colName, fireboltTypes[i])

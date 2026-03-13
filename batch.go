@@ -26,7 +26,7 @@ const parquetUploadName = "batch_data"
 //	            return err
 //	        }
 //	    }
-//	    return batch.Send()
+//	    return batch.Send(ctx)
 //	})
 type BatchConnection interface {
 	PrepareBatch(ctx context.Context, query string) (Batch, error)
@@ -62,7 +62,7 @@ type Batch interface {
 	// Send serialises all buffered rows to Parquet format and uploads
 	// them to the engine. The batch is reset after a successful send
 	// and can be reused.
-	Send() error
+	Send(ctx context.Context) error
 
 	// Abort discards all buffered rows without sending.
 	Abort() error
@@ -79,7 +79,6 @@ type BatchColumn interface {
 
 type fireboltBatch struct {
 	conn      *fireboltConnection
-	ctx       context.Context
 	tableName string
 	colNames  []string
 	blk       *block
@@ -119,7 +118,6 @@ func (c *fireboltConnection) PrepareBatch(ctx context.Context, query string) (Ba
 
 	return &fireboltBatch{
 		conn:      c,
-		ctx:       ctx,
 		tableName: tableName,
 		colNames:  columnNames,
 		blk:       blk,
@@ -146,7 +144,7 @@ func (c *fireboltBatchColumn) Append(v interface{}) error {
 
 // Send serialises buffered rows to Parquet and uploads them via multipart
 // form POST. The batch is reset on success and can accept new rows.
-func (b *fireboltBatch) Send() error {
+func (b *fireboltBatch) Send(ctx context.Context) error {
 	if err := b.blk.validate(); err != nil {
 		return errorUtils.ConstructNestedError("batch column length mismatch", err)
 	}
@@ -167,7 +165,7 @@ func (b *fireboltBatch) Send() error {
 		ResetParameters:  b.conn.resetParameters,
 	}
 
-	_, err = b.conn.client.UploadParquet(b.ctx, b.conn.engineUrl, sql, parquetData, parquetUploadName, b.conn.parameters, control)
+	_, err = b.conn.client.UploadParquet(ctx, b.conn.engineUrl, sql, parquetData, parquetUploadName, b.conn.parameters, control)
 	if err != nil {
 		return errorUtils.ConstructNestedError("error uploading batch data", err)
 	}
@@ -206,6 +204,9 @@ func parseInsertQuery(query string) (tableName string, columns []string, err err
 	tableName = strings.TrimSpace(rest[:parenIdx])
 	if tableName == "" {
 		return "", nil, fmt.Errorf("table name is empty")
+	}
+	if strings.ContainsAny(tableName, ";'\\") {
+		return "", nil, fmt.Errorf("table name %q contains invalid characters", tableName)
 	}
 
 	closeIdx := strings.Index(rest[parenIdx:], ")")
@@ -246,8 +247,12 @@ func buildParquetInsertQuery(tableName string, columnNames []string, fileName st
 	for i, name := range sorted {
 		quoted[i] = fmt.Sprintf("\"%s\"", name)
 	}
+	quotedTable := tableName
+	if !strings.Contains(tableName, "\"") {
+		quotedTable = fmt.Sprintf("\"%s\"", tableName)
+	}
 	return fmt.Sprintf("INSERT INTO %s (%s) SELECT * FROM read_parquet('upload://%s')",
-		tableName, strings.Join(quoted, ", "), fileName)
+		quotedTable, strings.Join(quoted, ", "), fileName)
 }
 
 // ---------------------------------------------------------------------------
@@ -261,8 +266,12 @@ func (c *fireboltConnection) discoverColumnTypes(ctx context.Context, tableName 
 	for i, name := range columnNames {
 		quotedCols[i] = fmt.Sprintf("\"%s\"", name)
 	}
+	quotedTable := tableName
+	if !strings.Contains(tableName, "\"") {
+		quotedTable = fmt.Sprintf("\"%s\"", tableName)
+	}
 	schemaSQL := fmt.Sprintf("SELECT %s FROM %s LIMIT 0",
-		strings.Join(quotedCols, ", "), tableName)
+		strings.Join(quotedCols, ", "), quotedTable)
 
 	control := client.ConnectionControl{
 		UpdateParameters: c.setParameter,

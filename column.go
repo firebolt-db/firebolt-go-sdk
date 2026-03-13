@@ -218,9 +218,9 @@ func (c *int32Column) appendColumn(v interface{}) error {
 	return appendColumnFallback(c, v)
 }
 
-func (c *int32Column) appendZero()                              { c.data = append(c.data, 0) }
-func (c *int32Column) reset()                                   { c.data = c.data[:0] }
-func (c *int32Column) parquetNode() parquet.Node                { return parquet.Leaf(parquet.Int32Type) }
+func (c *int32Column) appendZero()               { c.data = append(c.data, 0) }
+func (c *int32Column) reset()                    { c.data = c.data[:0] }
+func (c *int32Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.Int32Type) }
 func (c *int32Column) parquetValue(rowIdx, colIdx int) parquet.Value {
 	return parquet.Int32Value(c.data[rowIdx]).Level(0, 0, colIdx)
 }
@@ -254,9 +254,9 @@ func (c *int64Column) appendColumn(v interface{}) error {
 	return appendColumnFallback(c, v)
 }
 
-func (c *int64Column) appendZero()                              { c.data = append(c.data, 0) }
-func (c *int64Column) reset()                                   { c.data = c.data[:0] }
-func (c *int64Column) parquetNode() parquet.Node                { return parquet.Leaf(parquet.Int64Type) }
+func (c *int64Column) appendZero()               { c.data = append(c.data, 0) }
+func (c *int64Column) reset()                    { c.data = c.data[:0] }
+func (c *int64Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.Int64Type) }
 func (c *int64Column) parquetValue(rowIdx, colIdx int) parquet.Value {
 	return parquet.Int64Value(c.data[rowIdx]).Level(0, 0, colIdx)
 }
@@ -290,9 +290,9 @@ func (c *float32Column) appendColumn(v interface{}) error {
 	return appendColumnFallback(c, v)
 }
 
-func (c *float32Column) appendZero()                              { c.data = append(c.data, 0) }
-func (c *float32Column) reset()                                   { c.data = c.data[:0] }
-func (c *float32Column) parquetNode() parquet.Node                { return parquet.Leaf(parquet.FloatType) }
+func (c *float32Column) appendZero()               { c.data = append(c.data, 0) }
+func (c *float32Column) reset()                    { c.data = c.data[:0] }
+func (c *float32Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.FloatType) }
 func (c *float32Column) parquetValue(rowIdx, colIdx int) parquet.Value {
 	return parquet.FloatValue(c.data[rowIdx]).Level(0, 0, colIdx)
 }
@@ -326,9 +326,9 @@ func (c *float64Column) appendColumn(v interface{}) error {
 	return appendColumnFallback(c, v)
 }
 
-func (c *float64Column) appendZero()                              { c.data = append(c.data, 0) }
-func (c *float64Column) reset()                                   { c.data = c.data[:0] }
-func (c *float64Column) parquetNode() parquet.Node                { return parquet.Leaf(parquet.DoubleType) }
+func (c *float64Column) appendZero()               { c.data = append(c.data, 0) }
+func (c *float64Column) reset()                    { c.data = c.data[:0] }
+func (c *float64Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.DoubleType) }
 func (c *float64Column) parquetValue(rowIdx, colIdx int) parquet.Value {
 	return parquet.DoubleValue(c.data[rowIdx]).Level(0, 0, colIdx)
 }
@@ -364,8 +364,8 @@ func (c *stringColumn) appendColumn(v interface{}) error {
 }
 
 func (c *stringColumn) appendZero()               { c.data = append(c.data, "") }
-func (c *stringColumn) reset()                     { c.data = c.data[:0] }
-func (c *stringColumn) parquetNode() parquet.Node  { return parquet.String() }
+func (c *stringColumn) reset()                    { c.data = c.data[:0] }
+func (c *stringColumn) parquetNode() parquet.Node { return parquet.String() }
 func (c *stringColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
 	return parquet.ByteArrayValue([]byte(c.data[rowIdx])).Level(0, 0, colIdx)
 }
@@ -401,8 +401,8 @@ func (c *boolColumn) appendColumn(v interface{}) error {
 }
 
 func (c *boolColumn) appendZero()               { c.data = append(c.data, false) }
-func (c *boolColumn) reset()                     { c.data = c.data[:0] }
-func (c *boolColumn) parquetNode() parquet.Node  { return parquet.Leaf(parquet.BooleanType) }
+func (c *boolColumn) reset()                    { c.data = c.data[:0] }
+func (c *boolColumn) parquetNode() parquet.Node { return parquet.Leaf(parquet.BooleanType) }
 func (c *boolColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
 	return parquet.BooleanValue(c.data[rowIdx]).Level(0, 0, colIdx)
 }
@@ -440,8 +440,8 @@ func (c *dateColumn) appendColumn(v interface{}) error {
 }
 
 func (c *dateColumn) appendZero()               { c.data = append(c.data, 0) }
-func (c *dateColumn) reset()                     { c.data = c.data[:0] }
-func (c *dateColumn) parquetNode() parquet.Node  { return parquet.Date() }
+func (c *dateColumn) reset()                    { c.data = c.data[:0] }
+func (c *dateColumn) parquetNode() parquet.Node { return parquet.Date() }
 func (c *dateColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
 	return parquet.Int32Value(c.data[rowIdx]).Level(0, 0, colIdx)
 }
@@ -482,7 +482,7 @@ func (c *timestampColumn) appendZero() { c.data = append(c.data, 0) }
 func (c *timestampColumn) reset()      { c.data = c.data[:0] }
 
 func (c *timestampColumn) parquetNode() parquet.Node {
-	return parquet.Timestamp(parquet.Microsecond)
+	return parquet.TimestampAdjusted(parquet.Microsecond, c.adjusted)
 }
 
 func (c *timestampColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
@@ -523,8 +523,8 @@ func (c *byteaColumn) appendColumn(v interface{}) error {
 }
 
 func (c *byteaColumn) appendZero()               { c.data = append(c.data, nil) }
-func (c *byteaColumn) reset()                     { c.data = c.data[:0] }
-func (c *byteaColumn) parquetNode() parquet.Node  { return parquet.Leaf(parquet.ByteArrayType) }
+func (c *byteaColumn) reset()                    { c.data = c.data[:0] }
+func (c *byteaColumn) parquetNode() parquet.Node { return parquet.Leaf(parquet.ByteArrayType) }
 func (c *byteaColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
 	return parquet.ByteArrayValue(c.data[rowIdx]).Level(0, 0, colIdx)
 }
