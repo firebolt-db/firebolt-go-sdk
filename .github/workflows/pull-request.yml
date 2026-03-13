@@ -3,6 +3,7 @@ name: Pull request
 on:
   pull_request:
     branches: [ main, 1.x ]
+    types: [ opened, synchronize, reopened, edited ]
 
 jobs:
   check-title:
