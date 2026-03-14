@@ -219,6 +219,10 @@ func (m *mockClientForDescribe) Query(ctx context.Context, engineUrl, query stri
 	return client.MakeResponse(reader, 200, nil, nil), nil
 }
 
+func (m *mockClientForDescribe) UploadParquet(ctx context.Context, engineUrl, sql string, parquetData []byte, fileName string, parameters map[string]string, control client.ConnectionControl) (*client.Response, error) {
+	return nil, nil
+}
+
 func (m *mockClientForDescribe) GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error) {
 	return "mock-engine-url", map[string]string{}, nil
 }
@@ -343,6 +347,10 @@ func (m *mockClientForTransactionCommitFailure) Query(ctx context.Context, engin
 	responseData, _ := json.Marshal(queryResponse)
 	reader := io.NopCloser(bytes.NewReader(responseData))
 	return client.MakeResponse(reader, 200, nil, nil), nil
+}
+
+func (m *mockClientForTransactionCommitFailure) UploadParquet(ctx context.Context, engineUrl, sql string, parquetData []byte, fileName string, parameters map[string]string, control client.ConnectionControl) (*client.Response, error) {
+	return nil, nil
 }
 
 func (m *mockClientForTransactionCommitFailure) GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error) {

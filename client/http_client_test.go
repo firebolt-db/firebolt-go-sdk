@@ -25,7 +25,7 @@ func TestDoHttpRequestMalformedURL(t *testing.T) {
 	}
 
 	// This should return an error, not panic
-	resp := DoHttpRequest(reqParams)
+	resp := DoHttpRequest(nil, reqParams)
 
 	if resp.err == nil {
 		t.Error("Expected DoHttpRequest to return an error for malformed URL, got nil")
@@ -59,7 +59,7 @@ func TestDoHttpRequestMalformedURLWithPercent2(t *testing.T) {
 		contentType: "",
 	}
 
-	resp := DoHttpRequest(reqParams)
+	resp := DoHttpRequest(nil, reqParams)
 
 	if resp.err == nil {
 		t.Error("Expected DoHttpRequest to return an error for malformed URL, got nil")

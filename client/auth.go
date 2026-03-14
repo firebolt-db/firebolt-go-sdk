@@ -50,7 +50,7 @@ func getAccessTokenUsernamePassword(username string, password string, apiEndpoin
 			return "", err
 		}
 		logging.Infolog.Printf("Start authentication into '%s' using '%s'", apiEndpoint, loginUrl)
-		resp := DoHttpRequest(requestParameters{context.TODO(), "", "POST", apiEndpoint + loginUrl, userAgent, nil, body, contentType})
+		resp := DoHttpRequest(nil, requestParameters{context.TODO(), "", "POST", apiEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.statusCode == http.StatusBadRequest || resp.statusCode == http.StatusForbidden {
 			return "", errors.Wrap(errors.AuthenticationError, resp.err)
 		} else if resp.err != nil {
@@ -102,7 +102,7 @@ func getAccessTokenServiceAccount(clientId string, clientSecret string, apiEndpo
 			return "", errors.ConstructNestedError("error building auth endpoint", err)
 		}
 		logging.Infolog.Printf("Start authentication into '%s' using '%s'", authEndpoint, loginUrl)
-		resp := DoHttpRequest(requestParameters{context.TODO(), "", "POST", authEndpoint + loginUrl, userAgent, nil, body, contentType})
+		resp := DoHttpRequest(nil, requestParameters{context.TODO(), "", "POST", authEndpoint + loginUrl, userAgent, nil, body, contentType})
 		if resp.statusCode == http.StatusUnauthorized {
 			return "", errors.Wrap(errors.AuthenticationError, resp.err)
 		} else if resp.err != nil {

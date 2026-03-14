@@ -23,6 +23,11 @@ func (m *MockClient) Query(ctx context.Context, engineUrl, query string, paramet
 	return nil, m.errorToRaise
 }
 
+func (m *MockClient) UploadParquet(ctx context.Context, engineUrl, sql string, parquetData []byte, fileName string, parameters map[string]string, control ConnectionControl) (*Response, error) {
+	m.ParametersCalled = append(m.ParametersCalled, parameters)
+	return nil, m.errorToRaise
+}
+
 func (m *MockClient) GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error) {
 	// Implement to satisfy Client interface
 	return "", nil, nil
