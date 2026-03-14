@@ -19,7 +19,7 @@ jobs:
         run: |
           latest_version=$(curl -s https://go.dev/dl/?mode=json | jq -r '.[] | select(.stable == true) | .version' | head -n1)
           latest_go=${latest_version#go}
-          echo "::set-output name=latest_go::$latest_go"
+          echo "latest_go=$latest_go" >> "$GITHUB_OUTPUT"
 
   integration-tests:
     needs: find-latest-go-version
