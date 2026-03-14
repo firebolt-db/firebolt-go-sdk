@@ -165,10 +165,11 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 		ResetParameters:  b.conn.resetParameters,
 	}
 
-	_, err = b.conn.client.UploadParquet(ctx, b.conn.engineUrl, sql, parquetData, parquetUploadName, b.conn.parameters, control)
+	resp, err := b.conn.client.UploadParquet(ctx, b.conn.engineUrl, sql, parquetData, parquetUploadName, b.conn.parameters, control)
 	if err != nil {
 		return errorUtils.ConstructNestedError("error uploading batch data", err)
 	}
+	resp.Body().Close()
 
 	b.blk.reset()
 	return nil
