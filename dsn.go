@@ -37,6 +37,7 @@ func ParseDSNString(dsn string) (*types.FireboltSettings, error) {
 func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 	var result types.FireboltSettings
 	result.NewVersion = true
+	result.ClientSideLB = true
 	result.DefaultQueryParams = make(map[string]string)
 
 	// Set database if it's provided
@@ -73,6 +74,8 @@ func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 			result.ClientSecret = decodedValue
 		case "url":
 			result.Url = decodedValue
+		case "client_side_lb":
+			result.ClientSideLB = decodedValue == "true"
 		default:
 			return nil, fmt.Errorf("unknown parameter name %s", key)
 		}

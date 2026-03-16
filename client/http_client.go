@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,6 +40,30 @@ func NewHttpClient() *http.Client {
 			ExpectContinueTimeout: 1 * time.Second,
 		},
 	}
+}
+
+// NewHttpClientForLB creates an *http.Client suitable for client-side load
+// balancing. When the resolver rewrites URLs to use raw IP addresses,
+// tlsServerName ensures TLS certificate verification still uses the original
+// hostname. Pass an empty string if TLS is not used (plain HTTP).
+func NewHttpClientForLB(tlsServerName string) *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		MaxIdleConnsPerHost:   10,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+	}
+	if tlsServerName != "" {
+		transport.TLSClientConfig = &tls.Config{ServerName: tlsServerName}
+	}
+	return &http.Client{Transport: transport}
 }
 
 type Response struct {
@@ -89,26 +114,28 @@ func (r *Response) IsAsyncResponse() bool {
 
 // Collect arguments for request function
 type requestParameters struct {
-	ctx         context.Context
-	accessToken string
-	method      string
-	url         string
-	userAgent   string
-	params      map[string]string
-	bodyStr     string
-	contentType string
+	ctx          context.Context
+	accessToken  string
+	method       string
+	url          string
+	userAgent    string
+	params       map[string]string
+	bodyStr      string
+	contentType  string
+	hostOverride string // when non-empty, sent as the Host header (used by client-side LB)
 }
 
 // requestParametersMultipart collects arguments for a multipart form upload.
 type requestParametersMultipart struct {
-	ctx         context.Context
-	accessToken string
-	url         string
-	userAgent   string
-	params      map[string]string
-	sql         string
-	fileData    []byte
-	fileName    string
+	ctx          context.Context
+	accessToken  string
+	url          string
+	userAgent    string
+	params       map[string]string
+	sql          string
+	fileData     []byte
+	fileName     string
+	hostOverride string // when non-empty, sent as the Host header (used by client-side LB)
 }
 
 // checkErrorResponse, checks whether error Response is returned instead of a desired Response.
@@ -171,10 +198,11 @@ func DoHttpRequest(httpClient *http.Client, reqParams requestParameters) *Respon
 			fmt.Sprintf("error creating HTTP request: method=%s, url=%s", reqParams.method, canonicalUrl), err))
 	}
 
-	// adding sdk usage tracking
-	req.Header.Set("User-Agent", reqParams.userAgent)
+	if reqParams.hostOverride != "" {
+		req.Host = reqParams.hostOverride
+	}
 
-	// add protocol version header
+	req.Header.Set("User-Agent", reqParams.userAgent)
 	req.Header.Set(protocolVersionHeader, protocolVersion)
 
 	if len(reqParams.accessToken) > 0 {
@@ -186,7 +214,6 @@ func DoHttpRequest(httpClient *http.Client, reqParams requestParameters) *Respon
 		req.Header.Set("Content-Type", reqParams.contentType)
 	}
 
-	// add additional headers from context
 	for key, value := range extractAdditionalHeaders(reqParams.ctx) {
 		req.Header.Set(key, value)
 	}
@@ -239,6 +266,10 @@ func DoHttpRequestMultipart(httpClient *http.Client, reqParams requestParameters
 	if err != nil {
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError(
 			fmt.Sprintf("error creating HTTP request: url=%s", canonicalUrl), err))
+	}
+
+	if reqParams.hostOverride != "" {
+		req.Host = reqParams.hostOverride
 	}
 
 	req.Header.Set("User-Agent", reqParams.userAgent)

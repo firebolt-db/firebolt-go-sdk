@@ -40,6 +40,10 @@ func runDSNTest(t *testing.T, input string, expectedSettings types.FireboltSetti
 		t.Errorf("for NewVersion got %t want %t", settings.NewVersion, expectedSettings.NewVersion)
 	}
 
+	if settings.ClientSideLB != expectedSettings.ClientSideLB {
+		t.Errorf("for ClientSideLB got %t want %t", settings.ClientSideLB, expectedSettings.ClientSideLB)
+	}
+
 	// Check DefaultQueryParams
 	if len(settings.DefaultQueryParams) != len(expectedSettings.DefaultQueryParams) {
 		t.Errorf("for DefaultQueryParams length got %d want %d", len(settings.DefaultQueryParams), len(expectedSettings.DefaultQueryParams))
@@ -59,19 +63,19 @@ func runDSNTestFail(t *testing.T, input string) {
 }
 
 func TestDSNHappyPath(t *testing.T) {
-	runDSNTest(t, "firebolt://", types.FireboltSettings{NewVersion: true})
+	runDSNTest(t, "firebolt://", types.FireboltSettings{NewVersion: true, ClientSideLB: true})
 
-	runDSNTest(t, "firebolt:///test_db", types.FireboltSettings{Database: "test_db", NewVersion: true})
+	runDSNTest(t, "firebolt:///test_db", types.FireboltSettings{Database: "test_db", NewVersion: true, ClientSideLB: true})
 
 	runDSNTest(t, "firebolt://?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_cs",
-		types.FireboltSettings{AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_cs", NewVersion: true})
+		types.FireboltSettings{AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_cs", NewVersion: true, ClientSideLB: true})
 
 	runDSNTest(t, "firebolt:///test_db?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_cs",
-		types.FireboltSettings{Database: "test_db", AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_cs", NewVersion: true})
+		types.FireboltSettings{Database: "test_db", AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_cs", NewVersion: true, ClientSideLB: true})
 
 	// special characters
 	runDSNTest(t, "firebolt:///test_db?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_*-()@\\.",
-		types.FireboltSettings{Database: "test_db", AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_*-()@\\.", NewVersion: true})
+		types.FireboltSettings{Database: "test_db", AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_*-()@\\.", NewVersion: true, ClientSideLB: true})
 }
 
 // TestDSNFailed test different failure scenarios for ParseDSNString
@@ -118,14 +122,26 @@ func TestDSNV0Failed(t *testing.T) {
 }
 
 func TestDSNCoreHappyPath(t *testing.T) {
-	runDSNTest(t, "firebolt://?url=http", types.FireboltSettings{Url: "http", NewVersion: true})
+	runDSNTest(t, "firebolt://?url=http", types.FireboltSettings{Url: "http", NewVersion: true, ClientSideLB: true})
 
-	runDSNTest(t, "firebolt:///test_db?url=http", types.FireboltSettings{Database: "test_db", Url: "http", NewVersion: true})
+	runDSNTest(t, "firebolt:///test_db?url=http", types.FireboltSettings{Database: "test_db", Url: "http", NewVersion: true, ClientSideLB: true})
 
 	runDSNTest(t, "firebolt:///test_db?account_name=test_acc&engine=test_eng&client_id=test_cid&client_secret=test_cs&url=http",
-		types.FireboltSettings{Database: "test_db", AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_cs", Url: "http", NewVersion: true})
-	runDSNTest(t, "firebolt:///test_db?url=http://localhost:8080", types.FireboltSettings{Url: "http://localhost:8080", Database: "test_db", NewVersion: true})
-	runDSNTest(t, "firebolt:///test_db?url=https://localhost:443", types.FireboltSettings{Url: "https://localhost:443", Database: "test_db", NewVersion: true})
+		types.FireboltSettings{Database: "test_db", AccountName: "test_acc", EngineName: "test_eng", ClientID: "test_cid", ClientSecret: "test_cs", Url: "http", NewVersion: true, ClientSideLB: true})
+	runDSNTest(t, "firebolt:///test_db?url=http://localhost:8080", types.FireboltSettings{Url: "http://localhost:8080", Database: "test_db", NewVersion: true, ClientSideLB: true})
+	runDSNTest(t, "firebolt:///test_db?url=https://localhost:443", types.FireboltSettings{Url: "https://localhost:443", Database: "test_db", NewVersion: true, ClientSideLB: true})
+}
+
+func TestDSNCoreClientSideLB(t *testing.T) {
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb=true",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true})
+
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb=false",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: false})
+
+	// Omitting client_side_lb defaults to true.
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true})
 }
 
 func TestDSNCoreFailed(t *testing.T) {

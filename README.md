@@ -29,11 +29,12 @@ firebolt://[/database]?account_name=account_name&client_id=client_id&client_secr
 #### Core instance
 For the core instance, the DSN string has the following format:
 ```
-firebolt://[/database]?url=core_instance_url
+firebolt://[/database]?url=core_instance_url[&client_side_lb=false]
 ```
 
 - **url** - the URL of the core instance to connect to. It should contain the full URL, including schema. E.g. `http://localhost:3473`.
 - **database** - (optional) the name of the database to connect to.
+- **client_side_lb** - (optional, default `true`) enables client-side round-robin load balancing. The SDK resolves the hostname in **url** to its underlying IP addresses and distributes requests across them. This prevents Go's default connection pooling from pinning all requests to a single pod when **url** points to a Kubernetes service. Set to `false` to disable.
 
 ### Querying example
 Here is an example of establishing a connection and executing a simple select query.
