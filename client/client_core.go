@@ -2,9 +2,11 @@ package client
 
 import (
 	"context"
+	"net/url"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
@@ -14,11 +16,31 @@ type ClientImplCore struct {
 }
 
 func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
+	httpClient := NewHttpClient()
+	var resolver *RoundRobinResolver
+
+	if settings.ClientSideLB {
+		var err error
+		resolver, err = NewRoundRobinResolver(settings.Url, nil)
+		if err != nil {
+			return nil, err
+		}
+		// Use a TLS-aware client when the scheme is HTTPS, so certificate
+		// verification still works after the resolver rewrites the URL host
+		// to a raw IP address.
+		canonical := MakeCanonicalUrl(settings.Url)
+		if parsed, err := url.Parse(canonical); err == nil && parsed.Scheme == "https" {
+			httpClient = NewHttpClientForLB(parsed.Hostname())
+		}
+		logging.Infolog.Printf("client-side load balancing enabled for %s", settings.Url)
+	}
+
 	client := &ClientImplCore{
 		BaseClient: BaseClient{
 			ApiEndpoint: settings.Url,
 			UserAgent:   ConstructUserAgentString(),
-			HttpClient:  NewHttpClient(),
+			HttpClient:  httpClient,
+			URLResolver: resolver,
 		},
 		AccountName: settings.AccountName,
 	}

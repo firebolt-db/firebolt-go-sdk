@@ -35,6 +35,7 @@ type BaseClient struct {
 	HttpClient        *http.Client
 	ParameterGetter   func(context.Context, map[string]string) (map[string]string, error)
 	AccessTokenGetter func() (string, error)
+	URLResolver       *RoundRobinResolver // nil disables client-side load balancing
 }
 
 // Close releases resources held by the client, including idle HTTP connections.
@@ -165,16 +166,32 @@ func (c *BaseClient) UploadParquet(ctx context.Context, engineUrl, sql string, p
 	return resp, nil
 }
 
+// resolveURL returns the (possibly rewritten) URL and host override for the
+// next request. When no URLResolver is configured, the URL is returned as-is.
+func (c *BaseClient) resolveURL(ctx context.Context, rawURL string) (string, string) {
+	if c.URLResolver == nil {
+		return rawURL, ""
+	}
+	resolved, originalHost, err := c.URLResolver.Next(ctx)
+	if err != nil {
+		logging.Infolog.Printf("client-side LB resolution failed, using original URL: %v", err)
+		return rawURL, ""
+	}
+	return resolved, originalHost
+}
+
 func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url string, params map[string]string, sql string, parquetData []byte, fileName string) *Response {
 	if c.AccessTokenGetter == nil {
 		return MakeResponse(nil, 0, nil, errors.New("AccessTokenGetter is not set"))
 	}
 
+	resolvedURL, hostOverride := c.resolveURL(ctx, url)
+
 	accessToken, err := c.AccessTokenGetter()
 	if err != nil {
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 	}
-	resp := DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, url, c.UserAgent, params, sql, parquetData, fileName})
+	resp := DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, parquetData, fileName, hostOverride})
 	if resp.statusCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
@@ -182,7 +199,7 @@ func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url stri
 		if err != nil {
 			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 		}
-		resp = DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, url, c.UserAgent, params, sql, parquetData, fileName})
+		resp = DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, parquetData, fileName, hostOverride})
 		if resp.statusCode == http.StatusUnauthorized {
 			resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
 		}
@@ -199,23 +216,22 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 		return MakeResponse(nil, 0, nil, errors.New("AccessTokenGetter is not set"))
 	}
 
+	resolvedURL, hostOverride := c.resolveURL(ctx, url)
+
 	accessToken, err := c.AccessTokenGetter()
 	if err != nil {
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 	}
-	resp := DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
+	resp := DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeJSON, hostOverride})
 	if resp.statusCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
-		// Refreshing the access token as it is expired
 		accessToken, err = c.AccessTokenGetter()
 		if err != nil {
 			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 		}
-		// Trying to send the same request again now that the access token has been refreshed
-		resp = DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, url, c.UserAgent, params, bodyStr, ContentTypeJSON})
+		resp = DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeJSON, hostOverride})
 
-		// If the request still fails, wrap the error with AuthorizationError
 		if resp.statusCode == http.StatusUnauthorized {
 			resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
 		}

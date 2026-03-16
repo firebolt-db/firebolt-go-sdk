@@ -8,5 +8,6 @@ type FireboltSettings struct {
 	AccountName        string
 	Url                string
 	NewVersion         bool
+	ClientSideLB       bool
 	DefaultQueryParams map[string]string
 }
