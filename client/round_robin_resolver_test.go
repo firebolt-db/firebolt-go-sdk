@@ -348,3 +348,86 @@ func TestRoundRobinResolver_HostHeaderOverride(t *testing.T) {
 		t.Errorf("expected Host header %q, got %q", originalHost, receivedHost)
 	}
 }
+
+// TestRoundRobinResolver_BypassedAfterEngineURLChange verifies that the
+// resolver is bypassed when the engine URL changes at runtime (e.g. via a
+// Firebolt-Update-Endpoint response header). Requests to the new URL must
+// go directly to the new endpoint, not be round-robin resolved against the
+// original hostname.
+func TestRoundRobinResolver_BypassedAfterEngineURLChange(t *testing.T) {
+	var resolverHitCount atomic.Int32
+	var newServerHitCount atomic.Int32
+
+	// The "new" server that the engine redirects to.
+	newServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		newServerHitCount.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer newServer.Close()
+
+	// The original server (behind the K8s service).
+	originalServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer originalServer.Close()
+
+	origHost := strings.TrimPrefix(originalServer.URL, "http://")
+	origParts := strings.SplitN(origHost, ":", 2)
+	origIP, origPort := origParts[0], origParts[1]
+
+	lookup := func(_ context.Context, _ string) ([]string, error) {
+		resolverHitCount.Add(1)
+		return []string{origIP}, nil
+	}
+
+	originalServiceURL := fmt.Sprintf("http://my-service:%s", origPort)
+	resolver, err := NewRoundRobinResolver(originalServiceURL, lookup)
+	if err != nil {
+		t.Fatalf("NewRoundRobinResolver: %v", err)
+	}
+
+	coreClient := &ClientImplCore{
+		BaseClient: BaseClient{
+			ApiEndpoint: originalServiceURL,
+			UserAgent:   "test",
+			HttpClient:  NewHttpClient(),
+			URLResolver: resolver,
+		},
+	}
+	coreClient.AccessTokenGetter = coreClient.getAccessToken
+	coreClient.ParameterGetter = coreClient.GetQueryParams
+
+	noop := ConnectionControl{
+		UpdateParameters: func(string, string) {},
+		SetEngineURL:     func(string) {},
+		ResetParameters:  func(*[]string) {},
+	}
+
+	ctx := context.Background()
+
+	// First request goes through the resolver (original service).
+	_, err = coreClient.Query(ctx, originalServiceURL, "SELECT 1", map[string]string{}, noop)
+	if err != nil {
+		t.Fatalf("Query to original: %v", err)
+	}
+	if resolverHitCount.Load() != 1 {
+		t.Fatalf("expected resolver to be called once, got %d", resolverHitCount.Load())
+	}
+
+	// Simulate engine URL change (as if Firebolt-Update-Endpoint was received).
+	newURL := newServer.URL
+
+	// Request with the NEW URL must bypass the resolver entirely.
+	_, err = coreClient.Query(ctx, newURL, "SELECT 1", map[string]string{}, noop)
+	if err != nil {
+		t.Fatalf("Query to new endpoint: %v", err)
+	}
+
+	if newServerHitCount.Load() != 1 {
+		t.Errorf("expected new server to receive 1 request, got %d", newServerHitCount.Load())
+	}
+	// Resolver should NOT have been called again for the new URL.
+	if resolverHitCount.Load() != 1 {
+		t.Errorf("expected resolver to still have 1 call (bypassed for new URL), got %d", resolverHitCount.Load())
+	}
+}

@@ -168,8 +168,14 @@ func (c *BaseClient) UploadParquet(ctx context.Context, engineUrl, sql string, p
 
 // resolveURL returns the (possibly rewritten) URL and host override for the
 // next request. When no URLResolver is configured, the URL is returned as-is.
+// If the engine URL has been changed at runtime (e.g. via a
+// Firebolt-Update-Endpoint response header), the resolver is bypassed
+// because it is configured for the original hostname only.
 func (c *BaseClient) resolveURL(ctx context.Context, rawURL string) (string, string) {
 	if c.URLResolver == nil {
+		return rawURL, ""
+	}
+	if MakeCanonicalUrl(rawURL) != c.URLResolver.originalURL.String() {
 		return rawURL, ""
 	}
 	resolved, originalHost, err := c.URLResolver.Next(ctx)
