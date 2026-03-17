@@ -25,6 +25,9 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 		if err != nil {
 			return nil, err
 		}
+		if settings.DNSTTL > 0 {
+			resolver.TTL = settings.DNSTTL
+		}
 		// Use a TLS-aware client when the scheme is HTTPS, so certificate
 		// verification still works after the resolver rewrites the URL host
 		// to a raw IP address.
@@ -32,7 +35,7 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 		if parsed, err := url.Parse(canonical); err == nil && parsed.Scheme == "https" {
 			httpClient = NewHttpClientForLB(parsed.Hostname())
 		}
-		logging.Infolog.Printf("client-side load balancing enabled for %s", settings.Url)
+		logging.Infolog.Printf("client-side load balancing enabled for %s (DNS TTL: %s)", settings.Url, resolver.TTL)
 	}
 
 	client := &ClientImplCore{
