@@ -1306,3 +1306,245 @@ func TestMultipleSendSimulation(t *testing.T) {
 		t.Errorf("batch 2 values wrong")
 	}
 }
+
+// ===========================================================================
+// Array fast-path: every element type through appendRow + round-trip
+// ===========================================================================
+
+func TestArrayFastPathAllElementTypes(t *testing.T) {
+	ts := time.Date(2025, 3, 15, 12, 0, 0, 0, time.UTC)
+	dt := time.Date(2025, 3, 15, 0, 0, 0, 0, time.UTC)
+
+	tests := []struct {
+		name   string
+		fbType string
+		row0   interface{} // non-empty array
+		row1   interface{} // empty array
+		check  func(t *testing.T, f *parquet.File, rows []parquet.Row)
+	}{
+		{
+			name:   "array(text)",
+			fbType: "array(text)",
+			row0:   []string{"hello", "world"},
+			row1:   []string{},
+			check: func(t *testing.T, f *parquet.File, rows []parquet.Row) {
+				col := colIndex(f, "v")
+				var vals []string
+				for _, v := range rows[0] {
+					if v.Column() == col && !v.IsNull() {
+						vals = append(vals, string(v.ByteArray()))
+					}
+				}
+				if len(vals) != 2 || vals[0] != "hello" || vals[1] != "world" {
+					t.Errorf("row 0 = %v, want [hello world]", vals)
+				}
+			},
+		},
+		{
+			name:   "array(int)",
+			fbType: "array(int)",
+			row0:   []int32{10, 20, 30},
+			row1:   []int32{},
+			check: func(t *testing.T, f *parquet.File, rows []parquet.Row) {
+				col := colIndex(f, "v")
+				var vals []int32
+				for _, v := range rows[0] {
+					if v.Column() == col && !v.IsNull() {
+						vals = append(vals, v.Int32())
+					}
+				}
+				if len(vals) != 3 || vals[0] != 10 || vals[1] != 20 || vals[2] != 30 {
+					t.Errorf("row 0 = %v, want [10 20 30]", vals)
+				}
+			},
+		},
+		{
+			name:   "array(long)",
+			fbType: "array(long)",
+			row0:   []int64{100, 200},
+			row1:   []int64{},
+			check: func(t *testing.T, f *parquet.File, rows []parquet.Row) {
+				col := colIndex(f, "v")
+				var vals []int64
+				for _, v := range rows[0] {
+					if v.Column() == col && !v.IsNull() {
+						vals = append(vals, v.Int64())
+					}
+				}
+				if len(vals) != 2 || vals[0] != 100 || vals[1] != 200 {
+					t.Errorf("row 0 = %v, want [100 200]", vals)
+				}
+			},
+		},
+		{
+			name:   "array(float)",
+			fbType: "array(float)",
+			row0:   []float32{1.5, 2.5},
+			row1:   []float32{},
+			check: func(t *testing.T, f *parquet.File, rows []parquet.Row) {
+				col := colIndex(f, "v")
+				var vals []float32
+				for _, v := range rows[0] {
+					if v.Column() == col && !v.IsNull() {
+						vals = append(vals, v.Float())
+					}
+				}
+				if len(vals) != 2 || vals[0] != 1.5 || vals[1] != 2.5 {
+					t.Errorf("row 0 = %v, want [1.5 2.5]", vals)
+				}
+			},
+		},
+		{
+			name:   "array(double)",
+			fbType: "array(double)",
+			row0:   []float64{3.14, 2.72},
+			row1:   []float64{},
+			check: func(t *testing.T, f *parquet.File, rows []parquet.Row) {
+				col := colIndex(f, "v")
+				var vals []float64
+				for _, v := range rows[0] {
+					if v.Column() == col && !v.IsNull() {
+						vals = append(vals, v.Double())
+					}
+				}
+				if len(vals) != 2 || vals[0] != 3.14 || vals[1] != 2.72 {
+					t.Errorf("row 0 = %v, want [3.14 2.72]", vals)
+				}
+			},
+		},
+		{
+			name:   "array(boolean)",
+			fbType: "array(boolean)",
+			row0:   []bool{true, false, true},
+			row1:   []bool{},
+			check: func(t *testing.T, f *parquet.File, rows []parquet.Row) {
+				col := colIndex(f, "v")
+				var vals []bool
+				for _, v := range rows[0] {
+					if v.Column() == col && !v.IsNull() {
+						vals = append(vals, v.Boolean())
+					}
+				}
+				if len(vals) != 3 || vals[0] != true || vals[1] != false || vals[2] != true {
+					t.Errorf("row 0 = %v, want [true false true]", vals)
+				}
+			},
+		},
+		{
+			name:   "array(date)",
+			fbType: "array(date)",
+			row0:   []time.Time{dt},
+			row1:   []time.Time{},
+			check: func(t *testing.T, f *parquet.File, rows []parquet.Row) {
+				col := colIndex(f, "v")
+				wantDays := int32(dt.Sub(epoch) / (24 * time.Hour))
+				for _, v := range rows[0] {
+					if v.Column() == col && !v.IsNull() {
+						if got := v.Int32(); got != wantDays {
+							t.Errorf("row 0 date = %d days, want %d", got, wantDays)
+						}
+						return
+					}
+				}
+				t.Error("row 0: no date value found")
+			},
+		},
+		{
+			name:   "array(timestamp)",
+			fbType: "array(timestamp)",
+			row0:   []time.Time{ts},
+			row1:   []time.Time{},
+			check: func(t *testing.T, f *parquet.File, rows []parquet.Row) {
+				col := colIndex(f, "v")
+				for _, v := range rows[0] {
+					if v.Column() == col && !v.IsNull() {
+						if got := v.Int64(); got != ts.UnixMicro() {
+							t.Errorf("row 0 ts = %d, want %d", got, ts.UnixMicro())
+						}
+						return
+					}
+				}
+				t.Error("row 0: no timestamp value found")
+			},
+		},
+		{
+			name:   "array(bytea)",
+			fbType: "array(bytea)",
+			row0:   [][]byte{{0xDE, 0xAD}, {0xBE, 0xEF}},
+			row1:   [][]byte{},
+			check: func(t *testing.T, f *parquet.File, rows []parquet.Row) {
+				col := colIndex(f, "v")
+				var vals [][]byte
+				for _, v := range rows[0] {
+					if v.Column() == col && !v.IsNull() {
+						vals = append(vals, v.ByteArray())
+					}
+				}
+				if len(vals) != 2 {
+					t.Errorf("row 0: got %d bytea values, want 2", len(vals))
+				}
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			blk, err := newBlock([]string{"v"}, []string{tc.fbType})
+			if err != nil {
+				t.Fatalf("newBlock: %v", err)
+			}
+
+			if err := blk.appendRow([]interface{}{tc.row0}); err != nil {
+				t.Fatalf("appendRow(non-empty): %v", err)
+			}
+			if err := blk.appendRow([]interface{}{tc.row1}); err != nil {
+				t.Fatalf("appendRow(empty): %v", err)
+			}
+
+			if blk.blockRows() != 2 {
+				t.Fatalf("blockRows() = %d, want 2", blk.blockRows())
+			}
+
+			data, err := blk.toParquet()
+			if err != nil {
+				t.Fatalf("toParquet: %v", err)
+			}
+
+			f, rows := readParquetRows(t, data)
+			if len(rows) != 2 {
+				t.Fatalf("expected 2 rows, got %d", len(rows))
+			}
+
+			tc.check(t, f, rows)
+		})
+	}
+}
+
+func TestArrayFastPathNilSlice(t *testing.T) {
+	blk, err := newBlock([]string{"v"}, []string{"array(text)"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var nilSlice []string
+	if err := blk.appendRow([]interface{}{nilSlice}); err != nil {
+		t.Fatalf("appendRow(nil slice): %v", err)
+	}
+
+	if blk.blockRows() != 1 {
+		t.Fatalf("blockRows() = %d, want 1", blk.blockRows())
+	}
+
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatalf("toParquet: %v", err)
+	}
+
+	_, rows := readParquetRows(t, data)
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 row, got %d", len(rows))
+	}
+	if len(rows[0]) != 1 || !rows[0][0].IsNull() {
+		t.Errorf("expected empty-array sentinel, got %v", rows[0])
+	}
+}
