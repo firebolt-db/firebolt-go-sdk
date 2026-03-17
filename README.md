@@ -35,6 +35,53 @@ firebolt://[/database]?url=core_instance_url[&client_side_lb=false]
 - **url** - the URL of the core instance to connect to. It should contain the full URL, including schema. E.g. `http://localhost:3473`.
 - **database** - (optional) the name of the database to connect to.
 - **client_side_lb** - (optional, default `true`) enables client-side round-robin load balancing. The SDK resolves the hostname in **url** to its underlying IP addresses and distributes requests across them. This prevents Go's default connection pooling from pinning all requests to a single pod when **url** points to a Kubernetes service. Set to `false` to disable.
+- **client_side_lb_dns_ttl** - (optional, default `30s`) how often the round-robin resolver re-resolves the hostname to discover new or removed nodes. Accepts any Go duration string (e.g. `5s`, `500ms`, `2m`). Lower values give faster failover; higher values reduce DNS traffic. Only takes effect when `client_side_lb` is enabled.
+
+### Custom HTTP transport
+
+The SDK ships with sensible HTTP transport defaults (30s dial timeout, 10s TLS handshake timeout, 30s keep-alive, 90s idle connection timeout). If you need to tune these -- for example, to increase the dial timeout for high-latency networks or the idle connection timeout for long-lived batch pipelines -- use `OpenConnectorWithDSN` together with `WithTransport`:
+
+```go
+package main
+
+import (
+	"database/sql"
+	"log"
+	"net"
+	"time"
+
+	firebolt "github.com/firebolt-db/firebolt-go-sdk"
+	"github.com/firebolt-db/firebolt-go-sdk/client"
+)
+
+func main() {
+	// Start from the SDK defaults and override what you need.
+	transport := client.DefaultTransport()
+	transport.DialContext = (&net.Dialer{
+		Timeout:   60 * time.Second,
+		KeepAlive: 60 * time.Second,
+	}).DialContext
+	transport.TLSHandshakeTimeout = 20 * time.Second
+	transport.IdleConnTimeout = 2 * time.Minute
+
+	dsn := "firebolt:///mydb?url=http://firebolt:3473&client_side_lb_dns_ttl=5s"
+
+	// OpenConnectorWithDSN parses the DSN and applies driver options.
+	connector, err := firebolt.OpenConnectorWithDSN(dsn, firebolt.WithTransport(transport))
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// sql.OpenDB returns the same *sql.DB you get from sql.Open,
+	// but with your custom transport in effect.
+	db := sql.OpenDB(connector)
+	defer db.Close()
+
+	// Use db as usual ...
+}
+```
+
+`client.DefaultTransport()` returns a new `*http.Transport` each time, so you can safely create different transports for different use cases. `WithTransport` accepts any `http.RoundTripper`, so you can also wrap the transport with middleware (e.g. `otelhttp.NewTransport` for OpenTelemetry tracing). When no custom transport is provided (i.e. when using `sql.Open`), the SDK uses its built-in defaults.
 
 ### Querying example
 Here is an example of establishing a connection and executing a simple select query.

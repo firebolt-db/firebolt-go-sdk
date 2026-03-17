@@ -30,7 +30,7 @@ func MakeClient(settings *types.FireboltSettings, apiEndpoint string) (*ClientIm
 			ClientSecret: settings.ClientSecret,
 			ApiEndpoint:  apiEndpoint,
 			UserAgent:    ConstructUserAgentString(),
-			HttpClient:   NewHttpClient(),
+			HttpClient:   NewHttpClientWithTransport(settings.Transport),
 		},
 		AccountName: settings.AccountName,
 	}

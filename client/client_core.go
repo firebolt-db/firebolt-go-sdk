@@ -16,7 +16,7 @@ type ClientImplCore struct {
 }
 
 func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
-	httpClient := NewHttpClient()
+	httpClient := NewHttpClientWithTransport(settings.Transport)
 	var resolver *RoundRobinResolver
 
 	if settings.ClientSideLB {
@@ -33,7 +33,7 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 		// to a raw IP address.
 		canonical := MakeCanonicalUrl(settings.Url)
 		if parsed, err := url.Parse(canonical); err == nil && parsed.Scheme == "https" {
-			httpClient = NewHttpClientForLB(parsed.Hostname())
+			httpClient = NewHttpClientForLBWithTransport(settings.Transport, parsed.Hostname())
 		}
 		logging.Infolog.Printf("client-side load balancing enabled for %s (DNS TTL: %s)", settings.Url, resolver.TTL)
 	}
