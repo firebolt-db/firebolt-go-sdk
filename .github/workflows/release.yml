@@ -55,19 +55,25 @@ jobs:
     - name: Version bump
       run: |
         # Bump version = <number> in version file
-        sed -i "s/SdkVersion string = .*/SdkVersion string = \"v${{ steps.version.outputs.new-tag }}\"/g" version/version.go
+        sed -i "s/SdkVersion string = .*/SdkVersion string = \"v${STEPS_VERSION_OUTPUTS_NEW_TAG}\"/g" version/version.go
         git add version/version.go
-        git commit -m "Automatic version bump to v${{ steps.version.outputs.new-tag }}"
+        git commit -m "Automatic version bump to v${STEPS_VERSION_OUTPUTS_NEW_TAG}"
         git push origin main
       shell: bash
+      env:
+        STEPS_VERSION_OUTPUTS_NEW_TAG: ${{ steps.version.outputs.new-tag }}
         
     - name: Publish tag on github
       run: |
-        git tag v${{ steps.version.outputs.new-tag }}
-        git push origin v${{ steps.version.outputs.new-tag }}
+        git tag v${STEPS_VERSION_OUTPUTS_NEW_TAG}
+        git push origin v${STEPS_VERSION_OUTPUTS_NEW_TAG}
       shell: bash
+      env:
+        STEPS_VERSION_OUTPUTS_NEW_TAG: ${{ steps.version.outputs.new-tag }}
         
     - name: Run go list
       run: |
-        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@v${{ steps.version.outputs.new-tag }}
+        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@v${STEPS_VERSION_OUTPUTS_NEW_TAG}
       shell: bash
+      env:
+        STEPS_VERSION_OUTPUTS_NEW_TAG: ${{ steps.version.outputs.new-tag }}
