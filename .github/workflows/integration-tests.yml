@@ -35,6 +35,10 @@ jobs:
     secrets:
         FIREBOLT_CLIENT_ID_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
         FIREBOLT_CLIENT_SECRET_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
+
   integration-tests-core:
     uses: ./.github/workflows/integration-test-core.yml
-    secrets: inherit
+    secrets:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY: ${{ secrets.FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY }}
+      FIREBOLT_CORE_DEV_CERT: ${{ secrets.FIREBOLT_CORE_DEV_CERT }}
