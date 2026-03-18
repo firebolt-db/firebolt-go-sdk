@@ -79,8 +79,10 @@ jobs:
       # if no image tag was passed in, then use the image tag from the defaults
       - name: Set image tag
         id: set-tag
+        env:
+          TAG_VERSION: ${{ inputs.tag_version }}
         run: |
-          IMAGE_TAG="${{ inputs.tag_version }}"
+          IMAGE_TAG="${TAG_VERSION}"
           if [ -z "$IMAGE_TAG" ]; then
             IMAGE_TAG="$DEFAULT_IMAGE_TAG"
           fi
