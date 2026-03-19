@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"net/url"
 	"testing"
+	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
@@ -42,6 +43,10 @@ func runDSNTest(t *testing.T, input string, expectedSettings types.FireboltSetti
 
 	if settings.ClientSideLB != expectedSettings.ClientSideLB {
 		t.Errorf("for ClientSideLB got %t want %t", settings.ClientSideLB, expectedSettings.ClientSideLB)
+	}
+
+	if settings.DNSTTL != expectedSettings.DNSTTL {
+		t.Errorf("for DNSTTL got %v want %v", settings.DNSTTL, expectedSettings.DNSTTL)
 	}
 
 	// Check DefaultQueryParams
@@ -147,6 +152,26 @@ func TestDSNCoreClientSideLB(t *testing.T) {
 func TestDSNCoreFailed(t *testing.T) {
 	runDSNTestFail(t, "firebolt:///user:password?url=http")
 	runDSNTestFail(t, "firebolt:///test_db?url=http&k=v")
+}
+
+func TestDSNCoreClientSideLBDNSTTL(t *testing.T) {
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=10s",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true, DNSTTL: 10 * time.Second})
+
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=500ms",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true, DNSTTL: 500 * time.Millisecond})
+
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=2m",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true, DNSTTL: 2 * time.Minute})
+
+	// Omitting client_side_lb_dns_ttl leaves DNSTTL at zero (SDK uses its default 30s).
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true})
+}
+
+func TestDSNCoreClientSideLBDNSTTLInvalid(t *testing.T) {
+	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=bogus")
+	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=")
 }
 
 func TestDSNWithDefaultParams(t *testing.T) {

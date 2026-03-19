@@ -1,5 +1,10 @@
 package types
 
+import (
+	"net/http"
+	"time"
+)
+
 type FireboltSettings struct {
 	ClientID           string
 	ClientSecret       string
@@ -9,5 +14,7 @@ type FireboltSettings struct {
 	Url                string
 	NewVersion         bool
 	ClientSideLB       bool
+	DNSTTL             time.Duration
+	Transport          http.RoundTripper
 	DefaultQueryParams map[string]string
 }

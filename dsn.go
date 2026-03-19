@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 
@@ -76,6 +77,12 @@ func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 			result.Url = decodedValue
 		case "client_side_lb":
 			result.ClientSideLB = decodedValue == "true"
+		case "client_side_lb_dns_ttl":
+			d, err := time.ParseDuration(decodedValue)
+			if err != nil {
+				return nil, fmt.Errorf("invalid client_side_lb_dns_ttl value %q: %w", decodedValue, err)
+			}
+			result.DNSTTL = d
 		default:
 			return nil, fmt.Errorf("unknown parameter name %s", key)
 		}

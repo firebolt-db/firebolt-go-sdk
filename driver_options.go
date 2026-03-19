@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"context"
 	"errors"
+	"net/http"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
 )
@@ -142,6 +143,23 @@ func WithDatabaseAndEngineName(databaseName, engineName string) driverOptionWith
 	}
 }
 
+// WithTransport sets a custom http.RoundTripper for all HTTP requests made
+// by the SDK (queries, batch uploads, authentication). Use
+// client.DefaultTransport() as a starting point and override specific fields,
+// or wrap it with middleware (e.g. otelhttp for tracing):
+//
+//	transport := client.DefaultTransport()
+//	transport.DialContext = (&net.Dialer{Timeout: 60*time.Second}).DialContext
+//	connector, _ := firebolt.OpenConnectorWithDSN(dsn, firebolt.WithTransport(transport))
+//	db := sql.OpenDB(connector)
+func WithTransport(transport http.RoundTripper) driverOption {
+	return func(d *FireboltDriver) {
+		d.mutex.Lock()
+		defer d.mutex.Unlock()
+		d.transport = transport
+	}
+}
+
 // WithDefaultQueryParams defines default query parameters that will be seeded into the connection
 // These parameters will be included in all HTTP requests and can be overridden by SET statements
 func WithDefaultQueryParams(params map[string]string) driverOption {
@@ -158,6 +176,27 @@ func WithDefaultQueryParams(params map[string]string) driverOption {
 			}
 		}
 	}
+}
+
+// OpenConnectorWithDSN parses a DSN string and applies the given driver
+// options (e.g. WithTransport), returning a connector suitable for
+// sql.OpenDB. This is the recommended way to customize transport settings
+// that cannot be expressed in a DSN string:
+//
+//	transport := client.DefaultTransport()
+//	transport.IdleConnTimeout = 2 * time.Minute
+//	connector, err := firebolt.OpenConnectorWithDSN(dsn, firebolt.WithTransport(transport))
+//	db := sql.OpenDB(connector)
+func OpenConnectorWithDSN(dsn string, opts ...driverOption) (*FireboltConnector, error) {
+	d := &FireboltDriver{}
+	for _, opt := range opts {
+		opt(d)
+	}
+	c, err := d.OpenConnector(dsn)
+	if err != nil {
+		return nil, err
+	}
+	return c.(*FireboltConnector), nil
 }
 
 // FireboltConnectorWithOptions builds a custom connector

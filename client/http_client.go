@@ -21,33 +21,18 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
 
-// NewHttpClient creates an *http.Client with a transport configured for
-// connection pooling. Callers should reuse the returned client across
-// requests so that idle TCP/TLS connections are kept alive.
-func NewHttpClient() *http.Client {
-	return &http.Client{
-		Transport: &http.Transport{
-			Proxy: http.ProxyFromEnvironment,
-			DialContext: (&net.Dialer{
-				Timeout:   30 * time.Second,
-				KeepAlive: 30 * time.Second,
-			}).DialContext,
-			ForceAttemptHTTP2:     true,
-			MaxIdleConns:          100,
-			MaxIdleConnsPerHost:   10,
-			IdleConnTimeout:       90 * time.Second,
-			TLSHandshakeTimeout:   10 * time.Second,
-			ExpectContinueTimeout: 1 * time.Second,
-		},
-	}
-}
-
-// NewHttpClientForLB creates an *http.Client suitable for client-side load
-// balancing. When the resolver rewrites URLs to use raw IP addresses,
-// tlsServerName ensures TLS certificate verification still uses the original
-// hostname. Pass an empty string if TLS is not used (plain HTTP).
-func NewHttpClientForLB(tlsServerName string) *http.Client {
-	transport := &http.Transport{
+// DefaultTransport returns a new *http.Transport with the SDK's default
+// settings. Callers can customize the returned transport and pass it via
+// WithTransport when creating a connector.
+//
+//	transport := client.DefaultTransport()
+//	transport.DialContext = (&net.Dialer{
+//	    Timeout:   60 * time.Second,
+//	    KeepAlive: 60 * time.Second,
+//	}).DialContext
+//	transport.IdleConnTimeout = 2 * time.Minute
+func DefaultTransport() *http.Transport {
+	return &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		DialContext: (&net.Dialer{
 			Timeout:   30 * time.Second,
@@ -60,10 +45,47 @@ func NewHttpClientForLB(tlsServerName string) *http.Client {
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
 	}
-	if tlsServerName != "" {
-		transport.TLSClientConfig = &tls.Config{ServerName: tlsServerName}
+}
+
+// NewHttpClient creates an *http.Client with DefaultTransport().
+func NewHttpClient() *http.Client {
+	return &http.Client{Transport: DefaultTransport()}
+}
+
+// NewHttpClientWithTransport creates an *http.Client with the given
+// RoundTripper. If rt is nil, DefaultTransport() is used.
+func NewHttpClientWithTransport(rt http.RoundTripper) *http.Client {
+	if rt == nil {
+		return NewHttpClient()
 	}
-	return &http.Client{Transport: transport}
+	return &http.Client{Transport: rt}
+}
+
+// NewHttpClientForLB creates an *http.Client suitable for client-side load
+// balancing. When the resolver rewrites URLs to use raw IP addresses,
+// tlsServerName ensures TLS certificate verification still uses the original
+// hostname. Pass an empty string if TLS is not used (plain HTTP).
+func NewHttpClientForLB(tlsServerName string) *http.Client {
+	return NewHttpClientForLBWithTransport(nil, tlsServerName)
+}
+
+// NewHttpClientForLBWithTransport is like NewHttpClientForLB but uses the
+// given RoundTripper instead of DefaultTransport(). When rt is an
+// *http.Transport, TLSClientConfig.ServerName is set directly; otherwise
+// the caller is responsible for TLS configuration in their custom
+// RoundTripper. If rt is nil, DefaultTransport() is used.
+func NewHttpClientForLBWithTransport(rt http.RoundTripper, tlsServerName string) *http.Client {
+	if rt == nil {
+		rt = DefaultTransport()
+	}
+	if tlsServerName != "" {
+		if t, ok := rt.(*http.Transport); ok {
+			t.TLSClientConfig = &tls.Config{ServerName: tlsServerName}
+		} else {
+			logging.Infolog.Printf("custom RoundTripper is not *http.Transport; skipping TLS ServerName override for %q", tlsServerName)
+		}
+	}
+	return &http.Client{Transport: rt}
 }
 
 type Response struct {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"net/http"
 	"sync"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
@@ -18,6 +19,7 @@ type FireboltDriver struct {
 	cachedParams map[string]string
 	client       client.Client
 	lastUsedDsn  string
+	transport    http.RoundTripper
 }
 
 // Open parses the dsn string, and if correct tries to establish a connection
@@ -61,6 +63,8 @@ func (d *FireboltDriver) OpenConnector(dsn string) (driver.Connector, error) {
 	if err != nil {
 		return nil, errors.Wrap(errors.DSNParseError, err)
 	}
+
+	settings.Transport = d.transport
 
 	logging.Infolog.Println("dsn parsed correctly, trying to authenticate")
 	d.client, err = client.ClientFactory(settings, client.GetHostNameURL())
