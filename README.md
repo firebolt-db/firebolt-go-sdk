@@ -1,12 +1,12 @@
-# Firebolt GO SDK
+# Firebolt Go SDK
 
-[![Nightly code check](https://github.com/yuryfirebolt/firebolt-go-sdk/actions/workflows/nightly.yml/badge.svg)](https://github.com/yuryfirebolt/firebolt-go-sdk/actions/workflows/nightly.yml)
+[![Nightly code check](https://github.com/yuryfirebolt/firebolt-go-sdk/actions/workflows/nightly-v2.yml/badge.svg)](https://github.com/yuryfirebolt/firebolt-go-sdk/actions/workflows/nightly-v2.yml)
 [![Code quality checks](https://github.com/yuryfirebolt/firebolt-go-sdk/actions/workflows/code-check.yml/badge.svg)](https://github.com/yuryfirebolt/firebolt-go-sdk/actions/workflows/code-check.yml)
 [![Integration tests](https://github.com/yuryfirebolt/firebolt-go-sdk/actions/workflows/integration-tests.yml/badge.svg)](https://github.com/yuryfirebolt/firebolt-go-sdk/actions/workflows/integration-tests.yml)
 ![Coverage](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/yuryfirebolt/764079ffbd558d515e250e6528179824/raw/firebolt-go-sdk-coverage.json)
 
 
-Firebolt GO driver is an implementation of `database/sql/driver`.
+Connect to Firebolt using Go. The Firebolt Go driver is an implementation of `database/sql/driver`.
 
 ### Installation
 
@@ -109,7 +109,7 @@ func main() {
 
 ### Streaming example
 In order to stream the query result (and not store it in memory fully), you need to pass a special context with streaming enabled.
-> **Warning**: If you enable streaming the result, the query execution might finish successfully, but the actual error might be returned during the iteration over the rows.   
+> **Warning**: If you enable streaming the result, the query execution might finish successfully, but the actual error might be returned during the iteration over the rows.
 
 Here is an example of how to do it:
 
@@ -178,7 +178,7 @@ If you enable streaming the result, the query execution might finish successfull
 ### Prepared statements
 The SDK supports two types of prepared statements:
 1. **Native** - client-side prepared statements. Uses `?` as a placeholder for parameters.
-2. **FBNumeric** - server-side prepared statements. Uses `$i` as a placeholder for parameters.   
+2. **FBNumeric** - server-side prepared statements. Uses `$i` as a placeholder for parameters.
 
 You can manually create a prepared statement using the `Prepare` method of the `sql.DB` object. You can also use the `Exec` method of the `sql.DB` object to execute a prepared statement directly without creating it first.
 
@@ -308,7 +308,7 @@ import (
     "database/sql"
     "fmt"
     "log"
-	
+
     firebolt "github.com/firebolt-db/firebolt-go-sdk"
 )
 
@@ -328,15 +328,15 @@ func main() {
     }
     defer db.Close()
     log.Printf("successfully opened a driver with dsn: %s", dsn)
-	
-	
+
+
     token, err := firebolt.ExecAsync(db, "INSERT INTO test_table VALUES (?, ?)", 1, "async value")
     if err != nil {
         log.Fatalf("error executing asynchronous query: %v", err)
     }
 
 	log.Print("started asynchronous query execution")
-	
+
 	for {
 		running, err := firebolt.IsAsyncQueryRunning(db, token)
 		if err != nil {
@@ -346,7 +346,7 @@ func main() {
 			break
 		}
     }
-	
+
 	success, err := firebolt.IsAsyncQuerySuccessful(db, token)
 	if err != nil {
 		log.Fatalf("Failed to check async query success: %v", err)
@@ -371,7 +371,7 @@ import (
     "database/sql"
     "fmt"
     "log"
-	
+
     firebolt "github.com/firebolt-db/firebolt-go-sdk"
 )
 
@@ -391,16 +391,16 @@ func main() {
 	}
 	defer db.Close()
 	log.Printf("successfully opened a driver with dsn: %s", dsn)
-	
+
 	// Start a transaction
 	tx, err := db.Begin()
 	if err != nil {
         log.Fatalf("error starting transaction: %v", err)
     }
-	
+
 	// Execute a sql query within the transaction
 	_, err = tx.ExecContext(context.Background(), "INSERT INTO test_table VALUES (?, ?)", 1, "value")
-	
+
 	// Rollback the transaction if there was an error
 	if err != nil {
         log.Printf("error executing query within transaction: %v", err)
@@ -409,7 +409,7 @@ func main() {
         }
         return
     }
-	
+
 	// Commit the transaction if everything was successful
 	if err = tx.Commit(); err != nil {
         log.Fatalf("error committing transaction: %v", err)
@@ -555,7 +555,7 @@ func main() {
 			log.Fatalf("Unexpected error type: %v", err)
 		}
 	}
-	
+
 	// Example 3: Invalid account name
     invalidAccountDSN := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
         databaseName, "invalid", clientId, clientSecret, engineName)
@@ -567,7 +567,7 @@ func main() {
             log.Fatalf("Unexpected error type: %v", err)
         }
     }
-	
+
 	// Example 4: Invalid SQL query
 	dsn := fmt.Sprintf("firebolt:///%s?account_name=%s&client_id=%s&client_secret=%s&engine=%s",
 		databaseName, accountName, clientId, clientSecret, engineName)
