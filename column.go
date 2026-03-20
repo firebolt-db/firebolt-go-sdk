@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"unsafe"
 
 	"github.com/parquet-go/parquet-go"
 )
@@ -21,7 +22,7 @@ type column interface {
 	appendZero()
 	reset()
 	parquetNode() parquet.Node
-	parquetValue(rowIdx, colIdx int) parquet.Value
+	parquetValues(colIdx int) []parquet.Value
 }
 
 // appendColumnFallback iterates over any slice/array via reflection and
@@ -221,8 +222,12 @@ func (c *int32Column) appendColumn(v interface{}) error {
 func (c *int32Column) appendZero()               { c.data = append(c.data, 0) }
 func (c *int32Column) reset()                    { c.data = c.data[:0] }
 func (c *int32Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.Int32Type) }
-func (c *int32Column) parquetValue(rowIdx, colIdx int) parquet.Value {
-	return parquet.Int32Value(c.data[rowIdx]).Level(0, 0, colIdx)
+func (c *int32Column) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, v := range c.data {
+		vals[i] = parquet.Int32Value(v).Level(0, 0, colIdx)
+	}
+	return vals
 }
 
 // ---------------------------------------------------------------------------
@@ -257,8 +262,12 @@ func (c *int64Column) appendColumn(v interface{}) error {
 func (c *int64Column) appendZero()               { c.data = append(c.data, 0) }
 func (c *int64Column) reset()                    { c.data = c.data[:0] }
 func (c *int64Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.Int64Type) }
-func (c *int64Column) parquetValue(rowIdx, colIdx int) parquet.Value {
-	return parquet.Int64Value(c.data[rowIdx]).Level(0, 0, colIdx)
+func (c *int64Column) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, v := range c.data {
+		vals[i] = parquet.Int64Value(v).Level(0, 0, colIdx)
+	}
+	return vals
 }
 
 // ---------------------------------------------------------------------------
@@ -293,8 +302,12 @@ func (c *float32Column) appendColumn(v interface{}) error {
 func (c *float32Column) appendZero()               { c.data = append(c.data, 0) }
 func (c *float32Column) reset()                    { c.data = c.data[:0] }
 func (c *float32Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.FloatType) }
-func (c *float32Column) parquetValue(rowIdx, colIdx int) parquet.Value {
-	return parquet.FloatValue(c.data[rowIdx]).Level(0, 0, colIdx)
+func (c *float32Column) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, v := range c.data {
+		vals[i] = parquet.FloatValue(v).Level(0, 0, colIdx)
+	}
+	return vals
 }
 
 // ---------------------------------------------------------------------------
@@ -329,8 +342,12 @@ func (c *float64Column) appendColumn(v interface{}) error {
 func (c *float64Column) appendZero()               { c.data = append(c.data, 0) }
 func (c *float64Column) reset()                    { c.data = c.data[:0] }
 func (c *float64Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.DoubleType) }
-func (c *float64Column) parquetValue(rowIdx, colIdx int) parquet.Value {
-	return parquet.DoubleValue(c.data[rowIdx]).Level(0, 0, colIdx)
+func (c *float64Column) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, v := range c.data {
+		vals[i] = parquet.DoubleValue(v).Level(0, 0, colIdx)
+	}
+	return vals
 }
 
 // ---------------------------------------------------------------------------
@@ -366,8 +383,19 @@ func (c *stringColumn) appendColumn(v interface{}) error {
 func (c *stringColumn) appendZero()               { c.data = append(c.data, "") }
 func (c *stringColumn) reset()                    { c.data = c.data[:0] }
 func (c *stringColumn) parquetNode() parquet.Node { return parquet.String() }
-func (c *stringColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
-	return parquet.ByteArrayValue([]byte(c.data[rowIdx])).Level(0, 0, colIdx)
+func (c *stringColumn) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, s := range c.data {
+		// unsafe.Slice avoids allocating+copying a []byte per string; the
+		// column buffer copies the data during WriteValues so the reference
+		// only needs to survive that call.
+		var b []byte
+		if len(s) > 0 {
+			b = unsafe.Slice(unsafe.StringData(s), len(s))
+		}
+		vals[i] = parquet.ByteArrayValue(b).Level(0, 0, colIdx)
+	}
+	return vals
 }
 
 // ---------------------------------------------------------------------------
@@ -403,8 +431,12 @@ func (c *boolColumn) appendColumn(v interface{}) error {
 func (c *boolColumn) appendZero()               { c.data = append(c.data, false) }
 func (c *boolColumn) reset()                    { c.data = c.data[:0] }
 func (c *boolColumn) parquetNode() parquet.Node { return parquet.Leaf(parquet.BooleanType) }
-func (c *boolColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
-	return parquet.BooleanValue(c.data[rowIdx]).Level(0, 0, colIdx)
+func (c *boolColumn) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, v := range c.data {
+		vals[i] = parquet.BooleanValue(v).Level(0, 0, colIdx)
+	}
+	return vals
 }
 
 // ---------------------------------------------------------------------------
@@ -442,8 +474,12 @@ func (c *dateColumn) appendColumn(v interface{}) error {
 func (c *dateColumn) appendZero()               { c.data = append(c.data, 0) }
 func (c *dateColumn) reset()                    { c.data = c.data[:0] }
 func (c *dateColumn) parquetNode() parquet.Node { return parquet.Date() }
-func (c *dateColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
-	return parquet.Int32Value(c.data[rowIdx]).Level(0, 0, colIdx)
+func (c *dateColumn) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, v := range c.data {
+		vals[i] = parquet.Int32Value(v).Level(0, 0, colIdx)
+	}
+	return vals
 }
 
 // ---------------------------------------------------------------------------
@@ -485,8 +521,12 @@ func (c *timestampColumn) parquetNode() parquet.Node {
 	return parquet.TimestampAdjusted(parquet.Microsecond, c.adjusted)
 }
 
-func (c *timestampColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
-	return parquet.Int64Value(c.data[rowIdx]).Level(0, 0, colIdx)
+func (c *timestampColumn) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, v := range c.data {
+		vals[i] = parquet.Int64Value(v).Level(0, 0, colIdx)
+	}
+	return vals
 }
 
 // ---------------------------------------------------------------------------
@@ -525,8 +565,12 @@ func (c *byteaColumn) appendColumn(v interface{}) error {
 func (c *byteaColumn) appendZero()               { c.data = append(c.data, nil) }
 func (c *byteaColumn) reset()                    { c.data = c.data[:0] }
 func (c *byteaColumn) parquetNode() parquet.Node { return parquet.Leaf(parquet.ByteArrayType) }
-func (c *byteaColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
-	return parquet.ByteArrayValue(c.data[rowIdx]).Level(0, 0, colIdx)
+func (c *byteaColumn) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, b := range c.data {
+		vals[i] = parquet.ByteArrayValue(b).Level(0, 0, colIdx)
+	}
+	return vals
 }
 
 // ---------------------------------------------------------------------------
@@ -573,13 +617,33 @@ func (c *nullableColumn) reset() {
 }
 
 func (c *nullableColumn) parquetNode() parquet.Node {
+	if _, ok := c.inner.(*arrayColumn); ok {
+		return c.inner.parquetNode()
+	}
 	return parquet.Optional(c.inner.parquetNode())
 }
 
-func (c *nullableColumn) parquetValue(rowIdx, colIdx int) parquet.Value {
-	if c.nulls[rowIdx] {
-		return parquet.Value{}.Level(0, 0, colIdx)
+func (c *nullableColumn) parquetValues(colIdx int) []parquet.Value {
+	if ac, ok := c.inner.(*arrayColumn); ok {
+		return c.nullableArrayValues(ac, colIdx)
 	}
-	v := c.inner.parquetValue(rowIdx, colIdx)
-	return v.Level(0, 1, colIdx)
+	innerVals := c.inner.parquetValues(colIdx)
+	vals := make([]parquet.Value, len(c.nulls))
+	for i, isNull := range c.nulls {
+		if isNull {
+			vals[i] = parquet.Value{}.Level(0, 0, colIdx)
+		} else {
+			vals[i] = innerVals[i].Level(0, 1, colIdx)
+		}
+	}
+	return vals
+}
+
+// nullableArrayValues handles the OPTIONAL + REPEATED case. In Parquet's
+// flat encoding, REPEATED already carries presence semantics via definition
+// levels, so Optional(Repeated(X)) shares the same max def level. Null
+// rows are stored as empty arrays in the inner column and encoded
+// identically to empty arrays (def=0 sentinel).
+func (c *nullableColumn) nullableArrayValues(ac *arrayColumn, colIdx int) []parquet.Value {
+	return ac.parquetValues(colIdx)
 }

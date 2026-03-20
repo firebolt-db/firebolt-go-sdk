@@ -1520,6 +1520,270 @@ func TestArrayFastPathAllElementTypes(t *testing.T) {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Nullable array column round-trip (regression: was silent data corruption)
+// ---------------------------------------------------------------------------
+
+func TestNullableArrayRoundTrip(t *testing.T) {
+	blk, err := newBlock(
+		[]string{"id", "tags"},
+		[]string{"int", "array(text) null"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Row 0: non-null, multi-element array
+	if err := blk.appendRow([]interface{}{int32(1), []string{"a", "b"}}); err != nil {
+		t.Fatal(err)
+	}
+	// Row 1: null
+	if err := blk.appendRow([]interface{}{int32(2), nil}); err != nil {
+		t.Fatal(err)
+	}
+	// Row 2: non-null, empty array
+	if err := blk.appendRow([]interface{}{int32(3), []string{}}); err != nil {
+		t.Fatal(err)
+	}
+	// Row 3: non-null, single-element array
+	if err := blk.appendRow([]interface{}{int32(4), []string{"c"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatalf("toParquet: %v", err)
+	}
+
+	f, rows := readParquetRows(t, data)
+	if len(rows) != 4 {
+		t.Fatalf("expected 4 rows, got %d", len(rows))
+	}
+
+	idCol := colIndex(f, "id")
+	tagsCol := colIndex(f, "tags")
+
+	// Verify the scalar column survived alongside the nullable array.
+	for i, want := range []int32{1, 2, 3, 4} {
+		for _, v := range rows[i] {
+			if v.Column() == idCol {
+				if got := v.Int32(); got != want {
+					t.Errorf("row %d id = %d, want %d", i, got, want)
+				}
+				break
+			}
+		}
+	}
+
+	// Row 0: tags=["a", "b"]
+	var r0vals []string
+	for _, v := range rows[0] {
+		if v.Column() == tagsCol && !v.IsNull() {
+			r0vals = append(r0vals, string(v.ByteArray()))
+		}
+	}
+	if len(r0vals) != 2 || r0vals[0] != "a" || r0vals[1] != "b" {
+		t.Errorf("row 0 tags = %v, want [a b]", r0vals)
+	}
+
+	// Row 1: tags=NULL — entire field is null, no non-null values expected.
+	for _, v := range rows[1] {
+		if v.Column() == tagsCol && !v.IsNull() {
+			t.Errorf("row 1: expected null tags, got non-null value %v", v)
+		}
+	}
+
+	// Row 3: tags=["c"]
+	var r3vals []string
+	for _, v := range rows[3] {
+		if v.Column() == tagsCol && !v.IsNull() {
+			r3vals = append(r3vals, string(v.ByteArray()))
+		}
+	}
+	if len(r3vals) != 1 || r3vals[0] != "c" {
+		t.Errorf("row 3 tags = %v, want [c]", r3vals)
+	}
+}
+
+// TestArrayNullableElementsRoundTrip verifies Parquet round-trip for
+// array(text null) — arrays whose *elements* are nullable. This exercises
+// the appendNullableElemValues fused path in arrayColumn.
+//
+// Limitation: parquet-go's Repeated(Optional(X)) collapses to max_def=1,
+// identical to Repeated(X). Element-level nullability is lost in the
+// Parquet encoding — null elements are written as zero-value non-null
+// entries (empty strings for text). The test verifies this known behavior
+// and ensures element counts and non-null values survive the round-trip.
+func TestArrayNullableElementsRoundTrip(t *testing.T) {
+	blk, err := newBlock(
+		[]string{"id", "arr"},
+		[]string{"int", "array(text null)"})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Row 0: mixed null and non-null elements
+	if err := blk.appendRow([]interface{}{int32(1), []interface{}{"hello", nil, "world"}}); err != nil {
+		t.Fatal(err)
+	}
+	// Row 1: empty array
+	if err := blk.appendRow([]interface{}{int32(2), []interface{}{}}); err != nil {
+		t.Fatal(err)
+	}
+	// Row 2: all-null elements (appear as empty strings after round-trip)
+	if err := blk.appendRow([]interface{}{int32(3), []interface{}{nil, nil}}); err != nil {
+		t.Fatal(err)
+	}
+	// Row 3: single non-null element
+	if err := blk.appendRow([]interface{}{int32(4), []interface{}{"only"}}); err != nil {
+		t.Fatal(err)
+	}
+	// Row 4: single null element (appears as empty string after round-trip)
+	if err := blk.appendRow([]interface{}{int32(5), []interface{}{nil}}); err != nil {
+		t.Fatal(err)
+	}
+
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatalf("toParquet: %v", err)
+	}
+
+	f, rows := readParquetRows(t, data)
+	if len(rows) != 5 {
+		t.Fatalf("expected 5 rows, got %d", len(rows))
+	}
+
+	arrCol := colIndex(f, "arr")
+
+	extractArr := func(row parquet.Row) []string {
+		var out []string
+		for _, v := range row {
+			if v.Column() != arrCol {
+				continue
+			}
+			if v.IsNull() {
+				continue
+			}
+			out = append(out, string(v.ByteArray()))
+		}
+		return out
+	}
+
+	countArrElems := func(row parquet.Row) int {
+		n := 0
+		for _, v := range row {
+			if v.Column() == arrCol {
+				n++
+			}
+		}
+		return n
+	}
+
+	// Row 0: ["hello", <null-as-"">, "world"] — 3 elements survive
+	if n := countArrElems(rows[0]); n != 3 {
+		t.Fatalf("row 0: got %d elements, want 3", n)
+	}
+	r0 := extractArr(rows[0])
+	if len(r0) != 3 || r0[0] != "hello" || r0[2] != "world" {
+		t.Errorf("row 0 non-null elems = %v, want [hello  world]", r0)
+	}
+
+	// Row 1: empty array — single null sentinel in row
+	if n := countArrElems(rows[1]); n != 1 {
+		t.Fatalf("row 1 (empty): got %d elements, want 1 sentinel", n)
+	}
+	if v := rows[1][colIndex(f, "arr")]; !v.IsNull() {
+		t.Errorf("row 1 sentinel should be null, got %v", v)
+	}
+
+	// Row 2: [<null-as-"">, <null-as-"">] — 2 elements survive
+	if n := countArrElems(rows[2]); n != 2 {
+		t.Fatalf("row 2: got %d elements, want 2", n)
+	}
+
+	// Row 3: ["only"] — 1 element
+	r3 := extractArr(rows[3])
+	if len(r3) != 1 || r3[0] != "only" {
+		t.Errorf("row 3: got %v, want [only]", r3)
+	}
+
+	// Row 4: [<null-as-"">] — 1 element
+	if n := countArrElems(rows[4]); n != 1 {
+		t.Fatalf("row 4: got %d elements, want 1", n)
+	}
+}
+
+// TestArrayNullableElemsFusedConsistency verifies that the fused path
+// (appendNullableElemValues) produces the exact same []parquet.Value as
+// building element values via nullableColumn.parquetValues + Level override.
+func TestArrayNullableElemsFusedConsistency(t *testing.T) {
+	col, err := newColumn("arr", "array(text null)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	ac := col.(*arrayColumn)
+
+	inputs := []interface{}{
+		[]interface{}{"a", nil, "b"},
+		[]interface{}{},
+		[]interface{}{nil, nil},
+		[]interface{}{"x"},
+		[]interface{}{nil},
+		[]interface{}{"", nil, "hello"},
+	}
+	for _, v := range inputs {
+		if err := ac.appendRow(v); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	const colIdx = 2
+	fusedVals := ac.parquetValues(colIdx)
+
+	// Now build the expected values via the non-fused path manually:
+	// 1. Get all element values from nullableColumn.parquetValues
+	elemVals := ac.elem.parquetValues(colIdx)
+	// 2. Walk offsets and apply Level(rep, 1, colIdx)
+	var expected []parquet.Value
+	var prev uint64
+	for _, end := range ac.offsets {
+		if prev == end {
+			expected = append(expected, parquet.Value{}.Level(0, 0, colIdx))
+		} else {
+			for i := prev; i < end; i++ {
+				rep := 1
+				if i == prev {
+					rep = 0
+				}
+				expected = append(expected, elemVals[i].Level(rep, 1, colIdx))
+			}
+		}
+		prev = end
+	}
+
+	if len(fusedVals) != len(expected) {
+		t.Fatalf("length mismatch: fused=%d, expected=%d", len(fusedVals), len(expected))
+	}
+	for i := range expected {
+		f, e := fusedVals[i], expected[i]
+		if f.RepetitionLevel() != e.RepetitionLevel() ||
+			f.DefinitionLevel() != e.DefinitionLevel() ||
+			f.Column() != e.Column() ||
+			f.IsNull() != e.IsNull() {
+			t.Errorf("value[%d] levels differ: fused(rep=%d def=%d col=%d null=%v) vs expected(rep=%d def=%d col=%d null=%v)",
+				i,
+				f.RepetitionLevel(), f.DefinitionLevel(), f.Column(), f.IsNull(),
+				e.RepetitionLevel(), e.DefinitionLevel(), e.Column(), e.IsNull())
+			continue
+		}
+		if !f.IsNull() {
+			if string(f.ByteArray()) != string(e.ByteArray()) {
+				t.Errorf("value[%d] data differ: fused=%q, expected=%q",
+					i, string(f.ByteArray()), string(e.ByteArray()))
+			}
+		}
+	}
+}
+
 func TestArrayFastPathNilSlice(t *testing.T) {
 	blk, err := newBlock([]string{"v"}, []string{"array(text)"})
 	if err != nil {

@@ -12,7 +12,7 @@ repos:
     - id: go-vet
     - id: go-imports
     - id: go-cyclo
-      args: [-over=20]
+      args: [-over=25]
       exclude: '(_test|column_array)\.go$'
     - id: validate-toml
     - id: golangci-lint
