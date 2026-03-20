@@ -10,32 +10,21 @@ on:
         required: false
 
 jobs:
-  find-latest-go-version:
-    runs-on: ubuntu-latest
-    outputs:
-      latest_go: ${{ steps.get-go-version.outputs.latest_go }}
-    steps:
-      - id: get-go-version
-        run: |
-          latest_version=$(curl -s https://go.dev/dl/?mode=json | jq -r '.[] | select(.stable == true) | .version' | head -n1)
-          latest_go=${latest_version#go}
-          echo "latest_go=$latest_go" >> "$GITHUB_OUTPUT"
-
   integration-tests:
-    needs: find-latest-go-version
     runs-on: ubuntu-latest
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
-          go-version: ${{ needs.find-latest-go-version.outputs.latest_go }}
+          go-version: "stable"
           check-latest: true
 
       - name: Setup database and engine
         id: setup
-        uses: firebolt-db/integration-testing-setup@v2
+        uses: firebolt-db/integration-testing-setup@813c4835ef38adcba3f8760e7afc21a3c7248023 # v2.6.2
         with:
           firebolt-client-id: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
           firebolt-client-secret: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN}}

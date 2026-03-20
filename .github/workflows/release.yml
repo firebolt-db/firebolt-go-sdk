@@ -22,7 +22,7 @@ jobs:
     needs: integration-tests
     steps:    
     - name: Check out code
-      uses: actions/checkout@v6
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       with:
         fetch-depth: 0 
         ref: main
@@ -47,7 +47,7 @@ jobs:
 
     - name: Generate version
       id: version
-      uses: firebolt-db/action-generate-version@v1
+      uses: firebolt-db/action-generate-version@85a57bc1dd3f164506c87f2a951b4c037a351d3a # v1
       with:
         changes: ${{ steps.changes.outputs.changes }}
         old-tag: ${{ steps.changes.outputs.old_tag }}
@@ -55,19 +55,25 @@ jobs:
     - name: Version bump
       run: |
         # Bump version = <number> in version file
-        sed -i "s/SdkVersion string = .*/SdkVersion string = \"v${{ steps.version.outputs.new-tag }}\"/g" version/version.go
+        sed -i "s/SdkVersion string = .*/SdkVersion string = \"v${STEPS_VERSION_OUTPUTS_NEW_TAG}\"/g" version/version.go
         git add version/version.go
-        git commit -m "Automatic version bump to v${{ steps.version.outputs.new-tag }}"
+        git commit -m "Automatic version bump to v${STEPS_VERSION_OUTPUTS_NEW_TAG}"
         git push origin main
       shell: bash
+      env:
+        STEPS_VERSION_OUTPUTS_NEW_TAG: ${{ steps.version.outputs.new-tag }}
         
     - name: Publish tag on github
       run: |
-        git tag v${{ steps.version.outputs.new-tag }}
-        git push origin v${{ steps.version.outputs.new-tag }}
+        git tag v${STEPS_VERSION_OUTPUTS_NEW_TAG}
+        git push origin v${STEPS_VERSION_OUTPUTS_NEW_TAG}
       shell: bash
+      env:
+        STEPS_VERSION_OUTPUTS_NEW_TAG: ${{ steps.version.outputs.new-tag }}
         
     - name: Run go list
       run: |
-        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@v${{ steps.version.outputs.new-tag }}
+        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@v${STEPS_VERSION_OUTPUTS_NEW_TAG}
       shell: bash
+      env:
+        STEPS_VERSION_OUTPUTS_NEW_TAG: ${{ steps.version.outputs.new-tag }}

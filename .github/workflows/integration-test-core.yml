@@ -26,18 +26,7 @@ on:
 env:
   DEFAULT_IMAGE_TAG: ${{ vars.DEFAULT_CORE_IMAGE_TAG }}
 jobs:
-  find-latest-go-version:
-    runs-on: ubuntu-latest
-    outputs:
-      latest_go: ${{ steps.get-go-version.outputs.latest_go }}
-    steps:
-      - id: get-go-version
-        run: |
-          latest_version=$(curl -s https://go.dev/dl/?mode=json | jq -r '.[] | select(.stable == true) | .version' | head -n1)
-          latest_go=${latest_version#go}
-          echo "latest_go=$latest_go" >> "$GITHUB_OUTPUT"
   integration-tests:
-    needs: find-latest-go-version
     runs-on: ${{ inputs.os_name }}
     env:
       DOCKER_COMPOSE_FILE: ${{ github.workspace }}/.github/workflows/core/docker-compose.yaml
@@ -47,26 +36,26 @@ jobs:
       RETRY_INTERVAL: 2
     steps:
       - name: Check out code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4b73464bb391d4059bd26b0524d20df3927bd417 # v6.3.0
         with:
-          go-version: ${{ needs.find-latest-go-version.outputs.latest_go }}
+          go-version: "stable"
           check-latest: true
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
 
       - name: Cache Docker layers
-        uses: actions/cache@v5
+        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
         with:
           path: /tmp/.buildx-cache
           key: ${{ runner.os }}-buildx-${{ github.sha }}
@@ -74,10 +63,13 @@ jobs:
             ${{ runner.os }}-buildx-
 
       - name: Write certificate and certificate key to file
+        env:
+          FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY: ${{ secrets.FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY }}
+          FIREBOLT_CORE_DEV_CERT: ${{ secrets.FIREBOLT_CORE_DEV_CERT }}
         run: |
           mkdir "${{ github.workspace }}/.github/workflows/core/certs"
-          echo "${{ secrets.FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY }}" > ${{ github.workspace }}/.github/workflows/core/certs/localhost-key.pem
-          echo "${{ secrets.FIREBOLT_CORE_DEV_CERT }}" > ${{ github.workspace }}/.github/workflows/core/certs/localhost.pem
+          echo "$FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY" > ${{ github.workspace }}/.github/workflows/core/certs/localhost-key.pem
+          echo "$FIREBOLT_CORE_DEV_CERT" > ${{ github.workspace }}/.github/workflows/core/certs/localhost.pem
 
       - name: Trust self-signed cert
         run: |
@@ -87,8 +79,10 @@ jobs:
       # if no image tag was passed in, then use the image tag from the defaults
       - name: Set image tag
         id: set-tag
+        env:
+          TAG_VERSION: ${{ inputs.tag_version }}
         run: |
-          IMAGE_TAG="${{ inputs.tag_version }}"
+          IMAGE_TAG="${TAG_VERSION}"
           if [ -z "$IMAGE_TAG" ]; then
             IMAGE_TAG="$DEFAULT_IMAGE_TAG"
           fi
