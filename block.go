@@ -7,6 +7,7 @@ import (
 	"slices"
 
 	"github.com/parquet-go/parquet-go"
+	"github.com/parquet-go/parquet-go/compress/snappy"
 )
 
 // block holds column data and serialises it to Parquet format.
@@ -176,7 +177,10 @@ func (b *block) toParquet() ([]byte, error) {
 	// Assemble rows row-by-row (good write locality) from pre-built column
 	// values (no per-value function call or string→byte copy).
 	var out bytes.Buffer
-	w := parquet.NewWriter(&out, schema)
+	w := parquet.NewWriter(&out, schema,
+		parquet.Compression(&snappy.Codec{}),
+		parquet.DataPageStatistics(false),
+	)
 
 	const batchSize = 4096
 
