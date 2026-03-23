@@ -2,10 +2,12 @@ package fireboltgosdk
 
 import (
 	"bytes"
+	"cmp"
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/parquet-go/parquet-go"
+	"github.com/parquet-go/parquet-go/compress/snappy"
 )
 
 // block holds column data and serialises it to Parquet format.
@@ -82,41 +84,34 @@ func (b *block) reset() {
 	}
 }
 
-// hasArrayColumn returns true if any column is an array type.
-func (b *block) hasArrayColumn() bool {
-	for _, col := range b.columns {
-		if _, ok := col.(*arrayColumn); ok {
-			return true
-		}
-	}
-	return false
-}
-
 // leafColumnIndices computes the Parquet leaf column index for each of our
 // columns. parquet.Group sorts fields alphabetically, so the leaf indices
 // follow that sorted order rather than our insertion order.
 func (b *block) leafColumnIndices() []int {
-	names := make([]string, len(b.columns))
+	type nameIdx struct {
+		name string
+		orig int
+	}
+	items := make([]nameIdx, len(b.columns))
 	for i, col := range b.columns {
-		names[i] = col.name()
+		items[i] = nameIdx{col.name(), i}
 	}
-	sorted := make([]string, len(names))
-	copy(sorted, names)
-	sort.Strings(sorted)
-
-	nameToIdx := make(map[string]int, len(sorted))
-	for i, n := range sorted {
-		nameToIdx[n] = i
-	}
-
+	// Sort by name to match parquet.Group's alphabetical ordering.
+	slices.SortFunc(items, func(a, c nameIdx) int {
+		return cmp.Compare(a.name, c.name)
+	})
 	indices := make([]int, len(b.columns))
-	for i, col := range b.columns {
-		indices[i] = nameToIdx[col.name()]
+	for leafIdx, item := range items {
+		indices[item.orig] = leafIdx
 	}
 	return indices
 }
 
 // toParquet serialises all buffered data into Parquet format.
+//
+// Values are built column-by-column in bulk (one allocation per column via
+// parquetValues), then assembled into rows row-by-row and written through
+// Writer.WriteRows in batches.
 func (b *block) toParquet() ([]byte, error) {
 	numRows := b.blockRows()
 	if numRows == 0 {
@@ -131,46 +126,99 @@ func (b *block) toParquet() ([]byte, error) {
 
 	leafIndices := b.leafColumnIndices()
 
-	var buf bytes.Buffer
-	w := parquet.NewWriter(&buf, schema)
-
-	hasArrays := b.hasArrayColumn()
-
-	const batchSize = 4096
-	rowBatch := make([]parquet.Row, 0, batchSize)
-
-	// Build a permutation so we emit values in ascending leaf-index order,
-	// which is required by parquet.Writer.WriteRows.
-	order := make([]int, len(b.columns))
-	for j := range order {
-		order[j] = j
+	// Build all values column-by-column (bulk, one alloc per column).
+	type colVals struct {
+		leafIdx  int
+		values   []parquet.Value
+		isArray  bool
+		offsets  []uint64
+		arrayPos int // read cursor for variable-length array values
 	}
-	sort.Slice(order, func(a, bIdx int) bool {
-		return leafIndices[order[a]] < leafIndices[order[bIdx]]
+	cvs := make([]colVals, len(b.columns))
+	for i, col := range b.columns {
+		cv := colVals{
+			leafIdx: leafIndices[i],
+			values:  col.parquetValues(leafIndices[i]),
+		}
+		if ac, ok := col.(*arrayColumn); ok {
+			cv.isArray = true
+			cv.offsets = ac.offsets
+		} else if nc, ok := col.(*nullableColumn); ok {
+			if ac, ok := nc.inner.(*arrayColumn); ok {
+				cv.isArray = true
+				cv.offsets = ac.offsets
+			}
+		}
+		cvs[i] = cv
+	}
+	// Sort by leaf index so row values are in ascending column order
+	// as required by Writer.WriteRows.
+	slices.SortFunc(cvs, func(a, c colVals) int {
+		return cmp.Compare(a.leafIdx, c.leafIdx)
 	})
 
-	for i := 0; i < numRows; i++ {
-		row := make(parquet.Row, 0, len(b.columns))
-		for _, j := range order {
-			col := b.columns[j]
-			leafIdx := leafIndices[j]
-			if ac, ok := col.(*arrayColumn); ok && hasArrays {
-				row = ac.appendParquetArrayValues(row, i, leafIdx)
-			} else {
-				row = append(row, col.parquetValue(i, leafIdx))
-			}
+	// Compute exact values-per-row so we can back all rows by one flat slab.
+	numScalar := 0
+	for _, cv := range cvs {
+		if !cv.isArray {
+			numScalar++
 		}
-		rowBatch = append(rowBatch, row)
-		if len(rowBatch) >= batchSize {
-			if _, err := w.WriteRows(rowBatch); err != nil {
-				return nil, fmt.Errorf("error writing parquet rows: %w", err)
-			}
-			rowBatch = rowBatch[:0]
+	}
+	totalValues := numScalar * numRows
+	for _, cv := range cvs {
+		if cv.isArray {
+			totalValues += len(cv.values)
 		}
 	}
 
-	if len(rowBatch) > 0 {
-		if _, err := w.WriteRows(rowBatch); err != nil {
+	flat := make([]parquet.Value, 0, totalValues)
+	rows := make([]parquet.Row, numRows)
+
+	// Assemble rows row-by-row (good write locality) from pre-built column
+	// values (no per-value function call or string→byte copy).
+	var out bytes.Buffer
+	w := parquet.NewWriter(&out, schema,
+		parquet.Compression(&snappy.Codec{}),
+		parquet.DataPageStatistics(false),
+	)
+
+	const batchSize = 4096
+
+	for r := range numRows {
+		rowStart := len(flat)
+		for ci := range cvs {
+			cv := &cvs[ci]
+			if !cv.isArray {
+				flat = append(flat, cv.values[r])
+			} else {
+				var start uint64
+				if r > 0 {
+					start = cv.offsets[r-1]
+				}
+				end := cv.offsets[r]
+				pos := cv.arrayPos
+				if start == end {
+					flat = append(flat, cv.values[pos])
+					cv.arrayPos = pos + 1
+				} else {
+					n := int(end - start)
+					flat = append(flat, cv.values[pos:pos+n]...)
+					cv.arrayPos = pos + n
+				}
+			}
+		}
+		rows[r] = flat[rowStart:len(flat):len(flat)]
+
+		if (r+1)%batchSize == 0 {
+			start := r + 1 - batchSize
+			if _, err := w.WriteRows(rows[start : r+1]); err != nil {
+				return nil, fmt.Errorf("error writing parquet rows: %w", err)
+			}
+		}
+	}
+
+	if tail := numRows - (numRows/batchSize)*batchSize; tail > 0 {
+		if _, err := w.WriteRows(rows[numRows-tail:]); err != nil {
 			return nil, fmt.Errorf("error writing parquet rows: %w", err)
 		}
 	}
@@ -178,5 +226,5 @@ func (b *block) toParquet() ([]byte, error) {
 	if err := w.Close(); err != nil {
 		return nil, fmt.Errorf("error closing parquet writer: %w", err)
 	}
-	return buf.Bytes(), nil
+	return out.Bytes(), nil
 }
