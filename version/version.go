@@ -1,3 +1,3 @@
 package version
 
-const SdkVersion string = "v1.18.0"
+const SdkVersion string = "v1.19.0"
