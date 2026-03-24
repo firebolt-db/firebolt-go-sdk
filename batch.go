@@ -6,11 +6,21 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
+
+// BatchMetric records timing for one Send() call, split into the
+// serialisation phase and the network upload phase.
+type BatchMetric struct {
+	SerializeStart   time.Time
+	SerializeSeconds float64
+	UploadStart      time.Time
+	UploadSeconds    float64
+}
 
 const parquetUploadName = "batch_data"
 
@@ -66,6 +76,10 @@ type Batch interface {
 
 	// Abort discards all buffered rows without sending.
 	Abort() error
+
+	// GetMetrics returns timing metrics for each Send() call made on this
+	// batch (one entry per call, in chronological order).
+	GetMetrics() []BatchMetric
 }
 
 // BatchColumn is returned by Batch.Column and supports appending an entire
@@ -82,6 +96,7 @@ type fireboltBatch struct {
 	tableName string
 	colNames  []string
 	blk       *block
+	metrics   []BatchMetric
 }
 
 type fireboltBatchColumn struct {
@@ -152,7 +167,11 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 		return nil
 	}
 
+	var m BatchMetric
+
+	m.ParquetStart = time.Now()
 	parquetData, err := b.blk.toParquet()
+	m.ParquetSeconds = time.Since(m.ParquetStart).Seconds()
 	if err != nil {
 		return errorUtils.ConstructNestedError("error serialising batch to parquet", err)
 	}
@@ -165,7 +184,11 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 		ResetParameters:  b.conn.resetParameters,
 	}
 
+	m.UploadStart = time.Now()
 	resp, err := b.conn.client.UploadParquet(ctx, b.conn.engineUrl, sql, parquetData, parquetUploadName, b.conn.parameters, control)
+	m.UploadSeconds = time.Since(m.UploadStart).Seconds()
+	b.metrics = append(b.metrics, m)
+
 	if err != nil {
 		return errorUtils.ConstructNestedError("error uploading batch data", err)
 	}
@@ -173,6 +196,11 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 
 	b.blk.reset()
 	return nil
+}
+
+// GetMetrics returns timing metrics recorded for each Send() call.
+func (b *fireboltBatch) GetMetrics() []BatchMetric {
+	return b.metrics
 }
 
 // Abort discards all buffered rows without sending.
