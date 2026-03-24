@@ -40,7 +40,7 @@ func DefaultTransport() *http.Transport {
 		}).DialContext,
 		ForceAttemptHTTP2:     true,
 		MaxIdleConns:          100,
-		MaxIdleConnsPerHost:   10,
+		MaxIdleConnsPerHost:   64,
 		IdleConnTimeout:       90 * time.Second,
 		TLSHandshakeTimeout:   10 * time.Second,
 		ExpectContinueTimeout: 1 * time.Second,
@@ -155,7 +155,7 @@ type requestParametersMultipart struct {
 	userAgent    string
 	params       map[string]string
 	sql          string
-	fileData     []byte
+	payload      io.Reader
 	fileName     string
 	hostOverride string // when non-empty, sent as the Host header (used by client-side LB)
 }
@@ -256,35 +256,33 @@ func DoHttpRequest(httpClient *http.Client, reqParams requestParameters) *Respon
 }
 
 // DoHttpRequestMultipart sends a multipart form POST with an "sql" text field
-// and a file attachment containing the Parquet data.
+// and a file attachment whose body is streamed from reqParams.payload.
+//
+// The multipart framing (boundary, headers, closing boundary) is pre-built as
+// byte slices and concatenated with the payload via io.MultiReader.  This
+// means the HTTP body is streamed directly from the blockReader — no pipe, no
+// goroutine, no extra copy.  Content-Length is not set (chunked transfer).
 // httpClient may be nil, in which case http.DefaultClient is used.
 func DoHttpRequestMultipart(httpClient *http.Client, reqParams requestParametersMultipart) *Response {
-	var body bytes.Buffer
-	mw := multipart.NewWriter(&body)
+	var prefix bytes.Buffer
+	bw := multipart.NewWriter(&prefix)
+	boundary := bw.Boundary()
 
-	if err := mw.WriteField("sql", reqParams.sql); err != nil {
-		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error writing sql form field", err))
-	}
+	// bytes.Buffer.Write never fails; discard errors explicitly.
+	_ = bw.WriteField("sql", reqParams.sql)
 
 	partHeader := make(textproto.MIMEHeader)
 	partHeader.Set("Content-Disposition",
 		fmt.Sprintf(`form-data; name="%s"; filename="%s.parquet"`, reqParams.fileName, reqParams.fileName))
 	partHeader.Set("Content-Type", "application/octet-stream")
+	_, _ = bw.CreatePart(partHeader)
 
-	part, err := mw.CreatePart(partHeader)
-	if err != nil {
-		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating file form part", err))
-	}
-	if _, err := part.Write(reqParams.fileData); err != nil {
-		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error writing file form data", err))
-	}
+	suffix := []byte(fmt.Sprintf("\r\n--%s--\r\n", boundary))
 
-	if err := mw.Close(); err != nil {
-		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error closing multipart writer", err))
-	}
+	body := io.MultiReader(&prefix, reqParams.payload, bytes.NewReader(suffix))
 
 	canonicalUrl := MakeCanonicalUrl(reqParams.url)
-	req, err := http.NewRequestWithContext(reqParams.ctx, "POST", canonicalUrl, &body)
+	req, err := http.NewRequestWithContext(reqParams.ctx, "POST", canonicalUrl, body)
 	if err != nil {
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError(
 			fmt.Sprintf("error creating HTTP request: url=%s", canonicalUrl), err))
@@ -296,7 +294,7 @@ func DoHttpRequestMultipart(httpClient *http.Client, reqParams requestParameters
 
 	req.Header.Set("User-Agent", reqParams.userAgent)
 	req.Header.Set(protocolVersionHeader, protocolVersion)
-	req.Header.Set("Content-Type", mw.FormDataContentType())
+	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%s", boundary))
 
 	if len(reqParams.accessToken) > 0 {
 		req.Header.Add("Authorization", "Bearer "+reqParams.accessToken)
