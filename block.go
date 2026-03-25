@@ -4,15 +4,62 @@ import (
 	"bytes"
 	"cmp"
 	"fmt"
+	"io"
 	"slices"
 
 	"github.com/parquet-go/parquet-go"
 	"github.com/parquet-go/parquet-go/compress/snappy"
 )
 
+// DefaultBufferSize is the default number of rows buffered before the
+// serialiser flushes to the underlying writer, enabling true streaming:
+// compressed data flows to the HTTP transport incrementally instead of
+// buffering the entire file in memory. Override via WithBufferSize.
+const DefaultBufferSize int64 = 16384
+
+// blockReader implements io.Reader over a block's Parquet serialisation.
+// Each Read call drives the parquet.Writer forward, producing compressed
+// output into a small internal buffer that is drained before producing more.
+type blockReader struct {
+	buf       bytes.Buffer
+	pw        *parquet.GenericWriter[any]
+	rows      []parquet.Row
+	numRows   int
+	nextRow   int
+	batchSize int
+	done      bool
+}
+
+func (br *blockReader) Read(p []byte) (int, error) {
+	for br.buf.Len() == 0 {
+		if br.done {
+			return 0, io.EOF
+		}
+		if br.nextRow < br.numRows {
+			end := br.nextRow + br.batchSize
+			if end > br.numRows {
+				end = br.numRows
+			}
+			if _, err := br.pw.WriteRows(br.rows[br.nextRow:end]); err != nil {
+				return 0, fmt.Errorf("error writing parquet rows: %w", err)
+			}
+			br.nextRow = end
+		} else {
+			if err := br.pw.Close(); err != nil {
+				return 0, fmt.Errorf("error closing parquet writer: %w", err)
+			}
+			br.done = true
+		}
+	}
+	return br.buf.Read(p)
+}
+
 // block holds column data and serialises it to Parquet format.
 type block struct {
-	columns []column
+	columns     []column
+	schema      *parquet.Schema
+	leafIndices []int
+	bufferSize  int64
 }
 
 func newBlock(columnNames []string, fireboltTypes []string) (*block, error) {
@@ -37,7 +84,20 @@ func newBlock(columnNames []string, fireboltTypes []string) (*block, error) {
 		}
 		cols[i] = col
 	}
-	return &block{columns: cols}, nil
+
+	blk := &block{
+		columns:    cols,
+		bufferSize: DefaultBufferSize,
+	}
+
+	group := make(parquet.Group, len(cols))
+	for _, col := range cols {
+		group[col.name()] = col.parquetNode()
+	}
+	blk.schema = parquet.NewSchema("firebolt", group)
+	blk.leafIndices = blk.leafColumnIndices()
+
+	return blk, nil
 }
 
 func (b *block) numColumns() int { return len(b.columns) }
@@ -107,38 +167,27 @@ func (b *block) leafColumnIndices() []int {
 	return indices
 }
 
-// toParquet serialises all buffered data into Parquet format.
-//
-// Values are built column-by-column in bulk (one allocation per column via
-// parquetValues), then assembled into rows row-by-row and written through
-// Writer.WriteRows in batches.
-func (b *block) toParquet() ([]byte, error) {
+// NewReader returns an io.Reader that produces the Parquet-serialised
+// contents of the block. Each call returns a fresh, independent reader
+// so the same block can be retried on auth failure.
+func (b *block) NewReader() (io.Reader, error) {
 	numRows := b.blockRows()
 	if numRows == 0 {
-		return nil, nil
+		return bytes.NewReader(nil), nil
 	}
 
-	group := make(parquet.Group, len(b.columns))
-	for _, col := range b.columns {
-		group[col.name()] = col.parquetNode()
-	}
-	schema := parquet.NewSchema("firebolt", group)
-
-	leafIndices := b.leafColumnIndices()
-
-	// Build all values column-by-column (bulk, one alloc per column).
 	type colVals struct {
 		leafIdx  int
 		values   []parquet.Value
 		isArray  bool
 		offsets  []uint64
-		arrayPos int // read cursor for variable-length array values
+		arrayPos int
 	}
 	cvs := make([]colVals, len(b.columns))
 	for i, col := range b.columns {
 		cv := colVals{
-			leafIdx: leafIndices[i],
-			values:  col.parquetValues(leafIndices[i]),
+			leafIdx: b.leafIndices[i],
+			values:  col.parquetValues(b.leafIndices[i]),
 		}
 		if ac, ok := col.(*arrayColumn); ok {
 			cv.isArray = true
@@ -151,13 +200,10 @@ func (b *block) toParquet() ([]byte, error) {
 		}
 		cvs[i] = cv
 	}
-	// Sort by leaf index so row values are in ascending column order
-	// as required by Writer.WriteRows.
 	slices.SortFunc(cvs, func(a, c colVals) int {
 		return cmp.Compare(a.leafIdx, c.leafIdx)
 	})
 
-	// Compute exact values-per-row so we can back all rows by one flat slab.
 	numScalar := 0
 	for _, cv := range cvs {
 		if !cv.isArray {
@@ -173,16 +219,6 @@ func (b *block) toParquet() ([]byte, error) {
 
 	flat := make([]parquet.Value, 0, totalValues)
 	rows := make([]parquet.Row, numRows)
-
-	// Assemble rows row-by-row (good write locality) from pre-built column
-	// values (no per-value function call or string→byte copy).
-	var out bytes.Buffer
-	w := parquet.NewWriter(&out, schema,
-		parquet.Compression(&snappy.Codec{}),
-		parquet.DataPageStatistics(false),
-	)
-
-	const batchSize = 4096
 
 	for r := range numRows {
 		rowStart := len(flat)
@@ -208,23 +244,33 @@ func (b *block) toParquet() ([]byte, error) {
 			}
 		}
 		rows[r] = flat[rowStart:len(flat):len(flat)]
-
-		if (r+1)%batchSize == 0 {
-			start := r + 1 - batchSize
-			if _, err := w.WriteRows(rows[start : r+1]); err != nil {
-				return nil, fmt.Errorf("error writing parquet rows: %w", err)
-			}
-		}
 	}
 
-	if tail := numRows - (numRows/batchSize)*batchSize; tail > 0 {
-		if _, err := w.WriteRows(rows[numRows-tail:]); err != nil {
-			return nil, fmt.Errorf("error writing parquet rows: %w", err)
-		}
+	batchSize := int(b.bufferSize)
+	if batchSize <= 0 {
+		batchSize = int(DefaultBufferSize)
 	}
+	br := &blockReader{numRows: numRows, rows: rows, batchSize: batchSize}
+	br.pw = parquet.NewGenericWriter[any](&br.buf, b.schema,
+		parquet.Compression(&snappy.Codec{}),
+		parquet.DataPageStatistics(false),
+		parquet.MaxRowsPerRowGroup(b.bufferSize),
+	)
+	return br, nil
+}
 
-	if err := w.Close(); err != nil {
-		return nil, fmt.Errorf("error closing parquet writer: %w", err)
+// toParquet serialises all buffered data into Parquet format in memory.
+func (b *block) toParquet() ([]byte, error) {
+	r, err := b.NewReader()
+	if err != nil {
+		return nil, err
 	}
-	return out.Bytes(), nil
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, r); err != nil {
+		return nil, err
+	}
+	if buf.Len() == 0 {
+		return nil, nil
+	}
+	return buf.Bytes(), nil
 }

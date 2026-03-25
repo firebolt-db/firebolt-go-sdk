@@ -6,13 +6,42 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
+// BatchMetric records timing for one Send() call, split into the
+// serialisation phase and the network upload phase.
+type BatchMetric struct {
+	SerializeStart   time.Time
+	SerializeSeconds float64
+	UploadStart      time.Time
+	UploadSeconds    float64
+}
+
 const parquetUploadName = "batch_data"
+
+// BatchOption configures batch behaviour. Pass to PrepareBatch.
+type BatchOption func(*batchConfig)
+
+type batchConfig struct {
+	bufferSize int64
+}
+
+// WithBufferSize sets the maximum number of rows buffered before the
+// serialiser flushes to the underlying writer. Smaller values produce more
+// incremental streaming (less peak memory) at a small metadata cost.
+//
+// The default is DefaultBufferSize (16 384).
+// Setting n <= 0 reverts to the default.
+func WithBufferSize(n int64) BatchOption {
+	return func(c *batchConfig) {
+		c.bufferSize = n
+	}
+}
 
 // BatchConnection provides access to batch insert functionality.
 // Obtain it via database/sql (*sql.Conn).Raw:
@@ -29,12 +58,12 @@ const parquetUploadName = "batch_data"
 //	    return batch.Send(ctx)
 //	})
 type BatchConnection interface {
-	PrepareBatch(ctx context.Context, query string) (Batch, error)
+	PrepareBatch(ctx context.Context, query string, opts ...BatchOption) (Batch, error)
 }
 
 // Batch represents an in-progress batch insert operation.
-// Rows are buffered client-side and serialised to Parquet when Send is called.
-// The Parquet file is uploaded to the engine via a multipart form POST.
+// Rows are buffered client-side and serialised when Send is called.
+// The serialised payload is uploaded to the engine via a multipart form POST.
 //
 // Two insertion modes are supported:
 //
@@ -59,13 +88,16 @@ type Batch interface {
 	// the batch.
 	Column(index int) BatchColumn
 
-	// Send serialises all buffered rows to Parquet format and uploads
-	// them to the engine. The batch is reset after a successful send
-	// and can be reused.
+	// Send serialises all buffered rows and uploads them to the engine.
+	// The batch is reset after a successful send and can be reused.
 	Send(ctx context.Context) error
 
 	// Abort discards all buffered rows without sending.
 	Abort() error
+
+	// GetMetrics returns timing metrics for each Send() call made on this
+	// batch (one entry per call, in chronological order).
+	GetMetrics() []BatchMetric
 }
 
 // BatchColumn is returned by Batch.Column and supports appending an entire
@@ -82,6 +114,7 @@ type fireboltBatch struct {
 	tableName string
 	colNames  []string
 	blk       *block
+	metrics   []BatchMetric
 }
 
 type fireboltBatchColumn struct {
@@ -95,8 +128,13 @@ type fireboltBatchColumn struct {
 //	INSERT INTO table_name (col1, col2, ...)
 //
 // Column types are discovered automatically by querying the table schema.
-// Data is serialised to Parquet and uploaded via multipart form POST.
-func (c *fireboltConnection) PrepareBatch(ctx context.Context, query string) (Batch, error) {
+// Data is serialised and uploaded via multipart form POST.
+//
+// Optional BatchOption values can tune serialisation, e.g.:
+//
+//	batch, err := bc.PrepareBatch(ctx, query,
+//	    fireboltgosdk.WithBufferSize(32768))
+func (c *fireboltConnection) PrepareBatch(ctx context.Context, query string, opts ...BatchOption) (Batch, error) {
 	if c.client == nil || c.engineUrl == "" {
 		return nil, fmt.Errorf("connection is not initialized")
 	}
@@ -114,6 +152,14 @@ func (c *fireboltConnection) PrepareBatch(ctx context.Context, query string) (Ba
 	blk, err := newBlock(columnNames, columnTypes)
 	if err != nil {
 		return nil, errorUtils.ConstructNestedError("error creating block", err)
+	}
+
+	cfg := batchConfig{bufferSize: DefaultBufferSize}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	if cfg.bufferSize > 0 {
+		blk.bufferSize = cfg.bufferSize
 	}
 
 	return &fireboltBatch{
@@ -142,19 +188,16 @@ func (c *fireboltBatchColumn) Append(v interface{}) error {
 	return c.blk.columnAt(c.index).appendColumn(v)
 }
 
-// Send serialises buffered rows to Parquet and uploads them via multipart
-// form POST. The batch is reset on success and can accept new rows.
+// Send serialises buffered rows and uploads them via multipart form POST.
+// Serialisation is streamed directly into the HTTP body so the full payload
+// never resides in a single buffer.
+// The batch is reset on success and can accept new rows.
 func (b *fireboltBatch) Send(ctx context.Context) error {
 	if err := b.blk.validate(); err != nil {
 		return errorUtils.ConstructNestedError("batch column length mismatch", err)
 	}
 	if b.blk.blockRows() == 0 {
 		return nil
-	}
-
-	parquetData, err := b.blk.toParquet()
-	if err != nil {
-		return errorUtils.ConstructNestedError("error serialising batch to parquet", err)
 	}
 
 	sql := buildParquetInsertQuery(b.tableName, b.colNames, parquetUploadName)
@@ -165,7 +208,14 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 		ResetParameters:  b.conn.resetParameters,
 	}
 
-	resp, err := b.conn.client.UploadParquet(ctx, b.conn.engineUrl, sql, parquetData, parquetUploadName, b.conn.parameters, control)
+	var m BatchMetric
+	m.SerializeStart = time.Now()
+	m.UploadStart = m.SerializeStart
+	resp, err := b.conn.client.UploadParquet(ctx, b.conn.engineUrl, sql, b.blk, parquetUploadName, b.conn.parameters, control)
+	elapsed := time.Since(m.UploadStart).Seconds()
+	m.UploadSeconds = elapsed
+	b.metrics = append(b.metrics, m)
+
 	if err != nil {
 		return errorUtils.ConstructNestedError("error uploading batch data", err)
 	}
@@ -173,6 +223,11 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 
 	b.blk.reset()
 	return nil
+}
+
+// GetMetrics returns timing metrics recorded for each Send() call.
+func (b *fireboltBatch) GetMetrics() []BatchMetric {
+	return b.metrics
 }
 
 // Abort discards all buffered rows without sending.
