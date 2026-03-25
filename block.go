@@ -8,7 +8,13 @@ import (
 	"slices"
 
 	"github.com/parquet-go/parquet-go"
+	"github.com/parquet-go/parquet-go/compress"
+	"github.com/parquet-go/parquet-go/compress/brotli"
+	"github.com/parquet-go/parquet-go/compress/gzip"
+	"github.com/parquet-go/parquet-go/compress/lz4"
 	"github.com/parquet-go/parquet-go/compress/snappy"
+	"github.com/parquet-go/parquet-go/compress/uncompressed"
+	"github.com/parquet-go/parquet-go/compress/zstd"
 )
 
 // DefaultBufferSize is the default number of rows buffered before the
@@ -54,12 +60,16 @@ func (br *blockReader) Read(p []byte) (int, error) {
 	return br.buf.Read(p)
 }
 
-// block holds column data and serialises it to Parquet format.
+// block holds column data and serialises it to the configured format.
 type block struct {
-	columns     []column
-	schema      *parquet.Schema
-	leafIndices []int
-	bufferSize  int64
+	columns             []column
+	schema              *parquet.Schema
+	leafIndices         []int
+	bufferSize          int64
+	format              SerializationFormat
+	compression         CompressionCodec
+	compressionLevel    int
+	compressionLevelSet bool
 }
 
 func newBlock(columnNames []string, fireboltTypes []string) (*block, error) {
@@ -167,10 +177,15 @@ func (b *block) leafColumnIndices() []int {
 	return indices
 }
 
-// NewReader returns an io.Reader that produces the Parquet-serialised
-// contents of the block. Each call returns a fresh, independent reader
-// so the same block can be retried on auth failure.
+// NewReader returns an io.Reader that produces the serialised contents of
+// the block in the configured format. Each call returns a fresh, independent
+// reader so the same block can be retried on auth failure.
 func (b *block) NewReader() (io.Reader, error) {
+	return b.newParquetReader()
+}
+
+// newParquetReader produces a Parquet-serialised io.Reader.
+func (b *block) newParquetReader() (io.Reader, error) {
 	numRows := b.blockRows()
 	if numRows == 0 {
 		return bytes.NewReader(nil), nil
@@ -252,11 +267,44 @@ func (b *block) NewReader() (io.Reader, error) {
 	}
 	br := &blockReader{numRows: numRows, rows: rows, batchSize: batchSize}
 	br.pw = parquet.NewGenericWriter[any](&br.buf, b.schema,
-		parquet.Compression(&snappy.Codec{}),
+		parquet.Compression(b.parquetCodec()),
 		parquet.DataPageStatistics(false),
 		parquet.MaxRowsPerRowGroup(b.bufferSize),
 	)
 	return br, nil
+}
+
+func (b *block) parquetCodec() compress.Codec {
+	switch b.compression {
+	case CompressZstd:
+		c := &zstd.Codec{}
+		if b.compressionLevelSet {
+			c.Level = zstd.Level(b.compressionLevel)
+		}
+		return c
+	case CompressGzip:
+		c := &gzip.Codec{}
+		if b.compressionLevelSet {
+			c.Level = b.compressionLevel
+		}
+		return c
+	case CompressUncompressed:
+		return &uncompressed.Codec{}
+	case CompressLZ4:
+		c := &lz4.Codec{}
+		if b.compressionLevelSet {
+			c.Level = lz4.Level(b.compressionLevel)
+		}
+		return c
+	case CompressBrotli:
+		c := &brotli.Codec{}
+		if b.compressionLevelSet {
+			c.Quality = b.compressionLevel
+		}
+		return c
+	default:
+		return &snappy.Codec{}
+	}
 }
 
 // toParquet serialises all buffered data into Parquet format in memory.
