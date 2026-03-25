@@ -219,7 +219,7 @@ func (m *mockClientForDescribe) Query(ctx context.Context, engineUrl, query stri
 	return client.MakeResponse(reader, 200, nil, nil), nil
 }
 
-func (m *mockClientForDescribe) UploadParquet(ctx context.Context, engineUrl, sql string, payload client.ParquetPayload, fileName string, parameters map[string]string, control client.ConnectionControl) (*client.Response, error) {
+func (m *mockClientForDescribe) UploadBatch(ctx context.Context, engineUrl, sql string, payload client.BatchPayload, fileName, fileExt string, parameters map[string]string, control client.ConnectionControl) (*client.Response, error) {
 	return nil, nil
 }
 
@@ -349,7 +349,7 @@ func (m *mockClientForTransactionCommitFailure) Query(ctx context.Context, engin
 	return client.MakeResponse(reader, 200, nil, nil), nil
 }
 
-func (m *mockClientForTransactionCommitFailure) UploadParquet(ctx context.Context, engineUrl, sql string, payload client.ParquetPayload, fileName string, parameters map[string]string, control client.ConnectionControl) (*client.Response, error) {
+func (m *mockClientForTransactionCommitFailure) UploadBatch(ctx context.Context, engineUrl, sql string, payload client.BatchPayload, fileName, fileExt string, parameters map[string]string, control client.ConnectionControl) (*client.Response, error) {
 	return nil, nil
 }
 

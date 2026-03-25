@@ -22,13 +22,33 @@ type BatchMetric struct {
 	UploadSeconds    float64
 }
 
-const parquetUploadName = "batch_data"
+const batchUploadName = "batch_data"
+
+// SerializationFormat selects the wire format used to encode batch data.
+type SerializationFormat int
+
+const (
+	// FormatParquet uses Parquet (columnar, snappy-compressed).
+	// This is the default when no format is specified.
+	FormatParquet SerializationFormat = iota
+	// FormatAvro uses Avro OCF (row-oriented, snappy-compressed).
+	FormatAvro
+)
 
 // BatchOption configures batch behaviour. Pass to PrepareBatch.
 type BatchOption func(*batchConfig)
 
 type batchConfig struct {
 	bufferSize int64
+	format     SerializationFormat
+}
+
+// WithSerialization selects the wire format for batch uploads.
+// The default is FormatParquet.
+func WithSerialization(f SerializationFormat) BatchOption {
+	return func(c *batchConfig) {
+		c.format = f
+	}
 }
 
 // WithBufferSize sets the maximum number of rows buffered before the
@@ -161,6 +181,7 @@ func (c *fireboltConnection) PrepareBatch(ctx context.Context, query string, opt
 	if cfg.bufferSize > 0 {
 		blk.bufferSize = cfg.bufferSize
 	}
+	blk.format = cfg.format
 
 	return &fireboltBatch{
 		conn:      c,
@@ -200,7 +221,14 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 		return nil
 	}
 
-	sql := buildParquetInsertQuery(b.tableName, b.colNames, parquetUploadName)
+	var sql, fileExt string
+	if b.blk.format == FormatAvro {
+		fileExt = ".avro"
+		sql = buildAvroInsertQuery(b.tableName, b.colNames, batchUploadName)
+	} else {
+		fileExt = ".parquet"
+		sql = buildParquetInsertQuery(b.tableName, b.colNames, batchUploadName)
+	}
 
 	control := client.ConnectionControl{
 		UpdateParameters: b.conn.setParameter,
@@ -211,7 +239,7 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 	var m BatchMetric
 	m.SerializeStart = time.Now()
 	m.UploadStart = m.SerializeStart
-	resp, err := b.conn.client.UploadParquet(ctx, b.conn.engineUrl, sql, b.blk, parquetUploadName, b.conn.parameters, control)
+	resp, err := b.conn.client.UploadBatch(ctx, b.conn.engineUrl, sql, b.blk, batchUploadName, fileExt, b.conn.parameters, control)
 	elapsed := time.Since(m.UploadStart).Seconds()
 	m.UploadSeconds = elapsed
 	b.metrics = append(b.metrics, m)
@@ -308,6 +336,25 @@ func buildParquetInsertQuery(tableName string, columnNames []string, fileName st
 		quotedTable = fmt.Sprintf("\"%s\"", tableName)
 	}
 	return fmt.Sprintf("INSERT INTO %s (%s) SELECT * FROM read_parquet('upload://%s')",
+		quotedTable, strings.Join(quoted, ", "), fileName)
+}
+
+// buildAvroInsertQuery constructs:
+//
+//	INSERT INTO table ("col1", "col2") SELECT * FROM read_avro(URL => 'upload://<fileName>')
+//
+// Unlike the Parquet path, columns are listed in original insertion order
+// because the Avro schema preserves field order as defined.
+func buildAvroInsertQuery(tableName string, columnNames []string, fileName string) string {
+	quoted := make([]string, len(columnNames))
+	for i, name := range columnNames {
+		quoted[i] = fmt.Sprintf("\"%s\"", name)
+	}
+	quotedTable := tableName
+	if !strings.Contains(tableName, "\"") {
+		quotedTable = fmt.Sprintf("\"%s\"", tableName)
+	}
+	return fmt.Sprintf("INSERT INTO %s (%s) SELECT * FROM read_avro(URL => 'upload://%s')",
 		quotedTable, strings.Join(quoted, ", "), fileName)
 }
 

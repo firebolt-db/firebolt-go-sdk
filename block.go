@@ -54,12 +54,13 @@ func (br *blockReader) Read(p []byte) (int, error) {
 	return br.buf.Read(p)
 }
 
-// block holds column data and serialises it to Parquet format.
+// block holds column data and serialises it to Parquet or Avro format.
 type block struct {
 	columns     []column
 	schema      *parquet.Schema
 	leafIndices []int
 	bufferSize  int64
+	format      SerializationFormat
 }
 
 func newBlock(columnNames []string, fireboltTypes []string) (*block, error) {
@@ -167,10 +168,19 @@ func (b *block) leafColumnIndices() []int {
 	return indices
 }
 
-// NewReader returns an io.Reader that produces the Parquet-serialised
-// contents of the block. Each call returns a fresh, independent reader
-// so the same block can be retried on auth failure.
+// NewReader returns an io.Reader that produces the serialised contents of
+// the block in the configured format (Parquet or Avro). Each call returns
+// a fresh, independent reader so the same block can be retried on auth
+// failure.
 func (b *block) NewReader() (io.Reader, error) {
+	if b.format == FormatAvro {
+		return b.newAvroReader()
+	}
+	return b.newParquetReader()
+}
+
+// newParquetReader produces a Parquet-serialised io.Reader.
+func (b *block) newParquetReader() (io.Reader, error) {
 	numRows := b.blockRows()
 	if numRows == 0 {
 		return bytes.NewReader(nil), nil
