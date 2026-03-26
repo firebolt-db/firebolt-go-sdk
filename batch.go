@@ -63,6 +63,7 @@ type batchConfig struct {
 	compression         CompressionCodec
 	compressionLevel    int
 	compressionLevelSet bool
+	queryLabel          string
 }
 
 // WithSerialization selects the wire format for batch uploads.
@@ -99,6 +100,15 @@ func WithCompressionLevel(level int) BatchOption {
 	return func(cfg *batchConfig) {
 		cfg.compressionLevel = level
 		cfg.compressionLevelSet = true
+	}
+}
+
+// WithQueryLabel sets the query label sent with the batch upload request.
+// This is safe to use when multiple batches share the same connection,
+// as it is stored per-batch rather than mutating shared connection state.
+func WithQueryLabel(label string) BatchOption {
+	return func(c *batchConfig) {
+		c.queryLabel = label
 	}
 }
 
@@ -181,11 +191,12 @@ type BatchColumn interface {
 }
 
 type fireboltBatch struct {
-	conn      *fireboltConnection
-	tableName string
-	colNames  []string
-	blk       *block
-	metrics   []BatchMetric
+	conn       *fireboltConnection
+	tableName  string
+	colNames   []string
+	blk        *block
+	metrics    []BatchMetric
+	queryLabel string
 }
 
 type fireboltBatchColumn struct {
@@ -244,10 +255,11 @@ func (c *fireboltConnection) PrepareBatch(ctx context.Context, query string, opt
 	blk.compressionLevelSet = cfg.compressionLevelSet
 
 	return &fireboltBatch{
-		conn:      c,
-		tableName: tableName,
-		colNames:  columnNames,
-		blk:       blk,
+		conn:       c,
+		tableName:  tableName,
+		colNames:   columnNames,
+		blk:        blk,
+		queryLabel: cfg.queryLabel,
 	}, nil
 }
 
@@ -296,10 +308,15 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 		ResetParameters:  b.conn.resetParameters,
 	}
 
+	params := b.conn.parameters
+	if b.queryLabel != "" {
+		params = mergeMaps(params, map[string]string{"query_label": b.queryLabel})
+	}
+
 	var m BatchMetric
 	m.SerializeStart = time.Now()
 	m.UploadStart = m.SerializeStart
-	resp, err := b.conn.client.UploadBatch(ctx, b.conn.engineUrl, sql, b.blk, batchUploadName, fileExt, b.conn.parameters, control)
+	resp, err := b.conn.client.UploadBatch(ctx, b.conn.engineUrl, sql, b.blk, batchUploadName, fileExt, params, control)
 	elapsed := time.Since(m.UploadStart).Seconds()
 	m.UploadSeconds = elapsed
 	b.metrics = append(b.metrics, m)

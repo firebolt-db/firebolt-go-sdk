@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"io"
+	"strings"
 )
 
 // MockClient rudimentary mocks Client and tracks the parameters passed to Query
@@ -25,7 +27,10 @@ func (m *MockClient) Query(ctx context.Context, engineUrl, query string, paramet
 
 func (m *MockClient) UploadBatch(ctx context.Context, engineUrl, sql string, payload BatchPayload, fileName, fileExt string, parameters map[string]string, control ConnectionControl) (*Response, error) {
 	m.ParametersCalled = append(m.ParametersCalled, parameters)
-	return nil, m.errorToRaise
+	if m.errorToRaise != nil {
+		return nil, m.errorToRaise
+	}
+	return MakeResponse(io.NopCloser(strings.NewReader("")), 200, nil, nil), nil
 }
 
 func (m *MockClient) GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error) {
