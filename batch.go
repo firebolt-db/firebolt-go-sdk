@@ -28,19 +28,41 @@ const batchUploadName = "batch_data"
 type SerializationFormat int
 
 const (
-	// FormatParquet uses Parquet (columnar, snappy-compressed).
+	// FormatParquet uses Parquet (columnar).
 	// This is the default when no format is specified.
 	FormatParquet SerializationFormat = iota
-	// FormatAvro uses Avro OCF (row-oriented, snappy-compressed).
+	// FormatAvro uses Avro OCF (row-oriented).
 	FormatAvro
+)
+
+// CompressionCodec selects the compression algorithm applied within the
+// serialised file (Parquet page compression or Avro block compression).
+type CompressionCodec int
+
+const (
+	// CompressSnappy uses Snappy compression. This is the default.
+	CompressSnappy CompressionCodec = iota
+	// CompressZstd uses Zstandard compression.
+	CompressZstd
+	// CompressGzip uses gzip compression (Parquet) / deflate (Avro).
+	CompressGzip
+	// CompressUncompressed disables compression entirely.
+	CompressUncompressed
+	// CompressLZ4 uses LZ4 compression. Parquet only — not supported with FormatAvro.
+	CompressLZ4
+	// CompressBrotli uses Brotli compression. Parquet only — not supported with FormatAvro.
+	CompressBrotli
 )
 
 // BatchOption configures batch behaviour. Pass to PrepareBatch.
 type BatchOption func(*batchConfig)
 
 type batchConfig struct {
-	bufferSize int64
-	format     SerializationFormat
+	bufferSize          int64
+	format              SerializationFormat
+	compression         CompressionCodec
+	compressionLevel    int
+	compressionLevelSet bool
 }
 
 // WithSerialization selects the wire format for batch uploads.
@@ -51,12 +73,41 @@ func WithSerialization(f SerializationFormat) BatchOption {
 	}
 }
 
+// WithCompression selects the compression codec used inside the serialised
+// file. For Parquet this controls page-level compression; for Avro it
+// controls block-level compression. The default is CompressSnappy.
+//
+// CompressLZ4 and CompressBrotli are only supported with FormatParquet;
+// using them with FormatAvro will cause PrepareBatch to return an error.
+func WithCompression(c CompressionCodec) BatchOption {
+	return func(cfg *batchConfig) {
+		cfg.compression = c
+	}
+}
+
+// WithCompressionLevel sets the compression level passed to the underlying
+// codec. The meaning is codec-specific:
+//
+//   - Gzip / Deflate: 0 (no compression) – 9 (best), as defined by compress/flate.
+//   - Zstd: encoder level (e.g. 1 = fastest, 3 = default, 11 = best).
+//   - LZ4: 1–9 (Parquet only).
+//   - Brotli: quality 0–11 (Parquet only).
+//   - Snappy / Uncompressed: ignored (no tuneable level).
+//
+// When this option is not used, each codec applies its own built-in default.
+func WithCompressionLevel(level int) BatchOption {
+	return func(cfg *batchConfig) {
+		cfg.compressionLevel = level
+		cfg.compressionLevelSet = true
+	}
+}
+
 // WithBufferSize sets the maximum number of rows buffered before the
 // serialiser flushes to the underlying writer. Smaller values produce more
 // incremental streaming (less peak memory) at a small metadata cost.
+// n must be positive; passing n <= 0 causes PrepareBatch to return an error.
 //
 // The default is DefaultBufferSize (16 384).
-// Setting n <= 0 reverts to the default.
 func WithBufferSize(n int64) BatchOption {
 	return func(c *batchConfig) {
 		c.bufferSize = n
@@ -178,10 +229,19 @@ func (c *fireboltConnection) PrepareBatch(ctx context.Context, query string, opt
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	if cfg.bufferSize > 0 {
-		blk.bufferSize = cfg.bufferSize
+
+	if cfg.format == FormatAvro && (cfg.compression == CompressLZ4 || cfg.compression == CompressBrotli) {
+		return nil, fmt.Errorf("compression codec %d is not supported with Avro format", cfg.compression)
 	}
+	if cfg.bufferSize <= 0 {
+		return nil, fmt.Errorf("buffer size must be positive, got %d", cfg.bufferSize)
+	}
+
+	blk.bufferSize = cfg.bufferSize
 	blk.format = cfg.format
+	blk.compression = cfg.compression
+	blk.compressionLevel = cfg.compressionLevel
+	blk.compressionLevelSet = cfg.compressionLevelSet
 
 	return &fireboltBatch{
 		conn:      c,

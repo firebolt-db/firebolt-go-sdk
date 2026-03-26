@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/hamba/avro/v2/ocf"
+	"github.com/klauspost/compress/zstd"
 )
 
 // avroReader implements io.Reader over a block's Avro OCF serialisation.
@@ -78,10 +79,8 @@ func (b *block) newAvroReader() (io.Reader, error) {
 		row:     make(map[string]interface{}, len(b.columns)),
 	}
 
-	enc, err := ocf.NewEncoder(schemaJSON, &ar.buf,
-		ocf.WithCodec(ocf.Snappy),
-		ocf.WithBlockLength(batchSize),
-	)
+	encOpts := append(b.avroEncoderOpts(), ocf.WithBlockLength(batchSize))
+	enc, err := ocf.NewEncoder(schemaJSON, &ar.buf, encOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("error creating avro OCF encoder: %w", err)
 	}
@@ -279,5 +278,28 @@ func avroArrayValueForColumn(ac *arrayColumn, r int) interface{} {
 			result[i] = avroValueForColumn(ac.elem, int(start)+i)
 		}
 		return result
+	}
+}
+
+// avroEncoderOpts returns the OCF encoder options for codec selection and
+// optional compression level. LZ4 and Brotli are rejected earlier in
+// PrepareBatch, so they never reach here.
+func (b *block) avroEncoderOpts() []ocf.EncoderFunc {
+	switch b.compression {
+	case CompressGzip:
+		if b.compressionLevelSet {
+			return []ocf.EncoderFunc{ocf.WithCompressionLevel(b.compressionLevel)}
+		}
+		return []ocf.EncoderFunc{ocf.WithCodec(ocf.Deflate)}
+	case CompressZstd:
+		opts := []ocf.EncoderFunc{ocf.WithCodec(ocf.ZStandard)}
+		if b.compressionLevelSet {
+			opts = append(opts, ocf.WithZStandardEncoderOptions(zstd.WithEncoderLevel(zstd.EncoderLevel(b.compressionLevel))))
+		}
+		return opts
+	case CompressUncompressed:
+		return []ocf.EncoderFunc{ocf.WithCodec(ocf.Null)}
+	default:
+		return []ocf.EncoderFunc{ocf.WithCodec(ocf.Snappy)}
 	}
 }
