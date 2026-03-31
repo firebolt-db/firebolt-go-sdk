@@ -2,6 +2,7 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
@@ -36,6 +37,16 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 			httpClient = NewHttpClientForLBWithTransport(settings.Transport, parsed.Hostname())
 		}
 		logging.Infolog.Printf("client-side load balancing enabled for %s (DNS TTL: %s)", settings.Url, resolver.TTL)
+
+		if settings.ClientSideLBHC && settings.ClientSideLBHCURL != "" {
+			hc, err := NewHealthChecker(settings.ClientSideLBHCURL, settings.ClientSideLBHCInterval)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create health checker: %w", err)
+			}
+			resolver.healthChecker = hc
+			hc.Start()
+			logging.Infolog.Printf("health checking enabled (url: %s, interval: %s)", settings.ClientSideLBHCURL, hc.interval)
+		}
 	}
 
 	client := &ClientImplCore{

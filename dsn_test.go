@@ -49,6 +49,18 @@ func runDSNTest(t *testing.T, input string, expectedSettings types.FireboltSetti
 		t.Errorf("for DNSTTL got %v want %v", settings.DNSTTL, expectedSettings.DNSTTL)
 	}
 
+	if settings.ClientSideLBHC != expectedSettings.ClientSideLBHC {
+		t.Errorf("for ClientSideLBHC got %t want %t", settings.ClientSideLBHC, expectedSettings.ClientSideLBHC)
+	}
+
+	if settings.ClientSideLBHCURL != expectedSettings.ClientSideLBHCURL {
+		t.Errorf("for ClientSideLBHCURL got %q want %q", settings.ClientSideLBHCURL, expectedSettings.ClientSideLBHCURL)
+	}
+
+	if settings.ClientSideLBHCInterval != expectedSettings.ClientSideLBHCInterval {
+		t.Errorf("for ClientSideLBHCInterval got %v want %v", settings.ClientSideLBHCInterval, expectedSettings.ClientSideLBHCInterval)
+	}
+
 	// Check DefaultQueryParams
 	if len(settings.DefaultQueryParams) != len(expectedSettings.DefaultQueryParams) {
 		t.Errorf("for DefaultQueryParams length got %d want %d", len(settings.DefaultQueryParams), len(expectedSettings.DefaultQueryParams))
@@ -172,6 +184,29 @@ func TestDSNCoreClientSideLBDNSTTL(t *testing.T) {
 func TestDSNCoreClientSideLBDNSTTLInvalid(t *testing.T) {
 	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=bogus")
 	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=")
+}
+
+func TestDSNCoreClientSideLBHC(t *testing.T) {
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_hc=true&client_side_lb_hc_url=http://host:8122/",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true, ClientSideLBHC: true, ClientSideLBHCURL: "http://host:8122/"})
+
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_hc=false",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true})
+
+	// Omitting client_side_lb_hc defaults to false.
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true})
+}
+
+func TestDSNCoreClientSideLBHCInterval(t *testing.T) {
+	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_hc=true&client_side_lb_hc_url=http://host:8122/&client_side_lb_hc_interval=10s",
+		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true,
+			ClientSideLBHC: true, ClientSideLBHCURL: "http://host:8122/", ClientSideLBHCInterval: 10 * time.Second})
+}
+
+func TestDSNCoreClientSideLBHCIntervalInvalid(t *testing.T) {
+	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_hc_interval=bogus")
+	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_hc_interval=")
 }
 
 func TestDSNWithDefaultParams(t *testing.T) {

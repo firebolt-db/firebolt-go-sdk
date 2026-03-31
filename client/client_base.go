@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -46,8 +47,12 @@ type BaseClient struct {
 	URLResolver       *RoundRobinResolver // nil disables client-side load balancing
 }
 
-// Close releases resources held by the client, including idle HTTP connections.
+// Close releases resources held by the client, including idle HTTP
+// connections and any background health-check goroutine.
 func (c *BaseClient) Close() error {
+	if c.URLResolver != nil {
+		c.URLResolver.Close()
+	}
 	if c.HttpClient != nil {
 		c.HttpClient.CloseIdleConnections()
 	}
@@ -197,69 +202,146 @@ func (c *BaseClient) resolveURL(ctx context.Context, rawURL string) (string, str
 	return resolved, originalHost
 }
 
-func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url string, params map[string]string, sql string, payload BatchPayload, fileName, fileExt string) *Response {
+func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, rawURL string, params map[string]string, sql string, payload BatchPayload, fileName, fileExt string) *Response {
 	if c.AccessTokenGetter == nil {
 		return MakeResponse(nil, 0, nil, errors.New("AccessTokenGetter is not set"))
 	}
 
-	resolvedURL, hostOverride := c.resolveURL(ctx, url)
+	maxDialRetries := c.maxDialRetries(rawURL)
 
-	accessToken, err := c.AccessTokenGetter()
-	if err != nil {
-		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
-	}
-	reader, err := payload.NewReader()
-	if err != nil {
-		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating batch reader", err))
-	}
-	resp := DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, reader, fileName, fileExt, hostOverride})
-	if resp.statusCode == http.StatusUnauthorized {
-		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
+	for attempt := 0; ; attempt++ {
+		resolvedURL, hostOverride := c.resolveURL(ctx, rawURL)
 
-		accessToken, err = c.AccessTokenGetter()
+		accessToken, err := c.AccessTokenGetter()
 		if err != nil {
 			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 		}
-		reader, err = payload.NewReader()
+		reader, err := payload.NewReader()
 		if err != nil {
-			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating batch reader for retry", err))
+			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating batch reader", err))
 		}
-		resp = DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, reader, fileName, fileExt, hostOverride})
+		resp := DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, reader, fileName, fileExt, hostOverride})
+
+		if resp.err != nil && isDialError(resp.err) && attempt < maxDialRetries {
+			c.reportDialFailure(resolvedURL)
+			continue
+		}
+
 		if resp.statusCode == http.StatusUnauthorized {
-			resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
+			deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
+
+			accessToken, err = c.AccessTokenGetter()
+			if err != nil {
+				return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
+			}
+			reader, err = payload.NewReader()
+			if err != nil {
+				return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating batch reader for retry", err))
+			}
+			resp = DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, reader, fileName, fileExt, hostOverride})
+
+			if resp.err != nil && isDialError(resp.err) && attempt < maxDialRetries {
+				c.reportDialFailure(resolvedURL)
+				continue
+			}
+
+			if resp.statusCode == http.StatusUnauthorized {
+				resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
+			}
 		}
+		return resp
 	}
-	return resp
 }
 
 // requestWithAuthRetry fetches an access token from the cache or re-authenticate when the access token is not available in the cache
-// and sends a request using that token
-func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, url string, params map[string]string, bodyStr string) *Response {
-	var err error
-
+// and sends a request using that token. When health checking is enabled
+// and the TCP dial fails, the failing IP is marked unhealthy and the
+// request is retried against the next healthy IP.
+func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, rawURL string, params map[string]string, bodyStr string) *Response {
 	if c.AccessTokenGetter == nil {
 		return MakeResponse(nil, 0, nil, errors.New("AccessTokenGetter is not set"))
 	}
 
-	resolvedURL, hostOverride := c.resolveURL(ctx, url)
+	maxDialRetries := c.maxDialRetries(rawURL)
 
-	accessToken, err := c.AccessTokenGetter()
-	if err != nil {
-		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
-	}
-	resp := DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeJSON, hostOverride})
-	if resp.statusCode == http.StatusUnauthorized {
-		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
+	for attempt := 0; ; attempt++ {
+		resolvedURL, hostOverride := c.resolveURL(ctx, rawURL)
 
-		accessToken, err = c.AccessTokenGetter()
+		accessToken, err := c.AccessTokenGetter()
 		if err != nil {
 			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 		}
-		resp = DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeJSON, hostOverride})
+		resp := DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeJSON, hostOverride})
+
+		if resp.err != nil && isDialError(resp.err) && attempt < maxDialRetries {
+			c.reportDialFailure(resolvedURL)
+			continue
+		}
 
 		if resp.statusCode == http.StatusUnauthorized {
-			resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
+			deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
+
+			accessToken, err = c.AccessTokenGetter()
+			if err != nil {
+				return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
+			}
+			resp = DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeJSON, hostOverride})
+
+			if resp.err != nil && isDialError(resp.err) && attempt < maxDialRetries {
+				c.reportDialFailure(resolvedURL)
+				continue
+			}
+
+			if resp.statusCode == http.StatusUnauthorized {
+				resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
+			}
 		}
+		return resp
 	}
-	return resp
+}
+
+// maxDialRetries returns the number of additional IPs to try when a
+// TCP dial fails. Returns 0 when health checking is disabled or when
+// the URL doesn't match the resolver's target.
+func (c *BaseClient) maxDialRetries(rawURL string) int {
+	if c.URLResolver == nil || c.URLResolver.healthChecker == nil {
+		return 0
+	}
+	if MakeCanonicalUrl(rawURL) != c.URLResolver.originalURL.String() {
+		return 0
+	}
+	count := c.URLResolver.HealthyIPCount()
+	if count <= 1 {
+		return 0
+	}
+	return count - 1
+}
+
+func (c *BaseClient) reportDialFailure(resolvedURL string) {
+	if c.URLResolver == nil {
+		return
+	}
+	ip := extractIPFromURL(resolvedURL)
+	if ip != "" {
+		c.URLResolver.ReportDialFailure(ip)
+	}
+}
+
+// isDialError reports whether err (or any error in its chain) is a TCP
+// dial failure. Only dial-level failures trigger retry; HTTP-level
+// errors (timeouts, 5xx, etc.) do not.
+func isDialError(err error) bool {
+	var opErr *net.OpError
+	if errors.As(err, &opErr) {
+		return opErr.Op == "dial"
+	}
+	return false
+}
+
+func extractIPFromURL(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+	return parsed.Hostname()
 }
