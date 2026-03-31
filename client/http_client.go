@@ -157,6 +157,7 @@ type requestParametersMultipart struct {
 	sql          string
 	payload      io.Reader
 	fileName     string
+	fileExt      string // e.g. ".parquet"
 	hostOverride string // when non-empty, sent as the Host header (used by client-side LB)
 }
 
@@ -273,7 +274,7 @@ func DoHttpRequestMultipart(httpClient *http.Client, reqParams requestParameters
 
 	partHeader := make(textproto.MIMEHeader)
 	partHeader.Set("Content-Disposition",
-		fmt.Sprintf(`form-data; name="%s"; filename="%s.parquet"`, reqParams.fileName, reqParams.fileName))
+		fmt.Sprintf(`form-data; name="%s"; filename="%s%s"`, reqParams.fileName, reqParams.fileName, reqParams.fileExt))
 	partHeader.Set("Content-Type", "application/octet-stream")
 	_, _ = bw.CreatePart(partHeader)
 

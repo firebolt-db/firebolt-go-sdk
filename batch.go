@@ -22,21 +22,107 @@ type BatchMetric struct {
 	UploadSeconds    float64
 }
 
-const parquetUploadName = "batch_data"
+const batchUploadName = "batch_data"
+
+// SerializationFormat selects the wire format used to encode batch data.
+type SerializationFormat int
+
+const (
+	// FormatParquet uses Parquet (columnar).
+	// This is the default when no format is specified.
+	FormatParquet SerializationFormat = iota
+)
+
+// CompressionCodec selects the compression algorithm applied within the
+// serialised file (e.g. Parquet page compression).
+type CompressionCodec int
+
+const (
+	// CompressSnappy uses Snappy compression. This is the default.
+	CompressSnappy CompressionCodec = iota
+	// CompressZstd uses Zstandard compression.
+	CompressZstd
+	// CompressGzip uses gzip compression.
+	CompressGzip
+	// CompressUncompressed disables compression entirely.
+	CompressUncompressed
+	// CompressLZ4 uses LZ4 compression.
+	CompressLZ4
+	// CompressBrotli uses Brotli compression.
+	CompressBrotli
+)
 
 // BatchOption configures batch behaviour. Pass to PrepareBatch.
 type BatchOption func(*batchConfig)
 
 type batchConfig struct {
-	bufferSize int64
+	bufferSize          int64
+	format              SerializationFormat
+	compression         CompressionCodec
+	compressionLevel    int
+	compressionLevelSet bool
+	queryLabel          string
+	metricsEnabled      bool
+}
+
+// WithSerialization selects the wire format for batch uploads.
+// The default is FormatParquet.
+func WithSerialization(f SerializationFormat) BatchOption {
+	return func(c *batchConfig) {
+		c.format = f
+	}
+}
+
+// WithCompression selects the compression codec used inside the serialised
+// file. For Parquet this controls page-level compression. The default is
+// CompressSnappy.
+func WithCompression(c CompressionCodec) BatchOption {
+	return func(cfg *batchConfig) {
+		cfg.compression = c
+	}
+}
+
+// WithCompressionLevel sets the compression level passed to the underlying
+// codec. The meaning is codec-specific:
+//
+//   - Gzip / Deflate: 0 (no compression) – 9 (best), as defined by compress/flate.
+//   - Zstd: encoder level (e.g. 1 = fastest, 3 = default, 11 = best).
+//   - LZ4: 1–9 (Parquet only).
+//   - Brotli: quality 0–11 (Parquet only).
+//   - Snappy / Uncompressed: ignored (no tuneable level).
+//
+// When this option is not used, each codec applies its own built-in default.
+func WithCompressionLevel(level int) BatchOption {
+	return func(cfg *batchConfig) {
+		cfg.compressionLevel = level
+		cfg.compressionLevelSet = true
+	}
+}
+
+// WithQueryLabel sets the query label sent with the batch upload request.
+// This is safe to use when multiple batches share the same connection,
+// as it is stored per-batch rather than mutating shared connection state.
+func WithQueryLabel(label string) BatchOption {
+	return func(c *batchConfig) {
+		c.queryLabel = label
+	}
+}
+
+// WithBatchMetrics enables per-Send() timing metrics collection. When
+// enabled, GetMetrics returns the recorded metrics. When disabled (the
+// default), GetMetrics returns an error.
+func WithBatchMetrics() BatchOption {
+	return func(c *batchConfig) {
+		c.metricsEnabled = true
+	}
 }
 
 // WithBufferSize sets the maximum number of rows buffered before the
 // serialiser flushes to the underlying writer. Smaller values produce more
 // incremental streaming (less peak memory) at a small metadata cost.
+// n must be positive; passing n <= 0 causes PrepareBatch to return an error.
 //
 // The default is DefaultBufferSize (16 384).
-// Setting n <= 0 reverts to the default.
 func WithBufferSize(n int64) BatchOption {
 	return func(c *batchConfig) {
 		c.bufferSize = n
@@ -96,8 +182,9 @@ type Batch interface {
 	Abort() error
 
 	// GetMetrics returns timing metrics for each Send() call made on this
-	// batch (one entry per call, in chronological order).
-	GetMetrics() []BatchMetric
+	// batch (one entry per call, in chronological order). Returns an error
+	// if metrics collection was not enabled via WithBatchMetrics.
+	GetMetrics() ([]BatchMetric, error)
 }
 
 // BatchColumn is returned by Batch.Column and supports appending an entire
@@ -110,11 +197,13 @@ type BatchColumn interface {
 }
 
 type fireboltBatch struct {
-	conn      *fireboltConnection
-	tableName string
-	colNames  []string
-	blk       *block
-	metrics   []BatchMetric
+	conn           *fireboltConnection
+	tableName      string
+	colNames       []string
+	blk            *block
+	metrics        []BatchMetric
+	metricsEnabled bool
+	queryLabel     string
 }
 
 type fireboltBatchColumn struct {
@@ -158,15 +247,24 @@ func (c *fireboltConnection) PrepareBatch(ctx context.Context, query string, opt
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	if cfg.bufferSize > 0 {
-		blk.bufferSize = cfg.bufferSize
+
+	if cfg.bufferSize <= 0 {
+		return nil, fmt.Errorf("buffer size must be positive, got %d", cfg.bufferSize)
 	}
 
+	blk.bufferSize = cfg.bufferSize
+	blk.format = cfg.format
+	blk.compression = cfg.compression
+	blk.compressionLevel = cfg.compressionLevel
+	blk.compressionLevelSet = cfg.compressionLevelSet
+
 	return &fireboltBatch{
-		conn:      c,
-		tableName: tableName,
-		colNames:  columnNames,
-		blk:       blk,
+		conn:           c,
+		tableName:      tableName,
+		colNames:       columnNames,
+		blk:            blk,
+		metricsEnabled: cfg.metricsEnabled,
+		queryLabel:     cfg.queryLabel,
 	}, nil
 }
 
@@ -200,7 +298,9 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 		return nil
 	}
 
-	sql := buildParquetInsertQuery(b.tableName, b.colNames, parquetUploadName)
+	var sql, fileExt string
+	fileExt = ".parquet"
+	sql = buildParquetInsertQuery(b.tableName, b.colNames, batchUploadName)
 
 	control := client.ConnectionControl{
 		UpdateParameters: b.conn.setParameter,
@@ -208,13 +308,24 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 		ResetParameters:  b.conn.resetParameters,
 	}
 
-	var m BatchMetric
-	m.SerializeStart = time.Now()
-	m.UploadStart = m.SerializeStart
-	resp, err := b.conn.client.UploadParquet(ctx, b.conn.engineUrl, sql, b.blk, parquetUploadName, b.conn.parameters, control)
-	elapsed := time.Since(m.UploadStart).Seconds()
-	m.UploadSeconds = elapsed
-	b.metrics = append(b.metrics, m)
+	params := b.conn.parameters
+	if b.queryLabel != "" {
+		params = mergeMaps(params, map[string]string{"query_label": b.queryLabel})
+	}
+
+	var start time.Time
+	if b.metricsEnabled {
+		start = time.Now()
+	}
+	resp, err := b.conn.client.UploadBatch(ctx, b.conn.engineUrl, sql, b.blk, batchUploadName, fileExt, params, control)
+	if b.metricsEnabled {
+		m := BatchMetric{
+			SerializeStart: start,
+			UploadStart:    start,
+			UploadSeconds:  time.Since(start).Seconds(),
+		}
+		b.metrics = append(b.metrics, m)
+	}
 
 	if err != nil {
 		return errorUtils.ConstructNestedError("error uploading batch data", err)
@@ -226,8 +337,12 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 }
 
 // GetMetrics returns timing metrics recorded for each Send() call.
-func (b *fireboltBatch) GetMetrics() []BatchMetric {
-	return b.metrics
+// Returns an error if metrics collection was not enabled via WithBatchMetrics.
+func (b *fireboltBatch) GetMetrics() ([]BatchMetric, error) {
+	if !b.metricsEnabled {
+		return nil, fmt.Errorf("batch metrics are disabled; use WithBatchMetrics() to enable")
+	}
+	return b.metrics, nil
 }
 
 // Abort discards all buffered rows without sending.

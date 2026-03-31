@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/firebolt-db/firebolt-go-sdk/client"
 	"github.com/parquet-go/parquet-go"
 )
 
@@ -1810,5 +1811,122 @@ func TestArrayFastPathNilSlice(t *testing.T) {
 	}
 	if len(rows[0]) != 1 || !rows[0][0].IsNull() {
 		t.Errorf("expected empty-array sentinel, got %v", rows[0])
+	}
+}
+
+// ===========================================================================
+// WithQueryLabel
+// ===========================================================================
+
+func newTestBatchWithConn(t *testing.T, mockClient *client.MockClient, connParams map[string]string, opts ...BatchOption) *fireboltBatch {
+	t.Helper()
+	conn := &fireboltConnection{
+		client:     mockClient,
+		engineUrl:  "https://engine.test",
+		parameters: connParams,
+		connector:  &FireboltConnector{},
+	}
+
+	blk, err := newBlock([]string{"id"}, []string{"int"})
+	if err != nil {
+		t.Fatalf("newBlock: %v", err)
+	}
+
+	cfg := batchConfig{bufferSize: DefaultBufferSize}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+
+	blk.bufferSize = cfg.bufferSize
+	blk.format = cfg.format
+	blk.compression = cfg.compression
+	blk.compressionLevel = cfg.compressionLevel
+	blk.compressionLevelSet = cfg.compressionLevelSet
+
+	batch := &fireboltBatch{
+		conn:       conn,
+		tableName:  "test_table",
+		colNames:   []string{"id"},
+		blk:        blk,
+		queryLabel: cfg.queryLabel,
+	}
+	if err := batch.Append(int32(1)); err != nil {
+		t.Fatalf("Append: %v", err)
+	}
+	return batch
+}
+
+func TestWithQueryLabelSentInParameters(t *testing.T) {
+	mock := client.MakeMockClient()
+	batch := newTestBatchWithConn(t, mock, map[string]string{"database": "db"}, WithQueryLabel("my_label"))
+
+	if err := batch.Send(context.Background()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	if len(mock.ParametersCalled) != 1 {
+		t.Fatalf("expected 1 UploadBatch call, got %d", len(mock.ParametersCalled))
+	}
+	params := mock.ParametersCalled[0]
+	if params["query_label"] != "my_label" {
+		t.Errorf("query_label = %q, want %q", params["query_label"], "my_label")
+	}
+	if params["database"] != "db" {
+		t.Errorf("database = %q, want %q", params["database"], "db")
+	}
+}
+
+func TestWithQueryLabelDoesNotMutateConnectionParams(t *testing.T) {
+	mock := client.MakeMockClient()
+	connParams := map[string]string{"database": "db"}
+	batch := newTestBatchWithConn(t, mock, connParams, WithQueryLabel("my_label"))
+
+	if err := batch.Send(context.Background()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	if _, exists := connParams["query_label"]; exists {
+		t.Error("WithQueryLabel must not mutate shared connection parameters")
+	}
+}
+
+func TestWithoutQueryLabelOmitsParameter(t *testing.T) {
+	mock := client.MakeMockClient()
+	batch := newTestBatchWithConn(t, mock, map[string]string{"database": "db"})
+
+	if err := batch.Send(context.Background()); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+
+	if len(mock.ParametersCalled) != 1 {
+		t.Fatalf("expected 1 UploadBatch call, got %d", len(mock.ParametersCalled))
+	}
+	if _, exists := mock.ParametersCalled[0]["query_label"]; exists {
+		t.Error("query_label should not be present when WithQueryLabel is not used")
+	}
+}
+
+func TestWithQueryLabelConcurrentBatches(t *testing.T) {
+	mock := client.MakeMockClient()
+	connParams := map[string]string{"database": "db"}
+
+	batchA := newTestBatchWithConn(t, mock, connParams, WithQueryLabel("label_a"))
+	batchB := newTestBatchWithConn(t, mock, connParams, WithQueryLabel("label_b"))
+
+	if err := batchA.Send(context.Background()); err != nil {
+		t.Fatalf("Send A: %v", err)
+	}
+	if err := batchB.Send(context.Background()); err != nil {
+		t.Fatalf("Send B: %v", err)
+	}
+
+	if len(mock.ParametersCalled) != 2 {
+		t.Fatalf("expected 2 UploadBatch calls, got %d", len(mock.ParametersCalled))
+	}
+	if mock.ParametersCalled[0]["query_label"] != "label_a" {
+		t.Errorf("batch A: query_label = %q, want %q", mock.ParametersCalled[0]["query_label"], "label_a")
+	}
+	if mock.ParametersCalled[1]["query_label"] != "label_b" {
+		t.Errorf("batch B: query_label = %q, want %q", mock.ParametersCalled[1]["query_label"], "label_b")
 	}
 }

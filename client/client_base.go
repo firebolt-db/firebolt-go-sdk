@@ -22,17 +22,17 @@ const updateEndpointHeader = "Firebolt-Update-Endpoint"
 const resetSessionHeader = "Firebolt-Reset-Session"
 const removeParametersHeader = "Firebolt-Remove-Parameters"
 
-// ParquetPayload can produce a fresh io.Reader over the serialised Parquet
+// BatchPayload can produce a fresh io.Reader over the serialised batch
 // body. NewReader may be called more than once (e.g. on auth retry), and each
 // call must return an independent reader starting from the beginning.
-type ParquetPayload interface {
+type BatchPayload interface {
 	NewReader() (io.Reader, error)
 }
 
 type Client interface {
 	GetConnectionParameters(ctx context.Context, engineName string, databaseName string) (string, map[string]string, error)
 	Query(ctx context.Context, engineUrl, query string, parameters map[string]string, control ConnectionControl) (*Response, error)
-	UploadParquet(ctx context.Context, engineUrl, sql string, payload ParquetPayload, fileName string, parameters map[string]string, control ConnectionControl) (*Response, error)
+	UploadBatch(ctx context.Context, engineUrl, sql string, payload BatchPayload, fileName, fileExt string, parameters map[string]string, control ConnectionControl) (*Response, error)
 }
 
 type BaseClient struct {
@@ -147,13 +147,16 @@ func (c *BaseClient) processResponseHeaders(headers http.Header, control Connect
 	return nil
 }
 
-// UploadParquet sends a Parquet file via multipart form upload for batch INSERT.
+// UploadBatch sends a serialised file via multipart form upload for batch INSERT.
 // The form has two parts:
 //
-//	"sql"       — the INSERT query, e.g. INSERT INTO t SELECT * FROM read_parquet('upload://<fileName>')
-//	"<fileName>"— the Parquet file bytes
-func (c *BaseClient) UploadParquet(ctx context.Context, engineUrl, sql string, payload ParquetPayload, fileName string, parameters map[string]string, control ConnectionControl) (*Response, error) {
-	logging.Infolog.Printf("UploadParquet to engine '%s' with query '%s'", engineUrl, sql)
+//	"sql"       — the INSERT query
+//	"<fileName>"— the file bytes (e.g. Parquet)
+//
+// fileExt is the extension including the dot (e.g. ".parquet") used in the
+// Content-Disposition header.
+func (c *BaseClient) UploadBatch(ctx context.Context, engineUrl, sql string, payload BatchPayload, fileName, fileExt string, parameters map[string]string, control ConnectionControl) (*Response, error) {
+	logging.Infolog.Printf("UploadBatch to engine '%s' with query '%s'", engineUrl, sql)
 
 	if c.ParameterGetter == nil {
 		return nil, errors.New("ParameterGetter is not set")
@@ -163,9 +166,9 @@ func (c *BaseClient) UploadParquet(ctx context.Context, engineUrl, sql string, p
 		return nil, err
 	}
 
-	resp := c.requestMultipartWithAuthRetry(ctx, engineUrl, params, sql, payload, fileName)
+	resp := c.requestMultipartWithAuthRetry(ctx, engineUrl, params, sql, payload, fileName, fileExt)
 	if resp.err != nil {
-		return nil, errorUtils.ConstructNestedError("error during parquet upload request", resp.err)
+		return nil, errorUtils.ConstructNestedError("error during batch upload request", resp.err)
 	}
 
 	if err = c.processResponseHeaders(resp.headers, control); err != nil {
@@ -194,7 +197,7 @@ func (c *BaseClient) resolveURL(ctx context.Context, rawURL string) (string, str
 	return resolved, originalHost
 }
 
-func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url string, params map[string]string, sql string, payload ParquetPayload, fileName string) *Response {
+func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url string, params map[string]string, sql string, payload BatchPayload, fileName, fileExt string) *Response {
 	if c.AccessTokenGetter == nil {
 		return MakeResponse(nil, 0, nil, errors.New("AccessTokenGetter is not set"))
 	}
@@ -207,9 +210,9 @@ func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url stri
 	}
 	reader, err := payload.NewReader()
 	if err != nil {
-		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating parquet reader", err))
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating batch reader", err))
 	}
-	resp := DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, reader, fileName, hostOverride})
+	resp := DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, reader, fileName, fileExt, hostOverride})
 	if resp.statusCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
@@ -219,9 +222,9 @@ func (c *BaseClient) requestMultipartWithAuthRetry(ctx context.Context, url stri
 		}
 		reader, err = payload.NewReader()
 		if err != nil {
-			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating parquet reader for retry", err))
+			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating batch reader for retry", err))
 		}
-		resp = DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, reader, fileName, hostOverride})
+		resp = DoHttpRequestMultipart(c.HttpClient, requestParametersMultipart{ctx, accessToken, resolvedURL, c.UserAgent, params, sql, reader, fileName, fileExt, hostOverride})
 		if resp.statusCode == http.StatusUnauthorized {
 			resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
 		}
