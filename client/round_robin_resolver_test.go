@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 func staticLookup(ips ...string) LookupHostFunc {
@@ -582,5 +584,75 @@ func TestRoundRobinResolver_DialFailureRetry(t *testing.T) {
 
 	if hitCount.Load() < 1 {
 		t.Error("expected at least 1 hit on the good backend")
+	}
+}
+
+// TestMakeClientCore_HCDerivedURL verifies that when client_side_lb_hc
+// is true but no explicit HC URL is provided, the URL is derived from
+// the main url with port 8122.
+func TestMakeClientCore_HCDerivedURL(t *testing.T) {
+	client, err := MakeClientCore(&types.FireboltSettings{
+		Url:            "http://my-svc:8080",
+		NewVersion:     true,
+		ClientSideLB:   true,
+		ClientSideLBHC: true,
+	})
+	if err != nil {
+		t.Fatalf("MakeClientCore should succeed with derived HC URL: %v", err)
+	}
+	defer client.Close()
+
+	if client.URLResolver == nil {
+		t.Fatal("expected URLResolver to be set")
+	}
+	if client.URLResolver.healthChecker == nil {
+		t.Fatal("expected healthChecker to be attached")
+	}
+	got := client.URLResolver.healthChecker.hcURL.String()
+	if got != "http://my-svc:8122/" {
+		t.Errorf("expected derived HC URL http://my-svc:8122/, got %s", got)
+	}
+}
+
+// TestMakeClientCore_HCExplicitURL verifies that an explicit
+// client_side_lb_hc_url takes precedence over the derived default.
+func TestMakeClientCore_HCExplicitURL(t *testing.T) {
+	client, err := MakeClientCore(&types.FireboltSettings{
+		Url:              "http://my-svc:8080",
+		NewVersion:       true,
+		ClientSideLB:     true,
+		ClientSideLBHC:   true,
+		ClientSideLBHCURL: "http://custom:9999/healthz",
+	})
+	if err != nil {
+		t.Fatalf("MakeClientCore: %v", err)
+	}
+	defer client.Close()
+
+	got := client.URLResolver.healthChecker.hcURL.String()
+	if got != "http://custom:9999/healthz" {
+		t.Errorf("expected explicit HC URL http://custom:9999/healthz, got %s", got)
+	}
+}
+
+func TestDeriveHealthCheckURL(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"http://my-svc:3473", "http://my-svc:8122/"},
+		{"https://my-svc:443/query", "http://my-svc:8122/"},
+		{"my-svc:3473", "http://my-svc:8122/"},
+		{"http://my-svc.namespace.svc.cluster.local:3473", "http://my-svc.namespace.svc.cluster.local:8122/"},
+	}
+	for _, tt := range tests {
+		got, err := deriveHealthCheckURL(tt.input)
+		if err != nil {
+			t.Errorf("deriveHealthCheckURL(%q): %v", tt.input, err)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("deriveHealthCheckURL(%q) = %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }

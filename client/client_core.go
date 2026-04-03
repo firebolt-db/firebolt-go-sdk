@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/url"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
@@ -10,6 +11,8 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
+
+const defaultHCPort = "8122"
 
 type ClientImplCore struct {
 	AccountName string
@@ -38,14 +41,21 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 		}
 		logging.Infolog.Printf("client-side load balancing enabled for %s (DNS TTL: %s)", settings.Url, resolver.TTL)
 
-		if settings.ClientSideLBHC && settings.ClientSideLBHCURL != "" {
-			hc, err := NewHealthChecker(settings.ClientSideLBHCURL, settings.ClientSideLBHCInterval)
+		if settings.ClientSideLBHC {
+			hcURL := settings.ClientSideLBHCURL
+			if hcURL == "" {
+				hcURL, err = deriveHealthCheckURL(settings.Url)
+				if err != nil {
+					return nil, fmt.Errorf("failed to derive health check URL from %q: %w", settings.Url, err)
+				}
+			}
+			hc, err := NewHealthChecker(hcURL, settings.ClientSideLBHCInterval)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create health checker: %w", err)
 			}
 			resolver.healthChecker = hc
 			hc.Start()
-			logging.Infolog.Printf("health checking enabled (url: %s, interval: %s)", settings.ClientSideLBHCURL, hc.interval)
+			logging.Infolog.Printf("[firebolt-hc] health checking enabled (url: %s, interval: %s)", hcURL, hc.interval)
 		}
 	}
 
@@ -62,6 +72,22 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 	client.AccessTokenGetter = client.getAccessToken
 
 	return client, nil
+}
+
+// deriveHealthCheckURL builds a health-check URL from the main engine
+// URL by switching to HTTP on the default health port (8122). For
+// example, "http://my-svc:3473" becomes "http://my-svc:8122/".
+func deriveHealthCheckURL(rawURL string) (string, error) {
+	canonical := MakeCanonicalUrl(rawURL)
+	parsed, err := url.Parse(canonical)
+	if err != nil {
+		return "", err
+	}
+	parsed.Scheme = "http"
+	parsed.Host = net.JoinHostPort(parsed.Hostname(), defaultHCPort)
+	parsed.Path = "/"
+	parsed.RawQuery = ""
+	return parsed.String(), nil
 }
 
 func (c *ClientImplCore) getOutputFormat(ctx context.Context) string {

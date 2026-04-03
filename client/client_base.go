@@ -323,6 +323,7 @@ func (c *BaseClient) reportDialFailure(resolvedURL string) {
 	}
 	ip := extractIPFromURL(resolvedURL)
 	if ip != "" {
+		hcDebug("dial failed for %s, marking unhealthy and retrying with next IP", ip)
 		c.URLResolver.ReportDialFailure(ip)
 	}
 }

@@ -2,15 +2,32 @@ package client
 
 import (
 	"context"
+	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/logging"
 )
+
+// DebugHC enables verbose real-time logging of the client-side health
+// checker to stderr. Set to true before opening a connection to watch
+// probe cycles, IP filtering, and state transitions as they happen.
+var DebugHC bool
+
+var hcLog = log.New(os.Stderr, "[firebolt-hc] ", log.Ldate|log.Ltime|log.Lmicroseconds)
+
+func hcDebug(format string, args ...interface{}) {
+	if DebugHC {
+		hcLog.Output(2, fmt.Sprintf(format, args...))
+	}
+}
 
 const (
 	defaultHCInterval = 5 * time.Second
@@ -67,11 +84,13 @@ func NewHealthChecker(rawHCURL string, interval time.Duration) (*HealthChecker, 
 		stopCh:   make(chan struct{}),
 		doneCh:   make(chan struct{}),
 	}
+	hcDebug("created health checker: url=%s interval=%s probe_timeout=%s", parsed.String(), interval, hcProbeTimeout)
 	return hc, nil
 }
 
 // Start launches the background probe goroutine.
 func (hc *HealthChecker) Start() {
+	hcDebug("starting background probe goroutine (interval=%s)", hc.interval)
 	go hc.run()
 }
 
@@ -79,8 +98,10 @@ func (hc *HealthChecker) Start() {
 // has finished. Safe to call multiple times.
 func (hc *HealthChecker) Stop() {
 	hc.stopOnce.Do(func() {
+		hcDebug("stopping background probe goroutine")
 		close(hc.stopCh)
 		<-hc.doneCh
+		hcDebug("background probe goroutine stopped")
 	})
 }
 
@@ -107,6 +128,8 @@ func (hc *HealthChecker) checkAll() {
 	}
 	hc.mu.RUnlock()
 
+	hcDebug("probe cycle: checking %d IPs: [%s]", len(ips), strings.Join(ips, ", "))
+
 	for _, ip := range ips {
 		select {
 		case <-hc.stopCh:
@@ -119,9 +142,11 @@ func (hc *HealthChecker) checkAll() {
 			hc.status[ip] = healthy
 			if prev != healthy {
 				if healthy {
-					logging.Infolog.Printf("health check: %s is now healthy", ip)
+					hcDebug("state change: %s unhealthy -> healthy", ip)
+					logging.Infolog.Printf("[firebolt-hc] %s is now healthy", ip)
 				} else {
-					logging.Infolog.Printf("health check: %s is now unhealthy", ip)
+					hcDebug("state change: %s healthy -> unhealthy", ip)
+					logging.Infolog.Printf("[firebolt-hc] %s is now unhealthy", ip)
 				}
 			}
 		}
@@ -131,7 +156,9 @@ func (hc *HealthChecker) checkAll() {
 
 func (hc *HealthChecker) probe(ip string) bool {
 	if hc.probeFunc != nil {
-		return hc.probeFunc(ip)
+		result := hc.probeFunc(ip)
+		hcDebug("probe %s (test func): healthy=%t", ip, result)
+		return result
 	}
 	u := *hc.hcURL
 	port := hc.hcURL.Port()
@@ -141,19 +168,26 @@ func (hc *HealthChecker) probe(ip string) bool {
 		u.Host = ip
 	}
 
+	probeURL := u.String()
+	start := time.Now()
+
 	ctx, cancel := context.WithTimeout(context.Background(), hcProbeTimeout)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", probeURL, nil)
 	if err != nil {
+		hcDebug("probe %s -> request creation error: %v (took %s)", ip, err, time.Since(start))
 		return false
 	}
 	resp, err := hc.client.Do(req)
 	if err != nil {
+		hcDebug("probe %s -> error: %v (took %s)", ip, err, time.Since(start))
 		return false
 	}
 	defer resp.Body.Close()
-	_, _ = io.Copy(io.Discard, resp.Body)
-	return resp.StatusCode >= 200 && resp.StatusCode < 300
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
+	healthy := resp.StatusCode >= 200 && resp.StatusCode < 300
+	hcDebug("probe %s -> HTTP %d, healthy=%t, body=%q (took %s)", ip, resp.StatusCode, healthy, string(body), time.Since(start))
+	return healthy
 }
 
 // UpdateIPs syncs the tracked IP set with the latest DNS results.
@@ -163,17 +197,27 @@ func (hc *HealthChecker) UpdateIPs(ips []string) {
 	hc.mu.Lock()
 	defer hc.mu.Unlock()
 
+	var added, removed []string
+
 	current := make(map[string]struct{}, len(ips))
 	for _, ip := range ips {
 		current[ip] = struct{}{}
 		if _, exists := hc.status[ip]; !exists {
 			hc.status[ip] = true
+			added = append(added, ip)
 		}
 	}
 	for ip := range hc.status {
 		if _, exists := current[ip]; !exists {
 			delete(hc.status, ip)
+			removed = append(removed, ip)
 		}
+	}
+
+	if len(added) > 0 || len(removed) > 0 {
+		hcDebug("UpdateIPs: total=%d added=[%s] removed=[%s]", len(ips), strings.Join(added, ", "), strings.Join(removed, ", "))
+	} else {
+		hcDebug("UpdateIPs: total=%d (no changes)", len(ips))
 	}
 }
 
@@ -183,6 +227,7 @@ func (hc *HealthChecker) UpdateIPs(ips []string) {
 // the full slice is also returned as a fallback.
 func (hc *HealthChecker) FilterHealthy(ips []string) []string {
 	if len(ips) <= 1 {
+		hcDebug("FilterHealthy: single IP [%s], bypass", strings.Join(ips, ", "))
 		return ips
 	}
 
@@ -190,14 +235,20 @@ func (hc *HealthChecker) FilterHealthy(ips []string) []string {
 	defer hc.mu.RUnlock()
 
 	healthy := make([]string, 0, len(ips))
+	var unhealthyList []string
 	for _, ip := range ips {
 		if h, ok := hc.status[ip]; !ok || h {
 			healthy = append(healthy, ip)
+		} else {
+			unhealthyList = append(unhealthyList, ip)
 		}
 	}
 	if len(healthy) == 0 {
+		hcDebug("FilterHealthy: all %d IPs unhealthy, returning full list as fallback", len(ips))
 		return ips
 	}
+	hcDebug("FilterHealthy: %d/%d healthy=[%s] unhealthy=[%s]",
+		len(healthy), len(ips), strings.Join(healthy, ", "), strings.Join(unhealthyList, ", "))
 	return healthy
 }
 
@@ -208,9 +259,15 @@ func (hc *HealthChecker) ReportDialFailure(ip string) {
 	hc.mu.Lock()
 	defer hc.mu.Unlock()
 	if _, exists := hc.status[ip]; exists {
-		if hc.status[ip] {
-			logging.Infolog.Printf("health check: marking %s unhealthy (dial failure)", ip)
-		}
+		was := hc.status[ip]
 		hc.status[ip] = false
+		if was {
+			hcDebug("ReportDialFailure: %s healthy -> unhealthy (dial failure)", ip)
+			logging.Infolog.Printf("[firebolt-hc] marking %s unhealthy (dial failure)", ip)
+		} else {
+			hcDebug("ReportDialFailure: %s already unhealthy (dial failure)", ip)
+		}
+	} else {
+		hcDebug("ReportDialFailure: %s not tracked, ignoring", ip)
 	}
 }

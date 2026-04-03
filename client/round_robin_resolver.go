@@ -140,6 +140,7 @@ func (r *RoundRobinResolver) Next(ctx context.Context) (resolvedURL string, orig
 		resolved.Host = ip
 	}
 
+	hcDebug("Next: picked %s (index=%d, pool_size=%d)", ip, idx%uint64(len(ips)), len(ips))
 	return resolved.String(), r.originalURL.Host, nil
 }
 
