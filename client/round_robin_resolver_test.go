@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
 func staticLookup(ips ...string) LookupHostFunc {
@@ -429,5 +431,228 @@ func TestRoundRobinResolver_BypassedAfterEngineURLChange(t *testing.T) {
 	// Resolver should NOT have been called again for the new URL.
 	if resolverHitCount.Load() != 1 {
 		t.Errorf("expected resolver to still have 1 call (bypassed for new URL), got %d", resolverHitCount.Load())
+	}
+}
+
+// TestRoundRobinResolver_HealthCheckerFiltersUnhealthy verifies that
+// Next() skips IPs marked unhealthy by the attached health checker.
+func TestRoundRobinResolver_HealthCheckerFiltersUnhealthy(t *testing.T) {
+	r, err := NewRoundRobinResolver("http://my-service:8080", staticLookup("10.0.0.1", "10.0.0.2", "10.0.0.3"))
+	if err != nil {
+		t.Fatalf("NewRoundRobinResolver: %v", err)
+	}
+
+	hc, err := NewHealthChecker("http://placeholder:8122/", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("NewHealthChecker: %v", err)
+	}
+	r.healthChecker = hc
+
+	ctx := context.Background()
+
+	// Prime the resolver so IPs are cached and HC is updated.
+	_, _, _ = r.Next(ctx)
+
+	// Mark 10.0.0.2 unhealthy.
+	hc.ReportDialFailure("10.0.0.2")
+
+	seen := make(map[string]int)
+	for i := 0; i < 6; i++ {
+		resolved, _, err := r.Next(ctx)
+		if err != nil {
+			t.Fatalf("Next(): %v", err)
+		}
+		seen[resolved]++
+	}
+
+	if _, ok := seen["http://10.0.0.2:8080"]; ok {
+		t.Error("unhealthy IP 10.0.0.2 should not be returned")
+	}
+	if seen["http://10.0.0.1:8080"] != 3 || seen["http://10.0.0.3:8080"] != 3 {
+		t.Errorf("expected even distribution over healthy IPs, got: %v", seen)
+	}
+}
+
+// TestRoundRobinResolver_HealthCheckerSingleIPBypass verifies that
+// when only one IP exists, it is always returned regardless of health.
+func TestRoundRobinResolver_HealthCheckerSingleIPBypass(t *testing.T) {
+	r, err := NewRoundRobinResolver("http://my-service:8080", staticLookup("10.0.0.1"))
+	if err != nil {
+		t.Fatalf("NewRoundRobinResolver: %v", err)
+	}
+
+	hc, err := NewHealthChecker("http://placeholder:8122/", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("NewHealthChecker: %v", err)
+	}
+	r.healthChecker = hc
+
+	ctx := context.Background()
+	_, _, _ = r.Next(ctx) // prime
+
+	hc.ReportDialFailure("10.0.0.1")
+
+	resolved, _, err := r.Next(ctx)
+	if err != nil {
+		t.Fatalf("Next(): %v", err)
+	}
+	if resolved != "http://10.0.0.1:8080" {
+		t.Errorf("single unhealthy IP should still be used, got %s", resolved)
+	}
+}
+
+// TestRoundRobinResolver_Close stops the health checker.
+func TestRoundRobinResolver_Close(t *testing.T) {
+	r, err := NewRoundRobinResolver("http://my-service:8080", staticLookup("10.0.0.1"))
+	if err != nil {
+		t.Fatalf("NewRoundRobinResolver: %v", err)
+	}
+
+	hc, err := NewHealthChecker("http://placeholder:8122/", 50*time.Millisecond)
+	if err != nil {
+		t.Fatalf("NewHealthChecker: %v", err)
+	}
+	r.healthChecker = hc
+	hc.Start()
+
+	r.Close() // should not panic or deadlock
+
+	// Close without HC is a no-op.
+	r2, _ := NewRoundRobinResolver("http://other:8080", staticLookup("10.0.0.1"))
+	r2.Close()
+}
+
+// TestRoundRobinResolver_DialFailureRetry verifies the end-to-end dial
+// failure path: one backend is down, the client reports the failure,
+// and the next request goes to a healthy backend.
+func TestRoundRobinResolver_DialFailureRetry(t *testing.T) {
+	var hitCount atomic.Int32
+	goodServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hitCount.Add(1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer goodServer.Close()
+
+	goodHost := strings.TrimPrefix(goodServer.URL, "http://")
+	goodParts := strings.SplitN(goodHost, ":", 2)
+	goodIP, port := goodParts[0], goodParts[1]
+
+	// Use an IP that will refuse connections as the "bad" backend.
+	// 127.0.0.2 typically has nothing listening.
+	badIP := "127.0.0.2"
+
+	lookup := staticLookup(badIP, goodIP)
+
+	resolver, err := NewRoundRobinResolver(fmt.Sprintf("http://my-service:%s", port), lookup)
+	if err != nil {
+		t.Fatalf("NewRoundRobinResolver: %v", err)
+	}
+
+	hc, err := NewHealthChecker("http://placeholder:8122/", 1*time.Hour)
+	if err != nil {
+		t.Fatalf("NewHealthChecker: %v", err)
+	}
+	resolver.healthChecker = hc
+
+	coreClient := &ClientImplCore{
+		BaseClient: BaseClient{
+			ApiEndpoint: fmt.Sprintf("http://my-service:%s", port),
+			UserAgent:   "test",
+			HttpClient:  NewHttpClient(),
+			URLResolver: resolver,
+		},
+	}
+	coreClient.AccessTokenGetter = coreClient.getAccessToken
+	coreClient.ParameterGetter = coreClient.GetQueryParams
+
+	ctx := context.Background()
+
+	// Prime the resolver (populates HC).
+	_, _, _ = resolver.Next(ctx)
+
+	noop := ConnectionControl{
+		UpdateParameters: func(string, string) {},
+		SetEngineURL:     func(string) {},
+		ResetParameters:  func(*[]string) {},
+	}
+
+	// This may hit the bad IP first but should retry and succeed on the good one.
+	_, err = coreClient.Query(ctx, fmt.Sprintf("http://my-service:%s", port), "SELECT 1", map[string]string{}, noop)
+	if err != nil {
+		t.Fatalf("Query should succeed after dial-failure retry: %v", err)
+	}
+
+	if hitCount.Load() < 1 {
+		t.Error("expected at least 1 hit on the good backend")
+	}
+}
+
+// TestMakeClientCore_HCDerivedURL verifies that when client_side_lb_hc
+// is true but no explicit HC URL is provided, the URL is derived from
+// the main url with port 8122.
+func TestMakeClientCore_HCDerivedURL(t *testing.T) {
+	client, err := MakeClientCore(&types.FireboltSettings{
+		Url:            "http://my-svc:8080",
+		NewVersion:     true,
+		ClientSideLB:   true,
+		ClientSideLBHC: true,
+	})
+	if err != nil {
+		t.Fatalf("MakeClientCore should succeed with derived HC URL: %v", err)
+	}
+	defer client.Close()
+
+	if client.URLResolver == nil {
+		t.Fatal("expected URLResolver to be set")
+	}
+	if client.URLResolver.healthChecker == nil {
+		t.Fatal("expected healthChecker to be attached")
+	}
+	got := client.URLResolver.healthChecker.hcURL.String()
+	if got != "http://my-svc:8122/" {
+		t.Errorf("expected derived HC URL http://my-svc:8122/, got %s", got)
+	}
+}
+
+// TestMakeClientCore_HCExplicitURL verifies that an explicit
+// client_side_lb_hc_url takes precedence over the derived default.
+func TestMakeClientCore_HCExplicitURL(t *testing.T) {
+	client, err := MakeClientCore(&types.FireboltSettings{
+		Url:              "http://my-svc:8080",
+		NewVersion:       true,
+		ClientSideLB:     true,
+		ClientSideLBHC:   true,
+		ClientSideLBHCURL: "http://custom:9999/healthz",
+	})
+	if err != nil {
+		t.Fatalf("MakeClientCore: %v", err)
+	}
+	defer client.Close()
+
+	got := client.URLResolver.healthChecker.hcURL.String()
+	if got != "http://custom:9999/healthz" {
+		t.Errorf("expected explicit HC URL http://custom:9999/healthz, got %s", got)
+	}
+}
+
+func TestDeriveHealthCheckURL(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{"http://my-svc:3473", "http://my-svc:8122/"},
+		{"https://my-svc:443/query", "http://my-svc:8122/"},
+		{"my-svc:3473", "http://my-svc:8122/"},
+		{"http://my-svc.namespace.svc.cluster.local:3473", "http://my-svc.namespace.svc.cluster.local:8122/"},
+	}
+	for _, tt := range tests {
+		got, err := deriveHealthCheckURL(tt.input)
+		if err != nil {
+			t.Errorf("deriveHealthCheckURL(%q): %v", tt.input, err)
+			continue
+		}
+		if got != tt.want {
+			t.Errorf("deriveHealthCheckURL(%q) = %q, want %q", tt.input, got, tt.want)
+		}
 	}
 }

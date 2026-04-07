@@ -83,6 +83,16 @@ func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 				return nil, fmt.Errorf("invalid client_side_lb_dns_ttl value %q: %w", decodedValue, err)
 			}
 			result.DNSTTL = d
+		case "client_side_lb_hc":
+			result.ClientSideLBHC = decodedValue == "true"
+		case "client_side_lb_hc_url":
+			result.ClientSideLBHCURL = decodedValue
+		case "client_side_lb_hc_interval":
+			d, err := time.ParseDuration(decodedValue)
+			if err != nil {
+				return nil, fmt.Errorf("invalid client_side_lb_hc_interval value %q: %w", decodedValue, err)
+			}
+			result.ClientSideLBHCInterval = d
 		default:
 			return nil, fmt.Errorf("unknown parameter name %s", key)
 		}

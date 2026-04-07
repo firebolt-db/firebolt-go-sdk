@@ -23,6 +23,9 @@ type LookupHostFunc func(ctx context.Context, host string) ([]string, error)
 //
 // DNS results are cached for a configurable TTL and refreshed lazily.
 // If a refresh fails, the previously cached addresses are kept.
+//
+// When a HealthChecker is attached, Next filters out unhealthy IPs so
+// that requests are only routed to responsive nodes.
 type RoundRobinResolver struct {
 	originalURL  *url.URL
 	originalHost string // hostname without port
@@ -36,6 +39,9 @@ type RoundRobinResolver struct {
 	lastResolved time.Time
 
 	counter atomic.Uint64
+
+	healthChecker *HealthChecker
+	lastPoolSize  int // tracks last logged pool size for change detection
 }
 
 const defaultDNSTTL = 30 * time.Second
@@ -102,16 +108,27 @@ func (r *RoundRobinResolver) resolve(ctx context.Context) ([]string, error) {
 
 	r.ips = ips
 	r.lastResolved = time.Now()
+	if r.healthChecker != nil {
+		r.healthChecker.UpdateIPs(ips)
+	}
 	return ips, nil
 }
 
 // Next returns the URL rewritten with the next IP in round-robin
 // rotation, along with the original host (with port) for use as the
 // HTTP Host header. Each successive call advances to the next IP.
+//
+// When a HealthChecker is active, unhealthy IPs are filtered out so
+// the returned IP is (likely) responsive. The filter is bypassed when
+// only a single IP is known -- there is no alternative to try.
 func (r *RoundRobinResolver) Next(ctx context.Context) (resolvedURL string, originalHostWithPort string, err error) {
 	ips, err := r.resolve(ctx)
 	if err != nil {
 		return "", "", err
+	}
+
+	if r.healthChecker != nil {
+		ips = r.healthChecker.FilterHealthy(ips)
 	}
 
 	idx := r.counter.Add(1) - 1
@@ -124,5 +141,45 @@ func (r *RoundRobinResolver) Next(ctx context.Context) (resolvedURL string, orig
 		resolved.Host = ip
 	}
 
+	r.logPoolChange(len(ips), ip)
 	return resolved.String(), r.originalURL.Host, nil
+}
+
+// logPoolChange logs the picked IP only when the active pool size
+// has changed since the last request, reducing noise on the hot path.
+// Silent when health checking is not enabled.
+func (r *RoundRobinResolver) logPoolChange(poolSize int, pickedIP string) {
+	if r.healthChecker == nil {
+		return
+	}
+	if poolSize != r.lastPoolSize {
+		hcDebug("Next: pool_size changed %d -> %d, picked %s", r.lastPoolSize, poolSize, pickedIP)
+		r.lastPoolSize = poolSize
+	}
+}
+
+// Close stops the health checker if one is attached.
+func (r *RoundRobinResolver) Close() {
+	if r.healthChecker != nil {
+		r.healthChecker.Stop()
+	}
+}
+
+// ReportDialFailure marks a specific IP as unhealthy due to a TCP
+// dial failure. This is a no-op when health checking is disabled.
+func (r *RoundRobinResolver) ReportDialFailure(ip string) {
+	if r.healthChecker != nil {
+		r.healthChecker.ReportDialFailure(ip)
+	}
+}
+
+// HealthyIPCount returns the number of currently healthy IPs. When
+// health checking is disabled, the total IP count is returned.
+func (r *RoundRobinResolver) HealthyIPCount() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.healthChecker == nil {
+		return len(r.ips)
+	}
+	return r.healthChecker.countHealthy(r.ips)
 }
