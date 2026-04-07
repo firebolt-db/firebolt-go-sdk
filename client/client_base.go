@@ -318,7 +318,7 @@ func (c *BaseClient) maxDialRetries(rawURL string) int {
 }
 
 func (c *BaseClient) reportDialFailure(resolvedURL string) {
-	if c.URLResolver == nil {
+	if c.URLResolver == nil || c.URLResolver.healthChecker == nil {
 		return
 	}
 	ip := extractIPFromURL(resolvedURL)

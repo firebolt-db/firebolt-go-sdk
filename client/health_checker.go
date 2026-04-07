@@ -135,8 +135,8 @@ func (hc *HealthChecker) checkAll() {
 	}
 	hc.mu.RUnlock()
 
-	hcDebug("probe cycle: checking %d IPs: [%s]", len(ips), strings.Join(ips, ", "))
-
+	start := time.Now()
+	healthyCount := 0
 	for _, ip := range ips {
 		select {
 		case <-hc.stopCh:
@@ -144,6 +144,9 @@ func (hc *HealthChecker) checkAll() {
 		default:
 		}
 		healthy := hc.probe(ip)
+		if healthy {
+			healthyCount++
+		}
 		hc.mu.Lock()
 		if prev, exists := hc.status[ip]; exists {
 			hc.status[ip] = healthy
@@ -159,6 +162,7 @@ func (hc *HealthChecker) checkAll() {
 		}
 		hc.mu.Unlock()
 	}
+	hcDebug("probe cycle: %d/%d healthy (took %s)", healthyCount, len(ips), time.Since(start))
 }
 
 func (hc *HealthChecker) probe(ip string) bool {
@@ -196,7 +200,9 @@ func (hc *HealthChecker) probe(ip string) bool {
 	}()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 	healthy := resp.StatusCode >= 200 && resp.StatusCode < 300
-	hcDebug("probe %s -> HTTP %d, healthy=%t, body=%q (took %s)", ip, resp.StatusCode, healthy, string(body), time.Since(start))
+	if !healthy {
+		hcDebug("probe %s -> HTTP %d, body=%q (took %s)", ip, resp.StatusCode, string(body), time.Since(start))
+	}
 	return healthy
 }
 
@@ -237,7 +243,6 @@ func (hc *HealthChecker) UpdateIPs(ips []string) {
 // the full slice is also returned as a fallback.
 func (hc *HealthChecker) FilterHealthy(ips []string) []string {
 	if len(ips) <= 1 {
-		hcDebug("FilterHealthy: single IP [%s], bypass", strings.Join(ips, ", "))
 		return ips
 	}
 
@@ -257,9 +262,31 @@ func (hc *HealthChecker) FilterHealthy(ips []string) []string {
 		hcDebug("FilterHealthy: all %d IPs unhealthy, returning full list as fallback", len(ips))
 		return ips
 	}
-	hcDebug("FilterHealthy: %d/%d healthy=[%s] unhealthy=[%s]",
-		len(healthy), len(ips), strings.Join(healthy, ", "), strings.Join(unhealthyList, ", "))
+	if len(unhealthyList) > 0 {
+		hcDebug("FilterHealthy: %d/%d healthy, filtered out [%s]",
+			len(healthy), len(ips), strings.Join(unhealthyList, ", "))
+	}
 	return healthy
+}
+
+// countHealthy returns the number of healthy IPs without logging.
+// Used by HealthyIPCount to avoid duplicate log lines on the hot path.
+func (hc *HealthChecker) countHealthy(ips []string) int {
+	if len(ips) <= 1 {
+		return len(ips)
+	}
+	hc.mu.RLock()
+	defer hc.mu.RUnlock()
+	n := 0
+	for _, ip := range ips {
+		if h, ok := hc.status[ip]; !ok || h {
+			n++
+		}
+	}
+	if n == 0 {
+		return len(ips)
+	}
+	return n
 }
 
 // ReportDialFailure immediately marks an IP as unhealthy. The

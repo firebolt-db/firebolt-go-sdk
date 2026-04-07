@@ -41,6 +41,7 @@ type RoundRobinResolver struct {
 	counter atomic.Uint64
 
 	healthChecker *HealthChecker
+	lastPoolSize  int // tracks last logged pool size for change detection
 }
 
 const defaultDNSTTL = 30 * time.Second
@@ -140,8 +141,21 @@ func (r *RoundRobinResolver) Next(ctx context.Context) (resolvedURL string, orig
 		resolved.Host = ip
 	}
 
-	hcDebug("Next: picked %s (index=%d, pool_size=%d)", ip, idx%uint64(len(ips)), len(ips))
+	r.logPoolChange(len(ips), ip)
 	return resolved.String(), r.originalURL.Host, nil
+}
+
+// logPoolChange logs the picked IP only when the active pool size
+// has changed since the last request, reducing noise on the hot path.
+// Silent when health checking is not enabled.
+func (r *RoundRobinResolver) logPoolChange(poolSize int, pickedIP string) {
+	if r.healthChecker == nil {
+		return
+	}
+	if poolSize != r.lastPoolSize {
+		hcDebug("Next: pool_size changed %d -> %d, picked %s", r.lastPoolSize, poolSize, pickedIP)
+		r.lastPoolSize = poolSize
+	}
 }
 
 // Close stops the health checker if one is attached.
@@ -167,5 +181,5 @@ func (r *RoundRobinResolver) HealthyIPCount() int {
 	if r.healthChecker == nil {
 		return len(r.ips)
 	}
-	return len(r.healthChecker.FilterHealthy(r.ips))
+	return r.healthChecker.countHealthy(r.ips)
 }
