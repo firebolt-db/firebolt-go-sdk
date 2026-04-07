@@ -76,7 +76,13 @@ func NewHealthChecker(rawHCURL string, interval time.Duration) (*HealthChecker, 
 		client: &http.Client{
 			Timeout: hcProbeTimeout,
 			Transport: &http.Transport{
-				DialContext: (&net.Dialer{Timeout: hcProbeTimeout}).DialContext,
+				DialContext: (&net.Dialer{
+					Timeout:   hcProbeTimeout,
+					KeepAlive: 30 * time.Second,
+				}).DialContext,
+				MaxIdleConns:        10,
+				MaxIdleConnsPerHost: 1,
+				IdleConnTimeout:     60 * time.Second,
 			},
 		},
 		interval: interval,
@@ -101,6 +107,7 @@ func (hc *HealthChecker) Stop() {
 		hcDebug("stopping background probe goroutine")
 		close(hc.stopCh)
 		<-hc.doneCh
+		hc.client.CloseIdleConnections()
 		hcDebug("background probe goroutine stopped")
 	})
 }
@@ -183,7 +190,10 @@ func (hc *HealthChecker) probe(ip string) bool {
 		hcDebug("probe %s -> error: %v (took %s)", ip, err, time.Since(start))
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_, _ = io.Copy(io.Discard, resp.Body)
+		resp.Body.Close()
+	}()
 	body, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 	healthy := resp.StatusCode >= 200 && resp.StatusCode < 300
 	hcDebug("probe %s -> HTTP %d, healthy=%t, body=%q (took %s)", ip, resp.StatusCode, healthy, string(body), time.Since(start))
