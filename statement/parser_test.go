@@ -2,6 +2,7 @@ package statement
 
 import (
 	"database/sql/driver"
+	"encoding/json"
 	"reflect"
 	"strings"
 	"testing"
@@ -281,4 +282,166 @@ func TestPrepareQuery(t *testing.T) {
 				parametersStyle: contextUtils.PreparedStatementsStyleNative,
 			},
 		})
+}
+
+func TestFormatValueServerSideSQLNull(t *testing.T) {
+	v, err := formatValueServerSide(nil)
+	if err != nil {
+		t.Fatalf("formatValueServerSide(nil): %v", err)
+	}
+	if v != nil {
+		t.Fatalf("SQL NULL must use nil *string (JSON null), got %#v", v)
+	}
+}
+
+func TestMakeQueryParametersSQLNullIsJSONNull(t *testing.T) {
+	params, err := makeQueryParameters([]driver.NamedValue{
+		{Ordinal: 1, Value: nil},
+		{Ordinal: 2, Value: "public"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, ok := params["query_parameters"]
+	if !ok {
+		t.Fatal("missing query_parameters")
+	}
+	var decoded []struct {
+		Name  string  `json:"name"`
+		Value *string `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, raw)
+	}
+	if len(decoded) != 2 {
+		t.Fatalf("len=%d, want 2: %s", len(decoded), raw)
+	}
+	if decoded[0].Name != "$1" || decoded[1].Name != "$2" {
+		t.Fatalf("names: %+v", decoded)
+	}
+	if decoded[0].Value != nil {
+		t.Fatalf("$1: expected JSON null for SQL NULL, got %#v", decoded[0].Value)
+	}
+	if decoded[1].Value == nil || *decoded[1].Value != "public" {
+		t.Fatalf("$2: want public, got %+v", decoded[1].Value)
+	}
+}
+
+func TestMakeQueryParametersNullByteString(t *testing.T) {
+	nullByteString := "\x00"
+	if len(nullByteString) != 1 || nullByteString[0] != 0 {
+		t.Fatal("fixture must be a single NUL byte")
+	}
+	params, err := makeQueryParameters([]driver.NamedValue{{Ordinal: 1, Value: nullByteString}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := params["query_parameters"]
+	if raw != `[{"name":"$1","value":"\u0000"}]` {
+		t.Fatalf("unexpected JSON (want compact NUL escape), got: %s", raw)
+	}
+	var decoded []struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded[0].Value != nullByteString {
+		t.Fatalf("round-trip: got %q want single NUL", decoded[0].Value)
+	}
+}
+
+// Eight NUL code points in a Go string become \u0000 escapes in JSON — this is not SQL NULL
+// (SQL NULL is encoded as JSON null via a nil *string). See formatValueServerSide / makeQueryParameters.
+func TestMakeQueryParametersStringWithNULBytesJSONEscapes(t *testing.T) {
+	eightNuls := string([]byte{0, 0, 0, 0, 0, 0, 0, 0})
+	params, err := makeQueryParameters([]driver.NamedValue{{Ordinal: 1, Value: eightNuls}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := params["query_parameters"]
+	if !strings.Contains(raw, `\u0000`) {
+		t.Fatalf("expected JSON to escape NUL as \\u0000, got: %s", raw)
+	}
+	var decoded []struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if decoded[0].Value != eightNuls {
+		t.Fatal("round-trip string mismatch")
+	}
+}
+
+// Documents the exact wire JSON when the bound Go string is eight NUL code points (debug aid).
+func TestMakeQueryParametersEightNULJSONEscapeLiteral(t *testing.T) {
+	eightNuls := string([]byte{0, 0, 0, 0, 0, 0, 0, 0})
+	params, err := makeQueryParameters([]driver.NamedValue{{Ordinal: 1, Value: eightNuls}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Backticks: each \u0000 is JSON escape (six ASCII chars), not a Go rune escape.
+	want := `[{"name":"$1","value":"\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000"}]`
+	if got := params["query_parameters"]; got != want {
+		t.Fatalf("query_parameters mismatch.\nwant: %s\ngot:  %s", want, got)
+	}
+}
+
+func TestMakeQueryParametersByteSliceZeroIsHexNotJSONNull(t *testing.T) {
+	params, err := makeQueryParameters([]driver.NamedValue{{Ordinal: 1, Value: []byte{0, 0, 0, 0, 0, 0, 0, 0}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw := params["query_parameters"]
+	if strings.Contains(raw, `\u0000`) {
+		t.Fatalf("[]byte zeros must be hex-encoded, not raw NUL JSON escapes: %s", raw)
+	}
+	var decoded []struct {
+		Name  string `json:"name"`
+		Value string `json:"value"`
+	}
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	want := `\x0000000000000000`
+	if decoded[0].Value != want {
+		t.Fatalf("got %q want %q", decoded[0].Value, want)
+	}
+}
+
+func TestMakeQueryParametersRejectsNamedArguments(t *testing.T) {
+	_, err := makeQueryParameters([]driver.NamedValue{{Name: "foo", Ordinal: 1, Value: 1}})
+	if err == nil || !strings.Contains(err.Error(), "named parameters are not supported") {
+		t.Fatalf("expected named-parameter error, got %v", err)
+	}
+}
+
+func TestSingleStatementFormatFbNumericUsesQueryParameters(t *testing.T) {
+	stmt := &SingleStatement{
+		query:           "SELECT $1",
+		paramsPositions: nil,
+		parametersStyle: contextUtils.PreparedStatementsStyleFbNumeric,
+	}
+	sqlOut, extra, err := stmt.Format([]driver.NamedValue{{Ordinal: 1, Value: nil}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sqlOut != "SELECT $1" {
+		t.Fatalf("query: %q", sqlOut)
+	}
+	raw := extra["query_parameters"]
+	var decoded []map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(raw), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded) != 1 {
+		t.Fatalf("%+v", decoded)
+	}
+	// JSON null for value
+	if string(decoded[0]["value"]) != "null" {
+		t.Fatalf("value field: %s", decoded[0]["value"])
+	}
 }
