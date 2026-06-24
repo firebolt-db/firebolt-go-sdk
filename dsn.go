@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/url"
 	"regexp"
 	"strings"
@@ -16,6 +17,8 @@ import (
 const dsnPattern = `^firebolt://(?:/(?P<database>\w+))?(?:\?(?P<parameters>[\w\.]+=[^=&]+(?:\&[\w\.]+=[^=&]+)*))?$`
 const dsnPatternV0 = `^firebolt://(?P<username>.*@?.*):(?P<password>.*)@(?P<database>\w+)(?:/(?P<engine>[^?]+))?(?:\?(?P<parameters>[\w\.]+=[^=&]+(?:\&[\w\.]+=[^=&]+)*))?$`
 const paramsPattern = `(?P<key>[\w\.]+)=(?P<value>[^=&]+)`
+const sslModeStrict = "strict"
+const sslModeNone = "none"
 
 // ParseDSNString parses a dsn in a format: firebolt://username:password@db_name[/engine_name][?account_name=organization]
 // returns a settings object where all parsed values are populated
@@ -30,6 +33,8 @@ func ParseDSNString(dsn string) (*types.FireboltSettings, error) {
 		return makeSettings(dsnMatch)
 	} else if dsnMatch := dsnExprV0.FindStringSubmatch(dsn); len(dsnMatch) > 0 {
 		return makeSettingsV0(dsnMatch)
+	} else if settings, ok, err := makeDiscoverySettings(dsn); ok {
+		return settings, err
 	} else {
 		return nil, errors.New("invalid connection string format")
 	}
@@ -75,6 +80,11 @@ func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 			result.ClientSecret = decodedValue
 		case "url":
 			result.Url = decodedValue
+		case "ssl_mode":
+			if decodedValue != sslModeStrict && decodedValue != sslModeNone {
+				return nil, fmt.Errorf("invalid ssl_mode value %q", decodedValue)
+			}
+			result.SSLMode = decodedValue
 		case "client_side_lb":
 			result.ClientSideLB = decodedValue == "true"
 		case "client_side_lb_dns_ttl":
@@ -88,6 +98,90 @@ func makeSettings(dsnMatch []string) (*types.FireboltSettings, error) {
 		}
 	}
 	return &result, nil
+}
+
+func makeDiscoverySettings(dsn string) (*types.FireboltSettings, bool, error) {
+	parsed, err := url.Parse(dsn)
+	if err != nil || parsed.Scheme != "firebolt" || parsed.Host == "" || parsed.User != nil {
+		return nil, false, nil
+	}
+
+	result := types.FireboltSettings{
+		NewVersion:           true,
+		ClientSideLB:         true,
+		DefaultQueryParams:   make(map[string]string),
+		ConnectionParameters: make(map[string]string),
+		SSLMode:              sslModeStrict,
+	}
+
+	query := parsed.Query()
+	if pathDatabase := strings.TrimPrefix(parsed.EscapedPath(), "/"); pathDatabase != "" {
+		database, err := url.PathUnescape(pathDatabase)
+		if err != nil {
+			return nil, true, fmt.Errorf("failed to URL decode database path: %w", err)
+		}
+		result.Database = database
+		result.ConnectionParameters["database"] = database
+	}
+
+	for key, values := range query {
+		if len(values) == 0 {
+			continue
+		}
+		value := values[0]
+		if strings.HasPrefix(key, "default_param.") {
+			paramKey := strings.TrimPrefix(key, "default_param.")
+			result.DefaultQueryParams[paramKey] = value
+			continue
+		}
+		if err := applyDiscoveryParameter(&result, key, value); err != nil {
+			return nil, true, err
+		}
+	}
+
+	result.DiscoveryEndpoint = buildDiscoveryEndpoint(parsed, result.SSLMode)
+	return &result, true, nil
+}
+
+func applyDiscoveryParameter(settings *types.FireboltSettings, key, value string) error {
+	switch key {
+	case "database":
+		settings.Database = value
+		settings.ConnectionParameters[key] = value
+	case "engine":
+		settings.EngineName = value
+		settings.ConnectionParameters[key] = value
+	case "ssl_mode":
+		if value != sslModeStrict && value != sslModeNone {
+			return fmt.Errorf("invalid ssl_mode value %q", value)
+		}
+		settings.SSLMode = value
+	case "client_side_lb":
+		settings.ClientSideLB = value == "true"
+	case "client_side_lb_dns_ttl":
+		d, err := time.ParseDuration(value)
+		if err != nil {
+			return fmt.Errorf("invalid client_side_lb_dns_ttl value %q: %w", value, err)
+		}
+		settings.DNSTTL = d
+	case "url":
+		return fmt.Errorf("url parameter is not supported for discovery DSNs")
+	default:
+		settings.ConnectionParameters[key] = value
+	}
+	return nil
+}
+
+func buildDiscoveryEndpoint(parsed *url.URL, sslMode string) string {
+	scheme := "https"
+	if sslMode == sslModeNone {
+		scheme = "http"
+	}
+	host := parsed.Host
+	if parsed.Port() != "" {
+		host = net.JoinHostPort(parsed.Hostname(), parsed.Port())
+	}
+	return (&url.URL{Scheme: scheme, Host: host}).String()
 }
 
 func makeSettingsV0(dsnMatch []string) (*types.FireboltSettings, error) {

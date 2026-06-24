@@ -10,6 +10,9 @@ func ClientFactory(settings *types.FireboltSettings, apiEndpoint string) (Client
 	userAgent := ConstructUserAgentString()
 
 	if settings.NewVersion {
+		if settings.DiscoveryEndpoint != "" {
+			return MakeClientDiscovery(settings)
+		}
 		if settings.Url != "" {
 			return MakeClientCore(settings)
 		}

@@ -42,3 +42,6 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY: ${{ secrets.FIREBOLT_CORE_DEV_CERT_PRIVATE_KEY }}
       FIREBOLT_CORE_DEV_CERT: ${{ secrets.FIREBOLT_CORE_DEV_CERT }}
+
+  integration-tests-discovery:
+    uses: ./.github/workflows/integration-test-discovery.yml

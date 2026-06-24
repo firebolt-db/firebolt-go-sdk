@@ -2,6 +2,8 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
+	"net/http"
 	"strings"
 	"testing"
 )
@@ -68,5 +70,24 @@ func TestDoHttpRequestMalformedURLWithPercent2(t *testing.T) {
 	errorMsg := resp.err.Error()
 	if !strings.Contains(errorMsg, "POST") {
 		t.Errorf("Expected error message to contain method 'POST', got: %s", errorMsg)
+	}
+}
+
+func TestNewHttpClientWithTransportAndTLSDoesNotMutateOriginal(t *testing.T) {
+	transport := &http.Transport{TLSClientConfig: &tls.Config{ServerName: "example.com"}}
+
+	client := NewHttpClientWithTransportAndTLS(transport, true)
+	configuredTransport, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatal("expected client transport to be *http.Transport")
+	}
+	if configuredTransport == transport {
+		t.Fatal("expected transport to be cloned")
+	}
+	if !configuredTransport.TLSClientConfig.InsecureSkipVerify {
+		t.Fatal("expected InsecureSkipVerify to be enabled")
+	}
+	if transport.TLSClientConfig.InsecureSkipVerify {
+		t.Fatal("expected original transport to remain unchanged")
 	}
 }

@@ -2,6 +2,7 @@ package fireboltgosdk
 
 import (
 	"net/url"
+	"reflect"
 	"testing"
 	"time"
 
@@ -33,6 +34,18 @@ func runDSNTest(t *testing.T, input string, expectedSettings types.FireboltSetti
 		t.Errorf("for client_secret got %s want %s", settings.ClientSecret, expectedSettings.ClientSecret)
 	}
 
+	if settings.Url != expectedSettings.Url {
+		t.Errorf("for Url got %s want %s", settings.Url, expectedSettings.Url)
+	}
+
+	if settings.DiscoveryEndpoint != expectedSettings.DiscoveryEndpoint {
+		t.Errorf("for DiscoveryEndpoint got %s want %s", settings.DiscoveryEndpoint, expectedSettings.DiscoveryEndpoint)
+	}
+
+	if settings.SSLMode != expectedSettings.SSLMode {
+		t.Errorf("for SSLMode got %s want %s", settings.SSLMode, expectedSettings.SSLMode)
+	}
+
 	if settings.Database != expectedSettings.Database {
 		t.Errorf("for Database got %s want %s", settings.Database, expectedSettings.Database)
 	}
@@ -57,6 +70,10 @@ func runDSNTest(t *testing.T, input string, expectedSettings types.FireboltSetti
 		if settings.DefaultQueryParams[k] != v {
 			t.Errorf("for DefaultQueryParams[%s] got %s want %s", k, settings.DefaultQueryParams[k], v)
 		}
+	}
+
+	if !reflect.DeepEqual(settings.ConnectionParameters, expectedSettings.ConnectionParameters) {
+		t.Errorf("for ConnectionParameters got %v want %v", settings.ConnectionParameters, expectedSettings.ConnectionParameters)
 	}
 }
 
@@ -172,6 +189,62 @@ func TestDSNCoreClientSideLBDNSTTL(t *testing.T) {
 func TestDSNCoreClientSideLBDNSTTLInvalid(t *testing.T) {
 	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=bogus")
 	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=")
+}
+
+func TestDSNCoreSSLMode(t *testing.T) {
+	runDSNTest(t, "firebolt:///test_db?url=https://localhost:443&ssl_mode=none",
+		types.FireboltSettings{Database: "test_db", Url: "https://localhost:443", SSLMode: "none", NewVersion: true, ClientSideLB: true})
+
+	runDSNTestFail(t, "firebolt:///test_db?url=https://localhost:443&ssl_mode=invalid")
+}
+
+func TestDSNDiscoveryHappyPath(t *testing.T) {
+	runDSNTest(t, "firebolt://localhost:3473?database=test_db&engine=test_eng&timezone=UTC&ssl_mode=none",
+		types.FireboltSettings{
+			Database:          "test_db",
+			EngineName:        "test_eng",
+			DiscoveryEndpoint: "http://localhost:3473",
+			SSLMode:           "none",
+			NewVersion:        true,
+			ClientSideLB:      true,
+			ConnectionParameters: map[string]string{
+				"database": "test_db",
+				"engine":   "test_eng",
+				"timezone": "UTC",
+			},
+		})
+
+	runDSNTest(t, "firebolt://firebolt.example.com/test_db?query_label=sdk",
+		types.FireboltSettings{
+			Database:          "test_db",
+			DiscoveryEndpoint: "https://firebolt.example.com",
+			SSLMode:           "strict",
+			NewVersion:        true,
+			ClientSideLB:      true,
+			ConnectionParameters: map[string]string{
+				"database":    "test_db",
+				"query_label": "sdk",
+			},
+		})
+}
+
+func TestDSNDiscoveryQueryDatabaseTakesPrecedence(t *testing.T) {
+	runDSNTest(t, "firebolt://localhost:3473/path_db?database=query_db&ssl_mode=none",
+		types.FireboltSettings{
+			Database:          "query_db",
+			DiscoveryEndpoint: "http://localhost:3473",
+			SSLMode:           "none",
+			NewVersion:        true,
+			ClientSideLB:      true,
+			ConnectionParameters: map[string]string{
+				"database": "query_db",
+			},
+		})
+}
+
+func TestDSNDiscoveryFailed(t *testing.T) {
+	runDSNTestFail(t, "firebolt://localhost:3473?ssl_mode=invalid")
+	runDSNTestFail(t, "firebolt://localhost:3473?url=http://localhost:3473")
 }
 
 func TestDSNWithDefaultParams(t *testing.T) {

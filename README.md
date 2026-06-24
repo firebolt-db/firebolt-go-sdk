@@ -37,6 +37,22 @@ firebolt://[/database]?url=core_instance_url[&client_side_lb=false]
 - **client_side_lb** - (optional, default `true`) enables client-side round-robin load balancing. The SDK resolves the hostname in **url** to its underlying IP addresses and distributes requests across them. This prevents Go's default connection pooling from pinning all requests to a single pod when **url** points to a Kubernetes service. Set to `false` to disable.
 - **client_side_lb_dns_ttl** - (optional, default `30s`) how often the round-robin resolver re-resolves the hostname to discover new or removed nodes. Accepts any Go duration string (e.g. `5s`, `500ms`, `2m`). Lower values give faster failover; higher values reduce DNS traffic. Only takes effect when `client_side_lb` is enabled.
 
+#### Discovery-based instance
+For new Firebolt deployments that expose `/.well-known/firebolt`, use a host-based DSN:
+```
+firebolt://host[:port]?database=database_name[&engine=engine_name][&ssl_mode=none]
+```
+
+- **database** - (optional) the name of the database to connect to.
+- **engine** - (optional) the engine name to pass as an initial connection parameter.
+- **ssl_mode** - (optional, default `strict`) controls transport security. `strict` uses HTTPS with certificate validation. `none` uses HTTP for host-based discovery DSNs and disables certificate verification for HTTPS endpoints.
+- Any additional query parameters are sent as initial Firebolt connection/session parameters.
+
+For a local Firebolt installed with `bash <(curl -s https://get.firebolt.io/)`:
+```
+firebolt://localhost:3473?database=mydb&ssl_mode=none
+```
+
 ### Custom HTTP transport
 
 The SDK ships with sensible HTTP transport defaults (30s dial timeout, 10s TLS handshake timeout, 30s keep-alive, 90s idle connection timeout). If you need to tune these -- for example, to increase the dial timeout for high-latency networks or the idle connection timeout for long-lived batch pipelines -- use `OpenConnectorWithDSN` together with `WithTransport`:

@@ -55,8 +55,31 @@ func NewHttpClient() *http.Client {
 // NewHttpClientWithTransport creates an *http.Client with the given
 // RoundTripper. If rt is nil, DefaultTransport() is used.
 func NewHttpClientWithTransport(rt http.RoundTripper) *http.Client {
+	return NewHttpClientWithTransportAndTLS(rt, false)
+}
+
+// NewHttpClientWithTransportAndTLS creates an *http.Client and, when
+// insecureSkipVerify is true, disables TLS certificate verification on
+// *http.Transport instances. Non-transport RoundTrippers are used as-is.
+func NewHttpClientWithTransportAndTLS(rt http.RoundTripper, insecureSkipVerify bool) *http.Client {
 	if rt == nil {
-		return NewHttpClient()
+		rt = DefaultTransport()
+	}
+	if insecureSkipVerify {
+		if t, ok := rt.(*http.Transport); ok {
+			t = t.Clone()
+			tlsConfig := t.TLSClientConfig
+			if tlsConfig == nil {
+				tlsConfig = &tls.Config{}
+			} else {
+				tlsConfig = tlsConfig.Clone()
+			}
+			tlsConfig.InsecureSkipVerify = true //nolint:gosec // ssl_mode=none explicitly opts out of certificate verification.
+			t.TLSClientConfig = tlsConfig
+			rt = t
+		} else {
+			logging.Infolog.Println("custom RoundTripper is not *http.Transport; skipping ssl_mode=none TLS configuration")
+		}
 	}
 	return &http.Client{Transport: rt}
 }
@@ -75,12 +98,26 @@ func NewHttpClientForLB(tlsServerName string) *http.Client {
 // the caller is responsible for TLS configuration in their custom
 // RoundTripper. If rt is nil, DefaultTransport() is used.
 func NewHttpClientForLBWithTransport(rt http.RoundTripper, tlsServerName string) *http.Client {
+	return NewHttpClientForLBWithTransportAndTLS(rt, tlsServerName, false)
+}
+
+func NewHttpClientForLBWithTransportAndTLS(rt http.RoundTripper, tlsServerName string, insecureSkipVerify bool) *http.Client {
 	if rt == nil {
 		rt = DefaultTransport()
 	}
-	if tlsServerName != "" {
+	if tlsServerName != "" || insecureSkipVerify {
 		if t, ok := rt.(*http.Transport); ok {
-			t.TLSClientConfig = &tls.Config{ServerName: tlsServerName}
+			t = t.Clone()
+			tlsConfig := t.TLSClientConfig
+			if tlsConfig == nil {
+				tlsConfig = &tls.Config{}
+			} else {
+				tlsConfig = tlsConfig.Clone()
+			}
+			tlsConfig.ServerName = tlsServerName
+			tlsConfig.InsecureSkipVerify = insecureSkipVerify //nolint:gosec // ssl_mode=none explicitly opts out of certificate verification.
+			t.TLSClientConfig = tlsConfig
+			rt = t
 		} else {
 			logging.Infolog.Printf("custom RoundTripper is not *http.Transport; skipping TLS ServerName override for %q", tlsServerName)
 		}
