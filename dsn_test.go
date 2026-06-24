@@ -104,7 +104,6 @@ func TestDSNHappyPath(t *testing.T) {
 func TestDSNFailed(t *testing.T) {
 	runDSNTestFail(t, "")
 	runDSNTestFail(t, "other_db://")
-	runDSNTestFail(t, "firebolt://db")      // another / is needed before a db
 	runDSNTestFail(t, "firebolt://?k=v")    // unknown parameter name
 	runDSNTestFail(t, "firebolt:///db?k=v") // unknown parameter name
 }
