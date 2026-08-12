@@ -1,6 +1,7 @@
 package fireboltgosdk
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strings"
@@ -74,6 +75,8 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 		return &float64Column{colName: colName}, nil
 	case "text", "geography":
 		return &stringColumn{colName: colName}, nil
+	case "json":
+		return &jsonColumn{colName: colName}, nil
 	case "boolean":
 		return &boolColumn{colName: colName}, nil
 	case "date", "pgdate":
@@ -389,6 +392,72 @@ func (c *stringColumn) parquetValues(colIdx int) []parquet.Value {
 		// unsafe.Slice avoids allocating+copying a []byte per string; the
 		// column buffer copies the data during WriteValues so the reference
 		// only needs to survive that call.
+		var b []byte
+		if len(s) > 0 {
+			b = unsafe.Slice(unsafe.StringData(s), len(s))
+		}
+		vals[i] = parquet.ByteArrayValue(b).Level(0, 0, colIdx)
+	}
+	return vals
+}
+
+// ---------------------------------------------------------------------------
+// jsonColumn
+// ---------------------------------------------------------------------------
+
+// jsonColumn buffers values destined for a Firebolt JSON column.
+//
+// Values are accepted as JSON text (string or []byte) and written as a Parquet
+// leaf carrying the JSON logical type, which is how Parquet represents
+// semi-structured data in a byte array. The engine reads that back into its
+// native JSON type.
+//
+// The contents are not parsed or validated here. Validating would mean paying a
+// full JSON parse per value on the hot path of a bulk load, and the engine
+// rejects malformed documents on ingest anyway, so the check would be duplicated
+// rather than added.
+type jsonColumn struct {
+	colName string
+	data    []string
+}
+
+func (c *jsonColumn) name() string { return c.colName }
+func (c *jsonColumn) rows() int    { return len(c.data) }
+
+func (c *jsonColumn) appendRow(v interface{}) error {
+	switch val := v.(type) {
+	case string:
+		c.data = append(c.data, val)
+		return nil
+	case []byte:
+		// Common when the caller already has marshalled JSON in hand.
+		c.data = append(c.data, string(val))
+		return nil
+	case json.RawMessage:
+		c.data = append(c.data, string(val))
+		return nil
+	default:
+		return fmt.Errorf("cannot convert %T to json; pass JSON text as string, []byte, or json.RawMessage", v)
+	}
+}
+
+func (c *jsonColumn) appendColumn(v interface{}) error {
+	if vals, ok := v.([]string); ok {
+		c.data = append(c.data, vals...)
+		return nil
+	}
+	return appendColumnFallback(c, v)
+}
+
+// appendZero writes an empty JSON object rather than an empty string, because
+// "" is not a valid JSON document and would fail on ingest.
+func (c *jsonColumn) appendZero()               { c.data = append(c.data, "{}") }
+func (c *jsonColumn) reset()                    { c.data = c.data[:0] }
+func (c *jsonColumn) parquetNode() parquet.Node { return parquet.JSON() }
+func (c *jsonColumn) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, s := range c.data {
+		// See stringColumn.parquetValues for why unsafe.Slice is safe here.
 		var b []byte
 		if len(s) > 0 {
 			b = unsafe.Slice(unsafe.StringData(s), len(s))
