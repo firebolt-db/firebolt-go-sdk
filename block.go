@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 
 	"github.com/parquet-go/parquet-go"
 	"github.com/parquet-go/parquet-go/compress"
@@ -61,10 +62,28 @@ func (br *blockReader) Read(p []byte) (int, error) {
 }
 
 // block holds column data and serialises it to the configured format.
+// columnLeaf is one Parquet leaf contributed by a column. Scalar and array
+// columns contribute exactly one; ARRAY(STRUCT(...)) contributes one per field.
+type columnLeaf struct {
+	// path is the leaf's path in the schema, used to resolve its column index.
+	path []string
+	// values returns the leaf's values, tagged with the given column index.
+	values func(colIdx int) []parquet.Value
+	// offsets returns the per-row cumulative element count for a repeated
+	// leaf, or nil for a scalar one. It is a function because the backing
+	// slice grows as rows are appended, long after the leaf is described.
+	offsets func() []uint64
+}
+
+// leafProvider is implemented by columns spanning more than one Parquet leaf.
+type leafProvider interface {
+	leaves() []columnLeaf
+}
+
 type block struct {
 	columns             []column
 	schema              *parquet.Schema
-	leafIndices         []int
+	leaves              []blockLeaf
 	bufferSize          int64
 	format              SerializationFormat
 	compression         CompressionCodec
@@ -105,7 +124,12 @@ func newBlock(columnNames []string, fireboltTypes []string) (*block, error) {
 		group[col.name()] = col.parquetNode()
 	}
 	blk.schema = parquet.NewSchema("firebolt", group)
-	blk.leafIndices = blk.leafColumnIndices()
+
+	leaves, err := blk.buildLeaves()
+	if err != nil {
+		return nil, err
+	}
+	blk.leaves = leaves
 
 	return blk, nil
 }
@@ -163,27 +187,57 @@ func (b *block) reset() {
 	}
 }
 
-// leafColumnIndices computes the Parquet leaf column index for each of our
-// columns. parquet.Group sorts fields alphabetically, so the leaf indices
-// follow that sorted order rather than our insertion order.
-func (b *block) leafColumnIndices() []int {
-	type nameIdx struct {
-		name string
-		orig int
+// blockLeaf is a columnLeaf with its resolved Parquet column index.
+type blockLeaf struct {
+	columnLeaf
+	leafIdx int
+}
+
+// buildLeaves enumerates every Parquet leaf the block writes, resolving each
+// one's column index from the schema.
+//
+// Indices come from the schema rather than from re-deriving parquet.Group's
+// field ordering: Lookup is authoritative, and it stays correct for nested
+// groups where the ordering rules are not just "sort the top level".
+func (b *block) buildLeaves() ([]blockLeaf, error) {
+	var out []blockLeaf
+	for _, col := range b.columns {
+		var ls []columnLeaf
+		if ml, ok := col.(leafProvider); ok {
+			ls = ml.leaves()
+		} else {
+			c := col
+			ls = []columnLeaf{{
+				path:    []string{c.name()},
+				values:  c.parquetValues,
+				offsets: repeatedOffsets(c),
+			}}
+		}
+
+		for _, l := range ls {
+			leaf, ok := b.schema.Lookup(l.path...)
+			if !ok {
+				return nil, fmt.Errorf("column %q: leaf %q is not in the schema",
+					col.name(), strings.Join(l.path, "."))
+			}
+			out = append(out, blockLeaf{columnLeaf: l, leafIdx: leaf.ColumnIndex})
+		}
 	}
-	items := make([]nameIdx, len(b.columns))
-	for i, col := range b.columns {
-		items[i] = nameIdx{col.name(), i}
+	return out, nil
+}
+
+// repeatedOffsets returns an accessor for a repeated column's per-row element
+// counts, or nil when the column is scalar.
+func repeatedOffsets(col column) func() []uint64 {
+	switch c := col.(type) {
+	case *arrayColumn:
+		return func() []uint64 { return c.offsets }
+	case *nullableColumn:
+		if ac, ok := c.inner.(*arrayColumn); ok {
+			return func() []uint64 { return ac.offsets }
+		}
 	}
-	// Sort by name to match parquet.Group's alphabetical ordering.
-	slices.SortFunc(items, func(a, c nameIdx) int {
-		return cmp.Compare(a.name, c.name)
-	})
-	indices := make([]int, len(b.columns))
-	for leafIdx, item := range items {
-		indices[item.orig] = leafIdx
-	}
-	return indices
+	return nil
 }
 
 // NewReader returns an io.Reader that produces the serialised contents of
@@ -200,44 +254,36 @@ func (b *block) newParquetReader() (io.Reader, error) {
 		return bytes.NewReader(nil), nil
 	}
 
-	type colVals struct {
-		leafIdx  int
-		values   []parquet.Value
-		isArray  bool
-		offsets  []uint64
-		arrayPos int
+	type leafVals struct {
+		leafIdx int
+		values  []parquet.Value
+		// offsets is nil for a scalar leaf, giving one value per row.
+		offsets []uint64
+		pos     int
 	}
-	cvs := make([]colVals, len(b.columns))
-	for i, col := range b.columns {
-		cv := colVals{
-			leafIdx: b.leafIndices[i],
-			values:  col.parquetValues(b.leafIndices[i]),
+
+	lvs := make([]leafVals, len(b.leaves))
+	for i, l := range b.leaves {
+		lv := leafVals{
+			leafIdx: l.leafIdx,
+			values:  l.values(l.leafIdx),
 		}
-		if ac, ok := col.(*arrayColumn); ok {
-			cv.isArray = true
-			cv.offsets = ac.offsets
-		} else if nc, ok := col.(*nullableColumn); ok {
-			if ac, ok := nc.inner.(*arrayColumn); ok {
-				cv.isArray = true
-				cv.offsets = ac.offsets
-			}
+		if l.offsets != nil {
+			lv.offsets = l.offsets()
 		}
-		cvs[i] = cv
+		lvs[i] = lv
 	}
-	slices.SortFunc(cvs, func(a, c colVals) int {
+	// Rows must present their values in leaf order.
+	slices.SortFunc(lvs, func(a, c leafVals) int {
 		return cmp.Compare(a.leafIdx, c.leafIdx)
 	})
 
-	numScalar := 0
-	for _, cv := range cvs {
-		if !cv.isArray {
-			numScalar++
-		}
-	}
-	totalValues := numScalar * numRows
-	for _, cv := range cvs {
-		if cv.isArray {
-			totalValues += len(cv.values)
+	totalValues := 0
+	for _, lv := range lvs {
+		if lv.offsets == nil {
+			totalValues += numRows
+		} else {
+			totalValues += len(lv.values)
 		}
 	}
 
@@ -246,26 +292,27 @@ func (b *block) newParquetReader() (io.Reader, error) {
 
 	for r := range numRows {
 		rowStart := len(flat)
-		for ci := range cvs {
-			cv := &cvs[ci]
-			if !cv.isArray {
-				flat = append(flat, cv.values[r])
-			} else {
-				var start uint64
-				if r > 0 {
-					start = cv.offsets[r-1]
-				}
-				end := cv.offsets[r]
-				pos := cv.arrayPos
-				if start == end {
-					flat = append(flat, cv.values[pos])
-					cv.arrayPos = pos + 1
-				} else {
-					n := int(end - start)
-					flat = append(flat, cv.values[pos:pos+n]...)
-					cv.arrayPos = pos + n
-				}
+		for li := range lvs {
+			lv := &lvs[li]
+			if lv.offsets == nil {
+				flat = append(flat, lv.values[r])
+				continue
 			}
+			var start uint64
+			if r > 0 {
+				start = lv.offsets[r-1]
+			}
+			end := lv.offsets[r]
+			if start == end {
+				// An empty repeated field still contributes one value, which
+				// carries the null that encodes "no elements".
+				flat = append(flat, lv.values[lv.pos])
+				lv.pos++
+				continue
+			}
+			n := int(end - start)
+			flat = append(flat, lv.values[lv.pos:lv.pos+n]...)
+			lv.pos += n
 		}
 		rows[r] = flat[rowStart:len(flat):len(flat)]
 	}

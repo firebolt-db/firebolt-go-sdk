@@ -1,6 +1,7 @@
 package fireboltgosdk
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -54,7 +55,18 @@ func newColumn(colName, fireboltType string) (column, error) {
 	return newColumnFromType(colName, fireboltType)
 }
 
-func newColumnFromType(colName, fireboltType string) (column, error) {
+func newColumnFromType(colName, fireboltType string) (column, error) { // NOSONAR - explicit type-shape branches mirror Firebolt metadata.
+	// array(struct(...)) is recognised before the nullable unwrapping below.
+	// The column always writes an array, empty if the row has no elements, so a
+	// nullable wrapper would add a definition level the encoding never uses --
+	// and it would also hide the column's several leaves behind a wrapper that
+	// only knows how to describe one.
+	if fields, ok, err := structArrayFields(fireboltType); err != nil {
+		return nil, err
+	} else if ok {
+		return newStructArrayColumn(colName, fields)
+	}
+
 	if strings.HasSuffix(fireboltType, " null") {
 		inner, err := newColumnFromType(colName, fireboltType[:len(fireboltType)-len(" null")])
 		if err != nil {
@@ -71,7 +83,8 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 	}
 
 	if strings.HasPrefix(fireboltType, "array(") && strings.HasSuffix(fireboltType, ")") {
-		elemType := fireboltType[len("array(") : len(fireboltType)-1]
+		elemType := strings.TrimSpace(fireboltType[len("array(") : len(fireboltType)-1])
+
 		inner, err := newColumnFromType("", elemType)
 		if err != nil {
 			return nil, err
@@ -104,9 +117,29 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 				nc.nilErr = errNullJSONArrayElement
 			}
 		}
+		// Nested repetition is out of scope: two levels of repeated need
+		// repetition levels the encoding here does not produce. Field-level
+		// nesting is already refused by structArrayFields; this is the outer
+		// case, array(array(struct(...))). Without it the column builds, rows
+		// append, and the failure surfaces as a panic when serialising.
+		if _, ok := inner.(*structArrayColumn); ok {
+			return nil, fmt.Errorf("unsupported column type for batch insert: %s; "+
+				"array(struct(...)) cannot be nested inside another array", fireboltType)
+		}
 		return &arrayColumn{colName: colName, elem: inner}, nil
 	}
 
+	// A bare struct (not inside an array) would be a non-repeated group. No
+	// schema the exporter generates uses one, and supporting it would add a
+	// second nesting shape with no caller.
+	if strings.HasPrefix(fireboltType, "struct(") {
+		return nil, fmt.Errorf("struct columns are only supported inside an array, as array(struct(...))")
+	}
+
+	return newScalarColumn(colName, fireboltType)
+}
+
+func newScalarColumn(colName, fireboltType string) (column, error) {
 	switch fireboltType {
 	case "int", "integer":
 		return &int32Column{colName: colName}, nil
@@ -724,7 +757,7 @@ func (c *byteaColumn) rows() int    { return len(c.data) }
 func (c *byteaColumn) appendRow(v interface{}) error {
 	switch val := v.(type) {
 	case []byte:
-		c.data = append(c.data, val)
+		c.data = append(c.data, bytes.Clone(val))
 		return nil
 	case string:
 		c.data = append(c.data, []byte(val))
@@ -736,10 +769,16 @@ func (c *byteaColumn) appendRow(v interface{}) error {
 
 func (c *byteaColumn) appendColumn(v interface{}) error {
 	if vals, ok := v.([][]byte); ok {
-		c.data = append(c.data, vals...)
+		c.appendBytes(vals)
 		return nil
 	}
 	return appendColumnFallback(c, v)
+}
+
+func (c *byteaColumn) appendBytes(vals [][]byte) {
+	for _, val := range vals {
+		c.data = append(c.data, bytes.Clone(val))
+	}
 }
 
 func (c *byteaColumn) appendZero()               { c.data = append(c.data, nil) }

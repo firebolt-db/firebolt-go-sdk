@@ -553,9 +553,11 @@ err = conn.Raw(func(driverConn interface{}) error {
 - Both modes can be mixed in the same batch; all columns must have the same number of rows when `Send()` is called.
 - After a successful `Send()` the batch is reset and can be reused for another round of appends.
 - Call `Abort()` to discard buffered data without sending.
-- Supported column types: `int`/`integer`, `long`/`bigint`, `float`/`real`, `double`, `text`, `json`, `boolean`, `date`, `timestamp`, `timestampntz`, `timestamptz`, `bytea`, `array(T)`, and nullable variants.
+- Supported column types: `int`/`integer`, `long`/`bigint`, `float`/`real`, `double`, `text`, `json`, `boolean`, `date`, `timestamp`, `timestampntz`, `timestamptz`, `bytea`, `array(T)`, `array(struct(...))`, and nullable variants.
 - JSON values must be valid UTF-8 JSON text supplied as `string`, `[]byte`, or `json.RawMessage`. Invalid and empty documents are rejected by `Append()`.
 - The current Parquet encoding cannot preserve SQL `NULL` for an entire `ARRAY(JSON)` or for an element inside it, so those values are rejected. Use an empty slice for `[]` and the JSON document `null` when JSON null, rather than SQL `NULL`, is intended. Nested SQL arrays containing JSON are not supported.
+- `ARRAY(STRUCT(...))` values use `[]map[string]interface{}` (or `[]interface{}` containing those maps), with keys exactly matching the struct fields. Use an explicit `nil` value for a nullable field; missing and unknown fields are rejected.
+- The current encoding cannot preserve SQL `NULL` for an entire `ARRAY(STRUCT(...))` or for a struct element, so those values are rejected. Use an empty or typed nil slice for `[]`, and a map with explicit `nil` field values for a present struct containing SQL `NULL`. Nested arrays and structs inside the struct are not supported.
 
 ### Error handling
 The SDK provides specific error types that can be checked using Go's `errors.Is()` function. Here's how to handle different types of errors:

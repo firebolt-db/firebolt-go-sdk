@@ -118,7 +118,7 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 	case [][]byte:
 		n = len(vals)
 		if bc, ok := c.elem.(*byteaColumn); ok {
-			bc.data = append(bc.data, vals...)
+			bc.appendBytes(vals)
 		} else {
 			for i, val := range vals {
 				if err := c.elem.appendRow(val); err != nil {
@@ -276,8 +276,12 @@ func (c *arrayColumn) parquetValues(colIdx int) []parquet.Value {
 	// nullableColumn), we use the fused path that builds values with final
 	// levels directly. For anything else, pre-build all element values once
 	// upfront so the per-row loop only indexes into the result.
+	// Tracked separately from elemVals being nil: an element column that
+	// returns no values would otherwise look fused and take a path that
+	// panics on an unhandled type.
+	fused := c.canFuseElemValues()
 	var elemVals []parquet.Value
-	if !c.canFuseElemValues() {
+	if !fused {
 		elemVals = c.elem.parquetValues(colIdx)
 	}
 
@@ -285,7 +289,7 @@ func (c *arrayColumn) parquetValues(colIdx int) []parquet.Value {
 	for _, end := range c.offsets {
 		if prev == end {
 			vals = append(vals, parquet.Value{}.Level(0, 0, colIdx))
-		} else if elemVals == nil {
+		} else if fused {
 			vals = c.appendElemValues(vals, prev, end, colIdx)
 		} else {
 			for i := prev; i < end; i++ {

@@ -1080,3 +1080,218 @@ func TestBatchInsertJSONColumnar(t *testing.T) {
 		t.Errorf("sum of /n = %d, want 6: documents did not round-trip", total)
 	}
 }
+
+// ---------------------------------------------------------------------------
+// ARRAY(STRUCT(...)) round-trip
+// ---------------------------------------------------------------------------
+
+// TestBatchInsertStructArray covers array(struct(...)) against a live engine.
+//
+// A struct array is the one column type that spans several Parquet leaves, and
+// the repetition and definition levels the writer emits for them are exactly
+// what a local round-trip is least able to judge: values can read back at
+// plausible levels and still be grouped into the wrong rows. Only the engine
+// resolves them the way a query will.
+func TestBatchInsertStructArray(t *testing.T) { // NOSONAR - one Engine lifecycle validates levels and field alignment.
+	db := openBatchTestDB(t)
+	defer db.Close()
+
+	const table = "test_batch_struct_array"
+	execOrFatal(t, db, fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+	execOrFatal(t, db, fmt.Sprintf(`CREATE TABLE %s (
+		id     INT NOT NULL,
+		events ARRAY(STRUCT(name TEXT, count INT, tag TEXT NULL, attrs JSON NULL))
+	)`, table))
+	defer execOrFatal(t, db, fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+
+	ctx := context.Background()
+	doBatch(t, db, func(bc BatchConnection) error {
+		batch, err := bc.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (id, events)", table))
+		if err != nil {
+			return err
+		}
+		// Varying element counts across rows is the case that exercises
+		// repetition levels; a uniform count would pass even if they were wrong.
+		if err := batch.Append(int32(1), []interface{}{
+			map[string]interface{}{"name": "start", "count": int32(1), "tag": "a", "attrs": `{"phase":"start"}`},
+			map[string]interface{}{"name": "end", "count": int32(2), "tag": nil, "attrs": nil},
+		}); err != nil {
+			return err
+		}
+		if err := batch.Append(int32(2), []interface{}{}); err != nil {
+			return err
+		}
+		if err := batch.Append(int32(3), []interface{}{
+			map[string]interface{}{"name": "only", "count": int32(9), "tag": "z", "attrs": "null"},
+		}); err != nil {
+			return err
+		}
+		return batch.Send(ctx)
+	})
+
+	// Element counts per row: wrong repetition levels regroup elements across
+	// rows, which shows up here before any field value is compared.
+	rows, err := db.Query(fmt.Sprintf(
+		"SELECT id, LENGTH(events) FROM %s ORDER BY id", table))
+	if err != nil {
+		t.Fatalf("SELECT lengths: %v", err)
+	}
+	counts := map[int]int{}
+	for rows.Next() {
+		var id, n int
+		if err := rows.Scan(&id, &n); err != nil {
+			rows.Close()
+			t.Fatalf("Scan: %v", err)
+		}
+		counts[id] = n
+	}
+	rows.Close()
+	for id, want := range map[int]int{1: 2, 2: 0, 3: 1} {
+		if counts[id] != want {
+			t.Errorf("row %d has %d elements, want %d", id, counts[id], want)
+		}
+	}
+
+	// Field values, unnested, to confirm fields stay aligned with each other.
+	rows, err = db.Query(fmt.Sprintf(`SELECT t.id, e.name, e.count, e.tag,
+		JSON_POINTER_EXTRACT_TEXT(e.attrs::TEXT, '/phase'),
+		e.attrs IS NULL, COALESCE(e.attrs::TEXT = 'null', FALSE)
+		FROM %s t, UNNEST(t.events) AS e ORDER BY t.id, e.name`, table))
+	if err != nil {
+		t.Fatalf("SELECT unnested: %v", err)
+	}
+	defer rows.Close()
+
+	type elem struct {
+		id       int
+		name     string
+		count    int
+		tag      sql.NullString
+		phase    sql.NullString
+		null     bool
+		jsonNull bool
+	}
+	want := []elem{
+		{id: 1, name: "end", count: 2, null: true},
+		{id: 1, name: "start", count: 1, tag: sql.NullString{String: "a", Valid: true},
+			phase: sql.NullString{String: "start", Valid: true}},
+		{id: 3, name: "only", count: 9, tag: sql.NullString{String: "z", Valid: true},
+			jsonNull: true},
+	}
+
+	var got []elem
+	for rows.Next() {
+		var e elem
+		if err := rows.Scan(&e.id, &e.name, &e.count, &e.tag, &e.phase, &e.null, &e.jsonNull); err != nil {
+			t.Fatalf("Scan: %v", err)
+		}
+		got = append(got, e)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterating: %v", err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("element count = %d, want %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("element %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
+// TestBatchInsertStructArrayLarge writes many struct-array rows with varying
+// element counts.
+//
+// liftIntoGroup walks a cursor over the element values in step with the row
+// offsets. A drift of one, or an off-by-one on the marker a row with no
+// elements contributes, stays invisible at three rows but compounds over
+// thousands -- and it misaligns fields against each other rather than dropping
+// anything, so a row count still looks right. Element counts vary per row
+// (including empty rows) because a uniform count would hide exactly that.
+func TestBatchInsertStructArrayLarge(t *testing.T) { // NOSONAR - scale assertions belong to the same Engine-backed dataset.
+	db := openBatchTestDB(t)
+	defer db.Close()
+
+	const table = "test_batch_struct_large"
+	const n = 2000
+	execOrFatal(t, db, fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+	execOrFatal(t, db, fmt.Sprintf(`CREATE TABLE %s (
+		id     INT NOT NULL,
+		events ARRAY(STRUCT(seq INT, label TEXT NULL))
+	)`, table))
+	defer execOrFatal(t, db, fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+
+	// Row i holds i%4 elements, so empty rows recur throughout rather than
+	// only at the start.
+	wantElems := 0
+	wantNulls := 0
+	for i := 0; i < n; i++ {
+		wantElems += i % 4
+		for j := 0; j < i%4; j++ {
+			if j == 1 {
+				wantNulls++ // every element at index 1 has a null label
+			}
+		}
+	}
+
+	ctx := context.Background()
+	doBatch(t, db, func(bc BatchConnection) error {
+		batch, err := bc.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (id, events)", table))
+		if err != nil {
+			return err
+		}
+		for i := 0; i < n; i++ {
+			elems := make([]interface{}, 0, i%4)
+			for j := 0; j < i%4; j++ {
+				var label interface{} = fmt.Sprintf("r%d_e%d", i, j)
+				if j == 1 {
+					label = nil
+				}
+				elems = append(elems, map[string]interface{}{
+					"seq":   int32(i*10 + j),
+					"label": label,
+				})
+			}
+			if err := batch.Append(int32(i), elems); err != nil {
+				return err
+			}
+		}
+		return batch.Send(ctx)
+	})
+
+	var rowCount, elemCount, nullLabels int
+	if err := db.QueryRow(fmt.Sprintf(
+		"SELECT count(*), SUM(LENGTH(events)) FROM %s", table)).Scan(&rowCount, &elemCount); err != nil {
+		t.Fatalf("counts: %v", err)
+	}
+	if rowCount != n {
+		t.Errorf("rows = %d, want %d", rowCount, n)
+	}
+	if elemCount != wantElems {
+		t.Errorf("total elements = %d, want %d", elemCount, wantElems)
+	}
+
+	if err := db.QueryRow(fmt.Sprintf(
+		`SELECT count(*) FROM %s t, UNNEST(t.events) AS e WHERE e.label IS NULL`,
+		table)).Scan(&nullLabels); err != nil {
+		t.Fatalf("null labels: %v", err)
+	}
+	if nullLabels != wantNulls {
+		t.Errorf("null labels = %d, want %d", nullLabels, wantNulls)
+	}
+
+	// The strongest check: seq encodes its own row and position, so any
+	// misalignment between the two fields, or between elements and rows,
+	// breaks this without changing any count above.
+	var mismatched int
+	if err := db.QueryRow(fmt.Sprintf(`SELECT count(*) FROM %s t, UNNEST(t.events) AS e
+		WHERE e.seq / 10 <> t.id
+		   OR (e.label IS NOT NULL AND e.label <> 'r' || t.id || '_e' || (e.seq %% 10))`,
+		table)).Scan(&mismatched); err != nil {
+		t.Fatalf("alignment: %v", err)
+	}
+	if mismatched != 0 {
+		t.Errorf("%d elements are misaligned with their row or between fields", mismatched)
+	}
+}
