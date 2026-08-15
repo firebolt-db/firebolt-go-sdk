@@ -26,7 +26,20 @@ type arrayColumn struct {
 func (c *arrayColumn) name() string { return c.colName }
 func (c *arrayColumn) rows() int    { return len(c.offsets) }
 
-func (c *arrayColumn) appendRow(v interface{}) error {
+func (c *arrayColumn) appendRow(v interface{}) (err error) {
+	// Appending is all-or-nothing. Elements land in c.elem one at a time and
+	// the offset that makes them a row is only written once they all succeed,
+	// so an error partway through would leave orphaned elements that no offset
+	// covers: invisible to rows() and to validate, then absorbed into whatever
+	// row is appended next, shifting its values. One deferred rollback covers
+	// every error path in the switch below.
+	before := c.elem.rows()
+	defer func() {
+		if err != nil {
+			c.elem.truncate(before)
+		}
+	}()
+
 	var n int
 	switch vals := v.(type) {
 	case []string:
@@ -207,6 +220,18 @@ func (c *arrayColumn) appendZero() {
 func (c *arrayColumn) reset() {
 	c.offsets = c.offsets[:0]
 	c.elem.reset()
+}
+
+// truncate drops rows after the first n, including the elements they held.
+// It always trims the element column, even when n is the current row count,
+// so any element not covered by an offset goes with it.
+func (c *arrayColumn) truncate(n int) {
+	var elems uint64
+	if n > 0 {
+		elems = c.offsets[n-1]
+	}
+	c.offsets = c.offsets[:n]
+	c.elem.truncate(int(elems))
 }
 
 func (c *arrayColumn) parquetNode() parquet.Node {

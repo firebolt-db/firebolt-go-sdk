@@ -1942,3 +1942,94 @@ func TestWithQueryLabelConcurrentBatches(t *testing.T) {
 		t.Errorf("batch B: query_label = %q, want %q", mock.ParametersCalled[1]["query_label"], "label_b")
 	}
 }
+
+// TestArrayAppendIsAtomic covers a failed element conversion partway through a
+// row. Elements land in the element column before the offset that groups them
+// is written, so without a rollback the survivors are orphaned: no offset
+// covers them, rows() and validate see nothing wrong, and the next append
+// absorbs them and shifts its own values out of place.
+func TestArrayAppendIsAtomic(t *testing.T) {
+	col, err := newColumn("v", "array(int)")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	ac := col.(*arrayColumn)
+
+	if err := col.appendRow([]interface{}{int32(1), "not an int"}); err == nil {
+		t.Fatal("expected a conversion error for the second element")
+	}
+	if got := ac.elem.rows(); got != 0 {
+		t.Errorf("element column kept %d orphaned elements after a failed append, want 0", got)
+	}
+	if got := col.rows(); got != 0 {
+		t.Errorf("rows() = %d after a failed append, want 0", got)
+	}
+
+	// The next row must be exactly what was appended.
+	if err := col.appendRow([]interface{}{int32(5)}); err != nil {
+		t.Fatalf("appendRow: %v", err)
+	}
+	got := ac.elem.(*int32Column).data
+	if len(got) != 1 || got[0] != 5 {
+		t.Errorf("element data = %v, want [5]: the failed row leaked into this one", got)
+	}
+}
+
+// TestArrayTruncateDropsElements pins that truncate trims the element column
+// even when the row count is unchanged, so a struct-array rollback cannot leave
+// an array field holding elements no offset covers.
+func TestArrayTruncateDropsElements(t *testing.T) {
+	col, err := newColumn("v", "array(int)")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	ac := col.(*arrayColumn)
+	if err := col.appendRow([]int32{1, 2}); err != nil {
+		t.Fatalf("appendRow: %v", err)
+	}
+
+	// Simulate an orphan, then truncate to the unchanged row count.
+	ac.elem.(*int32Column).data = append(ac.elem.(*int32Column).data, 99)
+	ac.truncate(ac.rows())
+
+	if got := ac.elem.rows(); got != 2 {
+		t.Errorf("elem.rows() = %d after truncate, want 2: the orphan survived", got)
+	}
+}
+
+// TestNullableAppendIsAtomic covers a nullable column whose inner column
+// rejects the value. rows() counts null flags, so recording the flag before
+// delegating left the column reporting one more row than it actually held --
+// a mismatch block.validate cannot see when every column is off by the same
+// amount, and which shifts every later value in the column.
+func TestNullableAppendIsAtomic(t *testing.T) {
+	col, err := newColumn("v", "int null")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	nc := col.(*nullableColumn)
+
+	if err := col.appendRow("not an int"); err == nil {
+		t.Fatal("expected a conversion error")
+	}
+	if got := col.rows(); got != 0 {
+		t.Errorf("rows() = %d after a failed append, want 0", got)
+	}
+	if got := nc.inner.rows(); got != 0 {
+		t.Errorf("inner.rows() = %d after a failed append, want 0", got)
+	}
+
+	// A null and a value must still work, and stay aligned.
+	if err := col.appendRow(nil); err != nil {
+		t.Fatalf("appendRow(nil): %v", err)
+	}
+	if err := col.appendRow(int32(7)); err != nil {
+		t.Fatalf("appendRow(7): %v", err)
+	}
+	if col.rows() != 2 || nc.inner.rows() != 2 {
+		t.Errorf("rows()=%d inner.rows()=%d, want 2 and 2", col.rows(), nc.inner.rows())
+	}
+	if nc.nulls[0] != true || nc.nulls[1] != false {
+		t.Errorf("nulls = %v, want [true false]", nc.nulls)
+	}
+}

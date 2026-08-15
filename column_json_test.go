@@ -233,43 +233,73 @@ func TestJSONColumnRejectsEmptyValues(t *testing.T) {
 	}
 }
 
-// TestJSONArrayRejectsNullableElements pins the refusal of array(json null).
+// TestJSONArrayRejectsNullElements covers array(json null).
 //
 // parquet.Repeated overrides the element's repetition type, so the schema has a
 // single definition level: 0 is "empty array", 1 is "element present". There is
 // no level left for "present and null", and the writer emits such a value as ""
-// -- which the engine rejects. Refused at construction rather than encoded
-// wrongly. See the comment in newColumnFromType.
-func TestJSONArrayRejectsNullableElements(t *testing.T) {
-	if _, err := newBlock([]string{"docs"}, []string{"array(json null)"}); err == nil {
-		t.Fatal("array(json null) was accepted; a null element cannot be encoded")
-	} else if !strings.Contains(err.Error(), "null json array element") {
-		t.Errorf("error should say why: %v", err)
-	}
+// -- which the engine rejects.
+//
+// The type must still be accepted, because a plain ARRAY(JSON) column reports
+// as "array(json null) null" in the metadata PrepareBatch discovers. Only a
+// null element is refused.
+func TestJSONArrayRejectsNullElements(t *testing.T) {
+	for _, typ := range []string{"array(json null)", "array(json null) null"} {
+		t.Run(typ, func(t *testing.T) {
+			blk, err := newBlock([]string{"docs"}, []string{typ})
+			if err != nil {
+				t.Fatalf("%s must be accepted, PrepareBatch discovers it: %v", typ, err)
+			}
 
-	// The non-nullable form is supported and must keep working.
-	blk, err := newBlock([]string{"docs"}, []string{"array(json)"})
-	if err != nil {
-		t.Fatalf("array(json): %v", err)
+			err = blk.appendRow([]interface{}{[]interface{}{`{"a":1}`, nil}})
+			if err == nil {
+				t.Fatal("a null element was accepted; it cannot be encoded")
+			}
+			if !strings.Contains(err.Error(), "null element in a json array") {
+				t.Errorf("error should say why: %v", err)
+			}
+
+			// Non-null documents must still round-trip.
+			if err := blk.appendRow([]interface{}{
+				[]interface{}{`{"a":1}`, `{"b":2}`},
+			}); err != nil {
+				t.Fatalf("appendRow: %v", err)
+			}
+			data, err := blk.toParquet()
+			if err != nil {
+				t.Fatalf("toParquet: %v", err)
+			}
+			f, rows := readParquetRows(t, data)
+			vals := valuesFor(rows[0], colIndex(f, "docs"))
+			if len(vals) != 2 {
+				t.Fatalf("got %d elements, want 2: the rejected row leaked", len(vals))
+			}
+			for i, want := range []string{`{"a":1}`, `{"b":2}`} {
+				if got := vals[i].String(); got != want {
+					t.Errorf("element %d = %q, want %q", i, got, want)
+				}
+			}
+		})
 	}
-	if err := blk.appendRow([]interface{}{
-		[]interface{}{`{"a":1}`, `{"b":2}`},
-	}); err != nil {
-		t.Fatalf("appendRow: %v", err)
+}
+
+// A null json column, as opposed to a null element of a json array, is
+// representable and must keep working.
+func TestJSONColumnStillAcceptsNull(t *testing.T) {
+	blk, err := newBlock([]string{"doc"}, []string{"json null"})
+	if err != nil {
+		t.Fatalf("newBlock: %v", err)
+	}
+	if err := blk.appendRow([]interface{}{nil}); err != nil {
+		t.Fatalf("a null json column value must be accepted: %v", err)
 	}
 	data, err := blk.toParquet()
 	if err != nil {
 		t.Fatalf("toParquet: %v", err)
 	}
 	f, rows := readParquetRows(t, data)
-	vals := valuesFor(rows[0], colIndex(f, "docs"))
-	if len(vals) != 2 {
-		t.Fatalf("got %d elements, want 2", len(vals))
-	}
-	for i, want := range []string{`{"a":1}`, `{"b":2}`} {
-		if got := vals[i].String(); got != want {
-			t.Errorf("element %d = %q, want %q", i, got, want)
-		}
+	if v := valuesFor(rows[0], colIndex(f, "doc"))[0]; !v.IsNull() {
+		t.Errorf("value = %q, want null", v.String())
 	}
 }
 
