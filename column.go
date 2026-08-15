@@ -425,20 +425,32 @@ func (c *jsonColumn) name() string { return c.colName }
 func (c *jsonColumn) rows() int    { return len(c.data) }
 
 func (c *jsonColumn) appendRow(v interface{}) error {
+	var doc string
 	switch val := v.(type) {
 	case string:
-		c.data = append(c.data, val)
-		return nil
+		doc = val
 	case []byte:
 		// Common when the caller already has marshalled JSON in hand.
-		c.data = append(c.data, string(val))
-		return nil
+		doc = string(val)
 	case json.RawMessage:
-		c.data = append(c.data, string(val))
-		return nil
+		doc = string(val)
 	default:
 		return fmt.Errorf("cannot convert %T to json; pass JSON text as string, []byte, or json.RawMessage", v)
 	}
+
+	// An empty value is not a JSON document: the engine rejects it with
+	// "Failed to parse JSON: Empty input". A nil []byte or json.RawMessage is
+	// the zero value of both accepted types, so it arrives here easily, and
+	// storing "" would defer the failure to ingest where the cause is no longer
+	// visible. appendZero writes "{}" for a gap it invents; a value the caller
+	// supplied is different, and guessing at it would be inventing data.
+	if doc == "" {
+		return fmt.Errorf("cannot store an empty value in a json column: " +
+			"pass a JSON document such as {}, or untyped nil for a nullable column")
+	}
+
+	c.data = append(c.data, doc)
+	return nil
 }
 
 func (c *jsonColumn) appendColumn(v interface{}) error {

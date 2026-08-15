@@ -193,6 +193,18 @@ func readParquetRows(t *testing.T, data []byte) (*parquet.File, []parquet.Row) {
 	return f, rows
 }
 
+// valuesFor returns every value in a row belonging to one leaf column. A
+// repeated field contributes several, so indexing by position is not enough.
+func valuesFor(row parquet.Row, colIdx int) []parquet.Value {
+	var out []parquet.Value
+	for _, v := range row {
+		if v.Column() == colIdx {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
 // colIndex returns the leaf column index for a given field name in the schema.
 func colIndex(f *parquet.File, name string) int {
 	for i, field := range f.Schema().Fields() {

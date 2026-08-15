@@ -2,6 +2,7 @@ package fireboltgosdk
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/parquet-go/parquet-go"
@@ -203,5 +204,66 @@ func TestJSONColumnarRoundTrip(t *testing.T) {
 	}
 	if got := string(rows[1][attrsCol].ByteArray()); got != `{"b":2}` {
 		t.Errorf("row 1 = %q", got)
+	}
+}
+
+// TestJSONColumnRejectsEmptyValues covers the zero value of every accepted
+// type. Storing "" would defer the failure to ingest, where Firebolt reports
+// "Failed to parse JSON: Empty input" with no indication of which row.
+func TestJSONColumnRejectsEmptyValues(t *testing.T) {
+	for name, v := range map[string]interface{}{
+		"nil bytes":       []byte(nil),
+		"nil raw message": json.RawMessage(nil),
+		"empty bytes":     []byte{},
+		"empty string":    "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := &jsonColumn{colName: "attrs"}
+			err := c.appendRow(v)
+			if err == nil {
+				t.Fatalf("appendRow(%#v) should be rejected; it stores an invalid JSON document", v)
+			}
+			if !strings.Contains(err.Error(), "empty value") {
+				t.Errorf("error should explain the problem: %v", err)
+			}
+			if c.rows() != 0 {
+				t.Errorf("a rejected value must not be stored, got %d rows", c.rows())
+			}
+		})
+	}
+}
+
+// TestNullableJSONArrayKeepsNulls covers array(json null): a null element used
+// to be re-levelled to definition 1, turning it into a present empty document
+// that the engine rejects. jsonColumn is not in the fused element path, so this
+// exercises the generic one.
+func TestNullableJSONArrayKeepsNulls(t *testing.T) {
+	blk, err := newBlock([]string{"docs"}, []string{"array(json null)"})
+	if err != nil {
+		t.Fatalf("newBlock: %v", err)
+	}
+
+	if err := blk.appendRow([]interface{}{
+		[]interface{}{`{"a":1}`, nil, `{"b":2}`},
+	}); err != nil {
+		t.Fatalf("appendRow: %v", err)
+	}
+
+	data, err := blk.toParquet()
+	if err != nil {
+		t.Fatalf("toParquet: %v", err)
+	}
+	f, rows := readParquetRows(t, data)
+
+	vals := valuesFor(rows[0], colIndex(f, "docs"))
+	if len(vals) != 3 {
+		t.Fatalf("got %d elements, want 3", len(vals))
+	}
+	if vals[0].IsNull() || vals[2].IsNull() {
+		t.Errorf("present elements should not be null: %v", vals)
+	}
+	if !vals[1].IsNull() {
+		t.Errorf("element 1 should be null, got %q at definition level %d",
+			vals[1].String(), vals[1].DefinitionLevel())
 	}
 }
