@@ -235,17 +235,9 @@ func (c *arrayColumn) parquetValues(colIdx int) []parquet.Value {
 	// nullableColumn), we use the fused path that builds values with final
 	// levels directly. For anything else, pre-build all element values once
 	// upfront so the per-row loop only indexes into the result.
-	// nulls is set when elements are nullable and take the generic path below,
-	// so their null-ness survives the re-levelling.
-	var (
-		elemVals []parquet.Value
-		nulls    []bool
-	)
+	var elemVals []parquet.Value
 	if !c.canFuseElemValues() {
 		elemVals = c.elem.parquetValues(colIdx)
-		if nc, ok := c.elem.(*nullableColumn); ok {
-			nulls = nc.nulls
-		}
 	}
 
 	prev = 0
@@ -260,14 +252,7 @@ func (c *arrayColumn) parquetValues(colIdx int) []parquet.Value {
 				if i == prev {
 					rep = 0
 				}
-				// A null element keeps definition level 0. Forcing 1 here made
-				// it a present zero value instead, which for a json element is
-				// an empty document the engine rejects on ingest.
-				def := 1
-				if nulls != nil && nulls[i] {
-					def = 0
-				}
-				vals = append(vals, elemVals[i].Level(rep, def, colIdx))
+				vals = append(vals, elemVals[i].Level(rep, 1, colIdx))
 			}
 		}
 		prev = end

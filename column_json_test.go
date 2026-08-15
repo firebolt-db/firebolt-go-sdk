@@ -233,37 +233,65 @@ func TestJSONColumnRejectsEmptyValues(t *testing.T) {
 	}
 }
 
-// TestNullableJSONArrayKeepsNulls covers array(json null): a null element used
-// to be re-levelled to definition 1, turning it into a present empty document
-// that the engine rejects. jsonColumn is not in the fused element path, so this
-// exercises the generic one.
-func TestNullableJSONArrayKeepsNulls(t *testing.T) {
-	blk, err := newBlock([]string{"docs"}, []string{"array(json null)"})
-	if err != nil {
-		t.Fatalf("newBlock: %v", err)
+// TestJSONArrayRejectsNullableElements pins the refusal of array(json null).
+//
+// parquet.Repeated overrides the element's repetition type, so the schema has a
+// single definition level: 0 is "empty array", 1 is "element present". There is
+// no level left for "present and null", and the writer emits such a value as ""
+// -- which the engine rejects. Refused at construction rather than encoded
+// wrongly. See the comment in newColumnFromType.
+func TestJSONArrayRejectsNullableElements(t *testing.T) {
+	if _, err := newBlock([]string{"docs"}, []string{"array(json null)"}); err == nil {
+		t.Fatal("array(json null) was accepted; a null element cannot be encoded")
+	} else if !strings.Contains(err.Error(), "null json array element") {
+		t.Errorf("error should say why: %v", err)
 	}
 
+	// The non-nullable form is supported and must keep working.
+	blk, err := newBlock([]string{"docs"}, []string{"array(json)"})
+	if err != nil {
+		t.Fatalf("array(json): %v", err)
+	}
 	if err := blk.appendRow([]interface{}{
-		[]interface{}{`{"a":1}`, nil, `{"b":2}`},
+		[]interface{}{`{"a":1}`, `{"b":2}`},
 	}); err != nil {
 		t.Fatalf("appendRow: %v", err)
 	}
-
 	data, err := blk.toParquet()
 	if err != nil {
 		t.Fatalf("toParquet: %v", err)
 	}
 	f, rows := readParquetRows(t, data)
-
 	vals := valuesFor(rows[0], colIndex(f, "docs"))
-	if len(vals) != 3 {
-		t.Fatalf("got %d elements, want 3", len(vals))
+	if len(vals) != 2 {
+		t.Fatalf("got %d elements, want 2", len(vals))
 	}
-	if vals[0].IsNull() || vals[2].IsNull() {
-		t.Errorf("present elements should not be null: %v", vals)
+	for i, want := range []string{`{"a":1}`, `{"b":2}`} {
+		if got := vals[i].String(); got != want {
+			t.Errorf("element %d = %q, want %q", i, got, want)
+		}
 	}
-	if !vals[1].IsNull() {
-		t.Errorf("element 1 should be null, got %q at definition level %d",
-			vals[1].String(), vals[1].DefinitionLevel())
+}
+
+// TestJSONColumnRejectsEmptyValuesColumnar covers the columnar API, which has a
+// []string fast path that bypasses appendRow.
+func TestJSONColumnRejectsEmptyValuesColumnar(t *testing.T) {
+	col, err := newColumn("doc", "json")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	if err := col.appendColumn([]string{`{"a":1}`, "", `{"b":2}`}); err == nil {
+		t.Fatal("AppendColumn accepted an empty value")
+	} else if !strings.Contains(err.Error(), "[1]") {
+		t.Errorf("error should name the offending index: %v", err)
+	}
+	if col.rows() != 0 {
+		t.Errorf("rejected batch left %d rows buffered, want 0", col.rows())
+	}
+	if err := col.appendColumn([]string{`{"a":1}`, `{"b":2}`}); err != nil {
+		t.Fatalf("valid batch: %v", err)
+	}
+	if col.rows() != 2 {
+		t.Errorf("got %d rows, want 2", col.rows())
 	}
 }

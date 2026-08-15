@@ -2,6 +2,7 @@ package fireboltgosdk
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -60,6 +61,24 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 		inner, err := newColumnFromType("", elemType)
 		if err != nil {
 			return nil, err
+		}
+		// A null element is not representable. parquet.Repeated overrides the
+		// element's repetition type, so Repeated(Optional(x)) collapses to a
+		// single definition level: 0 already means "empty array" and 1 means
+		// "element present". Nothing is left to encode "element present and
+		// null" with, and the writer emits a null at level 1 as the type's
+		// zero value -- for json that is "", which the engine rejects on
+		// ingest with "Failed to parse JSON: Empty input".
+		//
+		// Only json is refused here. The same flattening loses null elements
+		// for every other type too, but there the zero value at least ingests,
+		// and changing that is a wire-format change beyond this type's scope.
+		if nc, ok := inner.(*nullableColumn); ok {
+			if _, isJSON := nc.inner.(*jsonColumn); isJSON {
+				return nil, fmt.Errorf("unsupported column type for batch insert: %s; "+
+					"a null json array element cannot be encoded, use array(json) and "+
+					"pass {} for absent documents", fireboltType)
+			}
 		}
 		return &arrayColumn{colName: colName, elem: inner}, nil
 	}
@@ -421,6 +440,10 @@ type jsonColumn struct {
 	data    []string
 }
 
+// errEmptyJSON is shared by both append paths so they reject identically.
+var errEmptyJSON = errors.New("cannot store an empty value in a json column: " +
+	"pass a JSON document such as {}, or untyped nil for a nullable column")
+
 func (c *jsonColumn) name() string { return c.colName }
 func (c *jsonColumn) rows() int    { return len(c.data) }
 
@@ -445,8 +468,7 @@ func (c *jsonColumn) appendRow(v interface{}) error {
 	// visible. appendZero writes "{}" for a gap it invents; a value the caller
 	// supplied is different, and guessing at it would be inventing data.
 	if doc == "" {
-		return fmt.Errorf("cannot store an empty value in a json column: " +
-			"pass a JSON document such as {}, or untyped nil for a nullable column")
+		return errEmptyJSON
 	}
 
 	c.data = append(c.data, doc)
@@ -455,6 +477,14 @@ func (c *jsonColumn) appendRow(v interface{}) error {
 
 func (c *jsonColumn) appendColumn(v interface{}) error {
 	if vals, ok := v.([]string); ok {
+		// The same empty check appendRow makes, hoisted out of the bulk copy
+		// so the fast path stays a single append. Skipping it here would let
+		// the columnar API buffer "" and fail on ingest instead.
+		for i, s := range vals {
+			if s == "" {
+				return fmt.Errorf("element [%d]: %w", i, errEmptyJSON)
+			}
+		}
 		c.data = append(c.data, vals...)
 		return nil
 	}
