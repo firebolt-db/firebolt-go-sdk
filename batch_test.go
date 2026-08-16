@@ -2033,3 +2033,107 @@ func TestNullableAppendIsAtomic(t *testing.T) {
 		t.Errorf("nulls = %v, want [true false]", nc.nulls)
 	}
 }
+
+// TestTruncateAllColumnTypes exercises truncate on every column type.
+//
+// truncate is on the column interface, so a wrong implementation in any one
+// type silently corrupts a rolled-back append for columns of that type only.
+// The array and struct-array rollbacks reach it through whatever element or
+// field types a caller happens to use, so covering them individually is the
+// only way to know each is right.
+func TestTruncateAllColumnTypes(t *testing.T) {
+	day := time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC)
+	cases := []struct {
+		typ  string
+		vals []interface{} // four rows; row 1 and 2 get truncated away
+	}{
+		{"int", []interface{}{int32(1), int32(2), int32(3), int32(4)}},
+		{"long", []interface{}{int64(1), int64(2), int64(3), int64(4)}},
+		{"float", []interface{}{float32(1), float32(2), float32(3), float32(4)}},
+		{"double", []interface{}{float64(1), float64(2), float64(3), float64(4)}},
+		{"text", []interface{}{"a", "b", "c", "d"}},
+		{"json", []interface{}{`{"i":1}`, `{"i":2}`, `{"i":3}`, `{"i":4}`}},
+		{"boolean", []interface{}{true, false, false, true}},
+		{"date", []interface{}{day, day.AddDate(0, 0, 1), day.AddDate(0, 0, 2), day.AddDate(0, 0, 3)}},
+		{"timestamp", []interface{}{day, day.Add(time.Hour), day.Add(2 * time.Hour), day.Add(3 * time.Hour)}},
+		{"timestampntz", []interface{}{day, day.Add(time.Hour), day.Add(2 * time.Hour), day.Add(3 * time.Hour)}},
+		{"timestamptz", []interface{}{day, day.Add(time.Hour), day.Add(2 * time.Hour), day.Add(3 * time.Hour)}},
+		{"bytea", []interface{}{[]byte("a"), []byte("b"), []byte("c"), []byte("d")}},
+		{"text null", []interface{}{"a", nil, "c", "d"}},
+		{"int null", []interface{}{int32(1), nil, int32(3), int32(4)}},
+		{"array(int)", []interface{}{
+			[]interface{}{int32(1)}, []interface{}{int32(2), int32(9)},
+			[]interface{}{int32(3)}, []interface{}{int32(4)},
+		}},
+		{"array(text null)", []interface{}{
+			[]interface{}{"a"}, []interface{}{"b", "z"},
+			[]interface{}{"c"}, []interface{}{"d"},
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.typ, func(t *testing.T) {
+			col, err := newColumn("v", tc.typ)
+			if err != nil {
+				t.Fatalf("newColumn: %v", err)
+			}
+			for _, v := range tc.vals[:3] {
+				if err := col.appendRow(v); err != nil {
+					t.Fatalf("appendRow(%v): %v", v, err)
+				}
+			}
+			if col.rows() != 3 {
+				t.Fatalf("rows() = %d before truncate, want 3", col.rows())
+			}
+
+			col.truncate(1)
+			if got := col.rows(); got != 1 {
+				t.Fatalf("rows() = %d after truncate(1), want 1", got)
+			}
+
+			// Appending after a truncate must land in row 1, not on top of
+			// data the truncate should have dropped.
+			if err := col.appendRow(tc.vals[3]); err != nil {
+				t.Fatalf("appendRow after truncate: %v", err)
+			}
+			if got := col.rows(); got != 2 {
+				t.Fatalf("rows() = %d after the follow-up append, want 2", got)
+			}
+
+			// Compare against a column that only ever saw the surviving rows.
+			want, err := newColumn("v", tc.typ)
+			if err != nil {
+				t.Fatalf("newColumn: %v", err)
+			}
+			for _, v := range []interface{}{tc.vals[0], tc.vals[3]} {
+				if err := want.appendRow(v); err != nil {
+					t.Fatalf("appendRow(%v): %v", v, err)
+				}
+			}
+			got := fmt.Sprint(col.parquetValues(0))
+			exp := fmt.Sprint(want.parquetValues(0))
+			if got != exp {
+				t.Errorf("values after truncate:\n got %s\nwant %s", got, exp)
+			}
+		})
+	}
+
+	// truncate(0) must leave a reusable, empty column.
+	col, err := newColumn("v", "array(text null)")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	if err := col.appendRow([]interface{}{"a", nil}); err != nil {
+		t.Fatalf("appendRow: %v", err)
+	}
+	col.truncate(0)
+	if col.rows() != 0 {
+		t.Fatalf("rows() = %d after truncate(0), want 0", col.rows())
+	}
+	if err := col.appendRow([]interface{}{"z"}); err != nil {
+		t.Fatalf("appendRow after truncate(0): %v", err)
+	}
+	if v := col.parquetValues(0); len(v) != 1 || v[0].String() != "z" {
+		t.Errorf("values = %v, want just z", v)
+	}
+}
