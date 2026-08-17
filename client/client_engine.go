@@ -10,12 +10,12 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 )
 
-type ClientImplCore struct {
+type ClientImplEngine struct {
 	AccountName string
 	BaseClient
 }
 
-func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
+func MakeClientEngine(settings *types.FireboltSettings) (*ClientImplEngine, error) {
 	httpClient := NewHttpClientWithTransport(settings.Transport)
 	var resolver *RoundRobinResolver
 
@@ -38,7 +38,7 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 		logging.Infolog.Printf("client-side load balancing enabled for %s (DNS TTL: %s)", settings.Url, resolver.TTL)
 	}
 
-	client := &ClientImplCore{
+	client := &ClientImplEngine{
 		BaseClient: BaseClient{
 			ApiEndpoint: settings.Url,
 			UserAgent:   ConstructUserAgentString(),
@@ -53,14 +53,14 @@ func MakeClientCore(settings *types.FireboltSettings) (*ClientImplCore, error) {
 	return client, nil
 }
 
-func (c *ClientImplCore) getOutputFormat(ctx context.Context) string {
+func (c *ClientImplEngine) getOutputFormat(ctx context.Context) string {
 	if contextUtils.IsStreaming(ctx) {
 		return jsonLinesOutputFormat
 	}
 	return jsonOutputFormat
 }
 
-func (c *ClientImplCore) GetQueryParams(ctx context.Context, setStatements map[string]string) (map[string]string, error) {
+func (c *ClientImplEngine) GetQueryParams(ctx context.Context, setStatements map[string]string) (map[string]string, error) {
 	params := map[string]string{"output_format": c.getOutputFormat(ctx)}
 	if contextUtils.IsAsync(ctx) {
 		return nil, errorUtils.AsyncNotSupportedError
@@ -71,12 +71,12 @@ func (c *ClientImplCore) GetQueryParams(ctx context.Context, setStatements map[s
 	return params, nil
 }
 
-func (c *ClientImplCore) getAccessToken() (string, error) {
-	return "", nil // No access token needed for core client
+func (c *ClientImplEngine) getAccessToken() (string, error) {
+	return "", nil // No access token needed for an Engine client.
 }
 
 // GetConnectionParameters returns engine URL and parameters based on engineName and databaseName
-func (c *ClientImplCore) GetConnectionParameters(_ context.Context, _, databaseName string) (string, map[string]string, error) {
+func (c *ClientImplEngine) GetConnectionParameters(_ context.Context, _, databaseName string) (string, map[string]string, error) {
 	params := make(map[string]string)
 	if databaseName != "" {
 		params["database"] = databaseName

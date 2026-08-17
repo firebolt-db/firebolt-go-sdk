@@ -1,0 +1,28 @@
+name: firebolt-engine
+
+services:
+  firebolt-engine:
+    image: ghcr.io/firebolt-db/engine:dev
+    container_name: firebolt-engine
+    privileged: true
+    restart: "no"
+    ulimits:
+      memlock: 8589934592
+    ports:
+      - 3473:3473
+    volumes:
+      # Persist Engine's local cache and runtime state between container restarts.
+      - firebolt-engine-data:/var/lib/firebolt
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "443:443"
+    volumes:
+      - ${BASE_DIR}/.github/workflows/engine/certs:/etc/nginx/certs:ro
+      - ${BASE_DIR}/.github/workflows/engine/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - firebolt-engine
+
+volumes:
+  firebolt-engine-data:

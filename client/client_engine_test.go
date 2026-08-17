@@ -11,8 +11,8 @@ import (
 	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 )
 
-func clientFactoryCore(url string) Client {
-	var client = &ClientImplCore{
+func clientFactoryEngine(url string) Client {
+	var client = &ClientImplEngine{
 		BaseClient: BaseClient{ApiEndpoint: url},
 	}
 	client.AccessTokenGetter = client.getAccessToken
@@ -20,7 +20,7 @@ func clientFactoryCore(url string) Client {
 	return client
 }
 
-func TestAsyncQueryCore(t *testing.T) {
+func TestAsyncQueryEngine(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// We don't expect the client to get to this point
 		w.WriteHeader(http.StatusOK)
@@ -28,7 +28,7 @@ func TestAsyncQueryCore(t *testing.T) {
 	defer server.Close()
 
 	prepareEnvVariablesForTest(t, server)
-	client := clientFactoryCore(server.URL)
+	client := clientFactoryEngine(server.URL)
 
 	ctx := contextUtils.WithAsync(context.Background())
 
@@ -41,9 +41,9 @@ func TestAsyncQueryCore(t *testing.T) {
 	}
 }
 
-func TestGetConnectionParametersCore(t *testing.T) {
+func TestGetConnectionParametersEngine(t *testing.T) {
 	apiEndpoint := "http://localhost:1234"
-	client := clientFactoryCore(apiEndpoint)
+	client := clientFactoryEngine(apiEndpoint)
 
 	t.Run("with database", func(t *testing.T) {
 		databaseName := "my_db"

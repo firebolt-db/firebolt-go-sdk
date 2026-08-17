@@ -126,7 +126,7 @@ func TestDSNV0Failed(t *testing.T) {
 	runDSNTestFail(t, "firebolt://yury_db@dn_name?account_name=firebolt_account")
 }
 
-func TestDSNCoreHappyPath(t *testing.T) {
+func TestDSNEngineHappyPath(t *testing.T) {
 	runDSNTest(t, "firebolt://?url=http", types.FireboltSettings{Url: "http", NewVersion: true, ClientSideLB: true})
 
 	runDSNTest(t, "firebolt:///test_db?url=http", types.FireboltSettings{Database: "test_db", Url: "http", NewVersion: true, ClientSideLB: true})
@@ -137,7 +137,7 @@ func TestDSNCoreHappyPath(t *testing.T) {
 	runDSNTest(t, "firebolt:///test_db?url=https://localhost:443", types.FireboltSettings{Url: "https://localhost:443", Database: "test_db", NewVersion: true, ClientSideLB: true})
 }
 
-func TestDSNCoreClientSideLB(t *testing.T) {
+func TestDSNEngineClientSideLB(t *testing.T) {
 	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb=true",
 		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true})
 
@@ -149,12 +149,12 @@ func TestDSNCoreClientSideLB(t *testing.T) {
 		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true})
 }
 
-func TestDSNCoreFailed(t *testing.T) {
+func TestDSNEngineFailed(t *testing.T) {
 	runDSNTestFail(t, "firebolt:///user:password?url=http")
 	runDSNTestFail(t, "firebolt:///test_db?url=http&k=v")
 }
 
-func TestDSNCoreClientSideLBDNSTTL(t *testing.T) {
+func TestDSNEngineClientSideLBDNSTTL(t *testing.T) {
 	runDSNTest(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=10s",
 		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true, DNSTTL: 10 * time.Second})
 
@@ -169,7 +169,7 @@ func TestDSNCoreClientSideLBDNSTTL(t *testing.T) {
 		types.FireboltSettings{Database: "test_db", Url: "http://my-svc:8080", NewVersion: true, ClientSideLB: true})
 }
 
-func TestDSNCoreClientSideLBDNSTTLInvalid(t *testing.T) {
+func TestDSNEngineClientSideLBDNSTTLInvalid(t *testing.T) {
 	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=bogus")
 	runDSNTestFail(t, "firebolt:///test_db?url=http://my-svc:8080&client_side_lb_dns_ttl=")
 }

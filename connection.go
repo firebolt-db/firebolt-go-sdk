@@ -175,8 +175,8 @@ func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRowsWi
 
 func isNewVersion(c *fireboltConnection) bool {
 	_, isV2 := c.client.(*client.ClientImpl)
-	_, isCore := c.client.(*client.ClientImplCore)
-	return isV2 || isCore
+	_, isEngine := c.client.(*client.ClientImplEngine)
+	return isV2 || isEngine
 }
 
 func (c *fireboltConnection) ExecutePreparedQueries(ctx context.Context, queries []statement.PreparedQuery, args []driver.NamedValue, isMultiStatementAllowed bool) (rows.ExtendableRowsWithResult, error) {
