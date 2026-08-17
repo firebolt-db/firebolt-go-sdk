@@ -2,6 +2,7 @@ package fireboltgosdk
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -61,6 +62,7 @@ func TestJSONColumnAppendRow(t *testing.T) {
 		{"scalar document", `"just a string"`, `"just a string"`},
 		{"null document", `null`, `null`},
 		{"unicode", `{"k":"日本語 🔥"}`, `{"k":"日本語 🔥"}`},
+		{"surrounding whitespace", " \n{}\t", " \n{}\t"},
 	}
 
 	for _, tt := range tests {
@@ -117,10 +119,35 @@ func TestJSONColumnAppendZeroIsValidJSON(t *testing.T) {
 
 func TestJSONColumnReset(t *testing.T) {
 	c := &jsonColumn{colName: "attrs"}
-	_ = c.appendRow(`{"a":1}`)
+	if err := c.appendRow(`{"a":1}`); err != nil {
+		t.Fatalf("appendRow: %v", err)
+	}
+	if c.rows() != 1 {
+		t.Fatalf("rows() = %d before reset, want 1", c.rows())
+	}
 	c.reset()
 	if c.rows() != 0 {
 		t.Errorf("rows() = %d after reset, want 0", c.rows())
+	}
+}
+
+func TestJSONColumnRejectsInvalidDocuments(t *testing.T) {
+	for name, doc := range map[string]string{
+		"whitespace only": " \n\t",
+		"incomplete":      `{`,
+		"trailing data":   `null trailing`,
+		"invalid utf8":    string([]byte{'"', 0xff, '"'}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			c := &jsonColumn{colName: "attrs"}
+			err := c.appendRow(doc)
+			if !errors.Is(err, errInvalidJSON) {
+				t.Fatalf("appendRow(%q) error = %v, want errInvalidJSON", doc, err)
+			}
+			if c.rows() != 0 {
+				t.Errorf("invalid document left %d rows buffered, want 0", c.rows())
+			}
+		})
 	}
 }
 
@@ -300,6 +327,26 @@ func TestJSONColumnStillAcceptsNull(t *testing.T) {
 	f, rows := readParquetRows(t, data)
 	if v := valuesFor(rows[0], colIndex(f, "doc"))[0]; !v.IsNull() {
 		t.Errorf("value = %q, want null", v.String())
+	}
+}
+
+func TestNullableJSONArrayRejectsNullArray(t *testing.T) {
+	for _, typ := range []string{"array(json) null", "array(json null) null"} {
+		t.Run(typ, func(t *testing.T) {
+			col, err := newColumn("docs", typ)
+			if err != nil {
+				t.Fatalf("newColumn: %v", err)
+			}
+			if err := col.appendRow(nil); !errors.Is(err, errNullJSONArray) {
+				t.Fatalf("appendRow(nil) error = %v, want errNullJSONArray", err)
+			}
+			if col.rows() != 0 {
+				t.Fatalf("rejected null array left %d rows buffered, want 0", col.rows())
+			}
+			if err := col.appendRow([]string{}); err != nil {
+				t.Fatalf("empty array must remain representable: %v", err)
+			}
+		})
 	}
 }
 

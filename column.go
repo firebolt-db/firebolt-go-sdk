@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strings"
 	"time"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/parquet-go/parquet-go"
@@ -59,7 +60,14 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &nullableColumn{colName: colName, inner: inner}, nil
+		nc := &nullableColumn{colName: colName, inner: inner}
+		if _, isArray := inner.(*arrayColumn); isArray && containsJSONColumn(inner) {
+			// The legacy repeated-leaf encoding cannot distinguish a null
+			// array from an empty one. Reject the value instead of silently
+			// changing SQL NULL to [].
+			nc.nilErr = errNullJSONArray
+		}
+		return nc, nil
 	}
 
 	if strings.HasPrefix(fireboltType, "array(") && strings.HasSuffix(fireboltType, ")") {
@@ -119,6 +127,19 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 		return &byteaColumn{colName: colName}, nil
 	default:
 		return nil, fmt.Errorf("unsupported column type for batch insert: %s", fireboltType)
+	}
+}
+
+func containsJSONColumn(col column) bool {
+	switch c := col.(type) {
+	case *jsonColumn:
+		return true
+	case *nullableColumn:
+		return containsJSONColumn(c.inner)
+	case *arrayColumn:
+		return containsJSONColumn(c.elem)
+	default:
+		return false
 	}
 }
 
@@ -445,10 +466,9 @@ func (c *stringColumn) parquetValues(colIdx int) []parquet.Value {
 // semi-structured data in a byte array. The engine reads that back into its
 // native JSON type.
 //
-// The contents are not parsed or validated here. Validating would mean paying a
-// full JSON parse per value on the hot path of a bulk load, and the engine
-// rejects malformed documents on ingest anyway, so the check would be duplicated
-// rather than added.
+// Values are validated before they are buffered. Parquet's JSON logical type
+// requires UTF-8 encoded valid JSON, and rejecting bad input here preserves the
+// offending row or element index instead of deferring an opaque error to Send.
 type jsonColumn struct {
 	colName string
 	data    []string
@@ -460,11 +480,26 @@ type jsonColumn struct {
 var errNullJSONArrayElement = errors.New("cannot store a null element in a json array: " +
 	"the encoding cannot represent it, pass {} for an absent document")
 
+var errNullJSONArray = errors.New("cannot store a null json array: " +
+	"the encoding cannot distinguish it from an empty array, pass an empty slice for []")
+
 var errEmptyJSON = errors.New("cannot store an empty value in a json column: " +
 	"pass a JSON document such as {}, or untyped nil for a nullable column")
 
+var errInvalidJSON = errors.New("cannot store invalid json: pass a UTF-8 encoded JSON document")
+
 func (c *jsonColumn) name() string { return c.colName }
 func (c *jsonColumn) rows() int    { return len(c.data) }
+
+func validateJSONDocument(doc string) error {
+	if doc == "" {
+		return errEmptyJSON
+	}
+	if !utf8.ValidString(doc) || !json.Valid([]byte(doc)) {
+		return errInvalidJSON
+	}
+	return nil
+}
 
 func (c *jsonColumn) appendRow(v interface{}) error {
 	var doc string
@@ -480,14 +515,8 @@ func (c *jsonColumn) appendRow(v interface{}) error {
 		return fmt.Errorf("cannot convert %T to json; pass JSON text as string, []byte, or json.RawMessage", v)
 	}
 
-	// An empty value is not a JSON document: the engine rejects it with
-	// "Failed to parse JSON: Empty input". A nil []byte or json.RawMessage is
-	// the zero value of both accepted types, so it arrives here easily, and
-	// storing "" would defer the failure to ingest where the cause is no longer
-	// visible. appendZero writes "{}" for a gap it invents; a value the caller
-	// supplied is different, and guessing at it would be inventing data.
-	if doc == "" {
-		return errEmptyJSON
+	if err := validateJSONDocument(doc); err != nil {
+		return err
 	}
 
 	c.data = append(c.data, doc)
@@ -496,12 +525,12 @@ func (c *jsonColumn) appendRow(v interface{}) error {
 
 func (c *jsonColumn) appendColumn(v interface{}) error {
 	if vals, ok := v.([]string); ok {
-		// The same empty check appendRow makes, hoisted out of the bulk copy
+		// The same validation appendRow makes, hoisted out of the bulk copy
 		// so the fast path stays a single append. Skipping it here would let
-		// the columnar API buffer "" and fail on ingest instead.
+		// the columnar API buffer an invalid JSON logical value.
 		for i, s := range vals {
-			if s == "" {
-				return fmt.Errorf("element [%d]: %w", i, errEmptyJSON)
+			if err := validateJSONDocument(s); err != nil {
+				return fmt.Errorf("element [%d]: %w", i, err)
 			}
 		}
 		c.data = append(c.data, vals...)
@@ -717,9 +746,8 @@ type nullableColumn struct {
 	nulls   []bool
 	inner   column
 
-	// nilErr, when set, is returned instead of recording a null. Set for a
-	// json element inside an array, where a null cannot be encoded; see
-	// newColumnFromType.
+	// nilErr, when set, is returned instead of recording a null whose meaning
+	// the Parquet encoding cannot preserve; see newColumnFromType.
 	nilErr error
 }
 
