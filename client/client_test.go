@@ -3,6 +3,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -425,5 +426,23 @@ func TestDescribeQuery(t *testing.T) {
 
 	if !validatedDescribe {
 		t.Errorf("Describe query was not validated correctly")
+	}
+}
+
+func TestConsumeCommandResponseRejectsServerErrorsAndMalformedJSON(t *testing.T) {
+	tests := []string{
+		`{"errors":[{"description":"command failed"}]}`,
+		`{"errors":`,
+	}
+	for _, body := range tests {
+		response := MakeResponse(io.NopCloser(strings.NewReader(body)), http.StatusOK, nil, nil)
+		if err := consumeCommandResponse(response); err == nil {
+			t.Fatalf("consumeCommandResponse(%q) error = nil", body)
+		}
+	}
+
+	response := MakeResponse(io.NopCloser(strings.NewReader(`{"errors":[]}`)), http.StatusOK, nil, nil)
+	if err := consumeCommandResponse(response); err != nil {
+		t.Fatalf("consumeCommandResponse(success) error = %v", err)
 	}
 }

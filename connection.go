@@ -109,7 +109,7 @@ func (c *fireboltConnection) QueryContext(ctx context.Context, query string, arg
 
 // Describe executes a query with describe context and returns the unmarshalled DescribeResult.
 // This function is only usable when accessed through conn.Raw().
-func (c *fireboltConnection) Describe(ctx context.Context, query string, args ...interface{}) (*types.DescribeResult, error) {
+func (c *fireboltConnection) Describe(ctx context.Context, query string, args ...interface{}) (result *types.DescribeResult, err error) {
 	// Validate that the context uses Firebolt numeric prepared statements style
 	if contextUtils.GetPreparedStatementsStyle(ctx) != contextUtils.PreparedStatementsStyleFbNumeric {
 		return nil, errors.New("Describe function requires PreparedStatementsStyleFbNumeric context parameter")
@@ -128,20 +128,20 @@ func (c *fireboltConnection) Describe(ctx context.Context, query string, args ..
 	describeCtx := contextUtils.WithDescribe(ctx)
 
 	// Execute the query with describe context
-	rows, err := c.QueryContext(describeCtx, query, driverValues)
+	queryRows, err := c.QueryContext(describeCtx, query, driverValues)
 	if err != nil {
 		return nil, errorUtils.ConstructNestedError("error executing describe query", err)
 	}
 	defer func() {
-		if closeErr := rows.Close(); closeErr != nil {
-			// Informational only, cannot return error from defer
-			fmt.Printf("error closing rows: %v\n", closeErr)
+		if closeErr := queryRows.Close(); closeErr != nil {
+			result = nil
+			err = errors.Join(err, errorUtils.ConstructNestedError("error closing describe rows", closeErr))
 		}
 	}()
 
 	// Read the JSON result using driver.Rows interface
 	dest := make([]driver.Value, 1) // describe returns one column
-	err = rows.Next(dest)
+	err = queryRows.Next(dest)
 	if err != nil {
 		return nil, errorUtils.ConstructNestedError("error reading describe result", err)
 	}
@@ -153,12 +153,12 @@ func (c *fireboltConnection) Describe(ctx context.Context, query string, args ..
 	}
 
 	// Unmarshal the JSON into DescribeResult
-	var result types.DescribeResult
-	if err := json.Unmarshal([]byte(jsonResult), &result); err != nil {
+	var describeResult types.DescribeResult
+	if err := json.Unmarshal([]byte(jsonResult), &describeResult); err != nil {
 		return nil, errorUtils.ConstructNestedError("error unmarshalling describe result", err)
 	}
 
-	return &result, nil
+	return &describeResult, nil
 }
 
 func (c *fireboltConnection) makeRows(ctx context.Context) rows.ExtendableRowsWithResult {

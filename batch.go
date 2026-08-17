@@ -3,6 +3,7 @@ package fireboltgosdk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -290,6 +291,9 @@ func (c *fireboltBatchColumn) Append(v interface{}) error {
 // Serialisation is streamed directly into the HTTP body so the full payload
 // never resides in a single buffer.
 // The batch is reset on success and can accept new rows.
+// If response handling fails after the server accepts the upload, the batch is
+// also reset and the returned error matches errors.OperationCommittedError;
+// callers must not retry that upload.
 func (b *fireboltBatch) Send(ctx context.Context) error {
 	if err := b.blk.validate(); err != nil {
 		return errorUtils.ConstructNestedError("batch column length mismatch", err)
@@ -330,8 +334,23 @@ func (b *fireboltBatch) Send(ctx context.Context) error {
 	if err != nil {
 		return errorUtils.ConstructNestedError("error uploading batch data", err)
 	}
-	resp.Body().Close()
-
+	content, responseErr := resp.Content()
+	if len(strings.TrimSpace(string(content))) > 0 {
+		var queryResponse types.QueryResponse
+		if err := json.Unmarshal(content, &queryResponse); err != nil {
+			b.blk.reset()
+			return errorUtils.Wrap(errorUtils.OperationCommittedError, errors.Join(
+				errorUtils.ConstructNestedError("batch response parsing failed", err), responseErr))
+		}
+		if len(queryResponse.Errors) > 0 {
+			return errors.Join(errorUtils.NewStructuredError(queryResponse.Errors), responseErr)
+		}
+	}
+	if responseErr != nil {
+		b.blk.reset()
+		return errorUtils.Wrap(errorUtils.OperationCommittedError,
+			errorUtils.ConstructNestedError("batch response cleanup failed", responseErr))
+	}
 	b.blk.reset()
 	return nil
 }

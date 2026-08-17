@@ -3,11 +3,14 @@ package fireboltgosdk
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
 	"github.com/firebolt-db/firebolt-go-sdk/client"
+	errorUtils "github.com/firebolt-db/firebolt-go-sdk/errors"
 	"github.com/parquet-go/parquet-go"
 )
 
@@ -2163,5 +2166,77 @@ func TestTruncateAllColumnTypes(t *testing.T) { // NOSONAR - each column type ne
 	}
 	if v := col.parquetValues(0); len(v) != 1 || v[0].String() != "z" {
 		t.Errorf("values = %v, want just z", v)
+	}
+}
+
+type uploadResponseClient struct {
+	client.Client
+	response *client.Response
+}
+
+func (c *uploadResponseClient) UploadBatch(context.Context, string, string, client.BatchPayload, string, string, map[string]string, client.ConnectionControl) (*client.Response, error) { // NOSONAR - matches client.Client.
+	return c.response, nil
+}
+
+type closeErrorBody struct {
+	err error
+}
+
+func (*closeErrorBody) Read([]byte) (int, error) { return 0, io.EOF }
+func (b *closeErrorBody) Close() error           { return b.err }
+
+func TestBatchSendReturnsResponseCleanupError(t *testing.T) {
+	cleanupErr := errors.New("close failed")
+	responseClient := &uploadResponseClient{response: client.MakeResponse(&closeErrorBody{err: cleanupErr}, 200, nil, nil)}
+	blk, err := newBlock([]string{"x"}, []string{"int"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch := &fireboltBatch{
+		conn:      &fireboltConnection{client: responseClient},
+		tableName: "test_table",
+		colNames:  []string{"x"},
+		blk:       blk,
+	}
+	if err := batch.Append(int32(1)); err != nil {
+		t.Fatal(err)
+	}
+
+	err = batch.Send(context.Background())
+	if !errors.Is(err, cleanupErr) {
+		t.Fatalf("Send() error = %v, want response cleanup error", err)
+	}
+	if !errors.Is(err, errorUtils.OperationCommittedError) {
+		t.Fatalf("Send() error = %v, want committed-operation marker", err)
+	}
+	if blk.blockRows() != 0 {
+		t.Fatalf("batch retained %d uploaded rows after cleanup error", blk.blockRows())
+	}
+}
+
+func TestBatchSendReturnsStructuredResponseError(t *testing.T) {
+	responseBody := bytes.NewBufferString(`{"errors":[{"description":"batch rejected"}]}`)
+	responseClient := &uploadResponseClient{response: client.MakeResponse(io.NopCloser(responseBody), 200, nil, nil)}
+	blk, err := newBlock([]string{"x"}, []string{"int"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	batch := &fireboltBatch{
+		conn:      &fireboltConnection{client: responseClient},
+		tableName: "test_table",
+		colNames:  []string{"x"},
+		blk:       blk,
+	}
+	if err := batch.Append(int32(1)); err != nil {
+		t.Fatal(err)
+	}
+
+	err = batch.Send(context.Background())
+	var structuredErr *errorUtils.StructuredError
+	if !errors.As(err, &structuredErr) {
+		t.Fatalf("Send() error = %v, want structured server error", err)
+	}
+	if blk.blockRows() != 1 {
+		t.Fatalf("batch retained %d rows after server rejection, want 1", blk.blockRows())
 	}
 }

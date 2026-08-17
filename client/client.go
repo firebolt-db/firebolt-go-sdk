@@ -124,6 +124,25 @@ func (c *ClientImpl) getAccessToken() (string, error) {
 	return getAccessTokenServiceAccount(c.ClientID, c.ClientSecret, c.ApiEndpoint, c.UserAgent)
 }
 
+func consumeCommandResponse(response *Response) error {
+	content, err := response.Content()
+	if err != nil {
+		return errorUtils.ConstructNestedError("error during reading command response", err)
+	}
+	if len(content) == 0 {
+		return nil
+	}
+
+	var queryResponse types.QueryResponse
+	if err := json.Unmarshal(content, &queryResponse); err != nil {
+		return errorUtils.ConstructNestedError("error during parsing command response", err)
+	}
+	if len(queryResponse.Errors) > 0 {
+		return errorUtils.NewStructuredError(queryResponse.Errors)
+	}
+	return nil
+}
+
 // GetConnectionParameters returns engine URL and parameters based on engineName and databaseName
 func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, databaseName string) (string, map[string]string, error) {
 	// Assume we are connected to a system engine in the beginning
@@ -146,13 +165,21 @@ func (c *ClientImpl) GetConnectionParameters(ctx context.Context, engineName, da
 	}
 	if databaseName != "" {
 		sql := fmt.Sprintf("USE DATABASE \"%s\"", databaseName)
-		if _, err := c.Query(ctx, engineURL, sql, parameters, control); err != nil {
+		response, err := c.Query(ctx, engineURL, sql, parameters, control)
+		if err != nil {
+			return "", nil, err
+		}
+		if err := consumeCommandResponse(response); err != nil {
 			return "", nil, err
 		}
 	}
 	if engineName != "" {
 		sql := fmt.Sprintf("USE ENGINE \"%s\"", engineName)
-		if _, err := c.Query(ctx, engineURL, sql, parameters, control); err != nil {
+		response, err := c.Query(ctx, engineURL, sql, parameters, control)
+		if err != nil {
+			return "", nil, err
+		}
+		if err := consumeCommandResponse(response); err != nil {
 			return "", nil, err
 		}
 	}

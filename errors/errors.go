@@ -12,4 +12,7 @@ var (
 	DSNParseError          = ConstructNestedError("error parsing DSN", nil)
 	InvalidAccountError    = ConstructNestedError(accountErrorMsg, nil)
 	AsyncNotSupportedError = ConstructNestedError("async queries are not supported by this client", nil)
+	// OperationCommittedError marks a failure reported after the server has
+	// already accepted an operation. Callers must not blindly retry it.
+	OperationCommittedError = ConstructNestedError("operation committed but response handling failed", nil)
 )

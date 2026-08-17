@@ -80,7 +80,8 @@ func (c *BaseClient) Query(ctx context.Context, engineUrl, query string, paramet
 	}
 
 	if err = c.processResponseHeaders(resp.headers, control); err != nil {
-		return nil, errorUtils.ConstructNestedError("error during processing response headers", err)
+		_, closeErr := resp.Content()
+		return nil, errorUtils.ConstructNestedError("error during processing response headers", errors.Join(err, closeErr))
 	}
 	return resp, nil
 }
@@ -172,7 +173,8 @@ func (c *BaseClient) UploadBatch(ctx context.Context, engineUrl, sql string, pay
 	}
 
 	if err = c.processResponseHeaders(resp.headers, control); err != nil {
-		return nil, errorUtils.ConstructNestedError("error during processing response headers", err)
+		_, closeErr := resp.Content()
+		return nil, errorUtils.ConstructNestedError("error during processing response headers", errors.Join(err, closeErr))
 	}
 	return resp, nil
 }
