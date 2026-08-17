@@ -126,7 +126,16 @@ func (b *block) appendRow(values []interface{}) error {
 		return fmt.Errorf("expected %d values, got %d", len(b.columns), len(values))
 	}
 	for i, col := range b.columns {
+		before := col.rows()
 		if err := col.appendRow(values[i]); err != nil {
+			// The failing column may have applied part of the value before
+			// returning. Every earlier column completed exactly one appendRow,
+			// so undo those rows as well and leave the whole operation atomic.
+			col.truncate(before)
+			for j := 0; j < i; j++ {
+				prev := b.columns[j]
+				prev.truncate(prev.rows() - 1)
+			}
 			return fmt.Errorf("column %q (index %d): %w", col.name(), i, err)
 		}
 	}

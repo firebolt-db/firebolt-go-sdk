@@ -11,7 +11,7 @@ import (
 	"github.com/parquet-go/parquet-go"
 )
 
-func TestParseInsertQuery(t *testing.T) {
+func TestParseInsertQuery(t *testing.T) { // NOSONAR - table-driven validation branches are intentional.
 	tests := []struct {
 		query       string
 		wantTable   string
@@ -191,6 +191,18 @@ func readParquetRows(t *testing.T, data []byte) (*parquet.File, []parquet.Row) {
 		rows = append(rows, buf[:n]...)
 	}
 	return f, rows
+}
+
+// valuesFor returns every value in a row belonging to one leaf column. A
+// repeated field contributes several, so indexing by position is not enough.
+func valuesFor(row parquet.Row, colIdx int) []parquet.Value {
+	var out []parquet.Value
+	for _, v := range row {
+		if v.Column() == colIdx {
+			out = append(out, v)
+		}
+	}
+	return out
 }
 
 // colIndex returns the leaf column index for a given field name in the schema.
@@ -1928,5 +1940,228 @@ func TestWithQueryLabelConcurrentBatches(t *testing.T) {
 	}
 	if mock.ParametersCalled[1]["query_label"] != "label_b" {
 		t.Errorf("batch B: query_label = %q, want %q", mock.ParametersCalled[1]["query_label"], "label_b")
+	}
+}
+
+// TestArrayAppendIsAtomic covers a failed element conversion partway through a
+// row. Elements land in the element column before the offset that groups them
+// is written, so without a rollback the survivors are orphaned: no offset
+// covers them, rows() and validate see nothing wrong, and the next append
+// absorbs them and shifts its own values out of place.
+func TestArrayAppendIsAtomic(t *testing.T) {
+	col, err := newColumn("v", "array(int)")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	ac := col.(*arrayColumn)
+
+	if err := col.appendRow([]interface{}{int32(1), "not an int"}); err == nil {
+		t.Fatal("expected a conversion error for the second element")
+	}
+	if got := ac.elem.rows(); got != 0 {
+		t.Errorf("element column kept %d orphaned elements after a failed append, want 0", got)
+	}
+	if got := col.rows(); got != 0 {
+		t.Errorf("rows() = %d after a failed append, want 0", got)
+	}
+
+	// The next row must be exactly what was appended.
+	if err := col.appendRow([]interface{}{int32(5)}); err != nil {
+		t.Fatalf("appendRow: %v", err)
+	}
+	got := ac.elem.(*int32Column).data
+	if len(got) != 1 || got[0] != 5 {
+		t.Errorf("element data = %v, want [5]: the failed row leaked into this one", got)
+	}
+}
+
+// TestBlockAppendIsAtomic covers a later column rejecting a row after earlier
+// columns have already accepted their values. A failed public Batch.Append must
+// not leave those earlier columns one row ahead.
+func TestBlockAppendIsAtomic(t *testing.T) {
+	blk, err := newBlock(
+		[]string{"id", "doc"},
+		[]string{"int", "json"})
+	if err != nil {
+		t.Fatalf("newBlock: %v", err)
+	}
+
+	if err := blk.appendRow([]interface{}{int32(1), ""}); err == nil {
+		t.Fatal("expected the empty json document to be rejected")
+	}
+	for i, col := range blk.columns {
+		if got := col.rows(); got != 0 {
+			t.Errorf("column %d retained %d rows after failed append, want 0", i, got)
+		}
+	}
+
+	if err := blk.appendRow([]interface{}{int32(2), `{"ok":true}`}); err != nil {
+		t.Fatalf("append after rollback: %v", err)
+	}
+	if err := blk.validate(); err != nil {
+		t.Fatalf("block is not reusable after rollback: %v", err)
+	}
+}
+
+// TestArrayTruncateDropsElements pins that truncate trims the element column
+// even when the row count is unchanged, so a struct-array rollback cannot leave
+// an array field holding elements no offset covers.
+func TestArrayTruncateDropsElements(t *testing.T) {
+	col, err := newColumn("v", "array(int)")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	ac := col.(*arrayColumn)
+	if err := col.appendRow([]int32{1, 2}); err != nil {
+		t.Fatalf("appendRow: %v", err)
+	}
+
+	// Simulate an orphan, then truncate to the unchanged row count.
+	ac.elem.(*int32Column).data = append(ac.elem.(*int32Column).data, 99)
+	ac.truncate(ac.rows())
+
+	if got := ac.elem.rows(); got != 2 {
+		t.Errorf("elem.rows() = %d after truncate, want 2: the orphan survived", got)
+	}
+}
+
+// TestNullableAppendIsAtomic covers a nullable column whose inner column
+// rejects the value. rows() counts null flags, so recording the flag before
+// delegating left the column reporting one more row than it actually held --
+// a mismatch block.validate cannot see when every column is off by the same
+// amount, and which shifts every later value in the column.
+func TestNullableAppendIsAtomic(t *testing.T) {
+	col, err := newColumn("v", "int null")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	nc := col.(*nullableColumn)
+
+	if err := col.appendRow("not an int"); err == nil {
+		t.Fatal("expected a conversion error")
+	}
+	if got := col.rows(); got != 0 {
+		t.Errorf("rows() = %d after a failed append, want 0", got)
+	}
+	if got := nc.inner.rows(); got != 0 {
+		t.Errorf("inner.rows() = %d after a failed append, want 0", got)
+	}
+
+	// A null and a value must still work, and stay aligned.
+	if err := col.appendRow(nil); err != nil {
+		t.Fatalf("appendRow(nil): %v", err)
+	}
+	if err := col.appendRow(int32(7)); err != nil {
+		t.Fatalf("appendRow(7): %v", err)
+	}
+	if col.rows() != 2 || nc.inner.rows() != 2 {
+		t.Errorf("rows()=%d inner.rows()=%d, want 2 and 2", col.rows(), nc.inner.rows())
+	}
+	if nc.nulls[0] != true || nc.nulls[1] != false {
+		t.Errorf("nulls = %v, want [true false]", nc.nulls)
+	}
+}
+
+// TestTruncateAllColumnTypes exercises truncate on every column type.
+//
+// truncate is on the column interface, so a wrong implementation in any one
+// type silently corrupts a rolled-back append for columns of that type only.
+// The array and struct-array rollbacks reach it through whatever element or
+// field types a caller happens to use, so covering them individually is the
+// only way to know each is right.
+func TestTruncateAllColumnTypes(t *testing.T) { // NOSONAR - each column type needs the same rollback assertions.
+	day := time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC)
+	cases := []struct {
+		typ  string
+		vals []interface{} // four rows; row 1 and 2 get truncated away
+	}{
+		{"int", []interface{}{int32(1), int32(2), int32(3), int32(4)}},
+		{"long", []interface{}{int64(1), int64(2), int64(3), int64(4)}},
+		{"float", []interface{}{float32(1), float32(2), float32(3), float32(4)}},
+		{"double", []interface{}{float64(1), float64(2), float64(3), float64(4)}},
+		{"text", []interface{}{"a", "b", "c", "d"}},
+		{"json", []interface{}{`{"i":1}`, `{"i":2}`, `{"i":3}`, `{"i":4}`}},
+		{"boolean", []interface{}{true, false, false, true}},
+		{"date", []interface{}{day, day.AddDate(0, 0, 1), day.AddDate(0, 0, 2), day.AddDate(0, 0, 3)}},
+		{"timestamp", []interface{}{day, day.Add(time.Hour), day.Add(2 * time.Hour), day.Add(3 * time.Hour)}},
+		{"timestampntz", []interface{}{day, day.Add(time.Hour), day.Add(2 * time.Hour), day.Add(3 * time.Hour)}},
+		{"timestamptz", []interface{}{day, day.Add(time.Hour), day.Add(2 * time.Hour), day.Add(3 * time.Hour)}},
+		{"bytea", []interface{}{[]byte("a"), []byte("b"), []byte("c"), []byte("d")}},
+		{"text null", []interface{}{"a", nil, "c", "d"}},
+		{"int null", []interface{}{int32(1), nil, int32(3), int32(4)}},
+		{"array(int)", []interface{}{
+			[]interface{}{int32(1)}, []interface{}{int32(2), int32(9)},
+			[]interface{}{int32(3)}, []interface{}{int32(4)},
+		}},
+		{"array(text null)", []interface{}{
+			[]interface{}{"a"}, []interface{}{"b", "z"},
+			[]interface{}{"c"}, []interface{}{"d"},
+		}},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.typ, func(t *testing.T) {
+			col, err := newColumn("v", tc.typ)
+			if err != nil {
+				t.Fatalf("newColumn: %v", err)
+			}
+			for _, v := range tc.vals[:3] {
+				if err := col.appendRow(v); err != nil {
+					t.Fatalf("appendRow(%v): %v", v, err)
+				}
+			}
+			if col.rows() != 3 {
+				t.Fatalf("rows() = %d before truncate, want 3", col.rows())
+			}
+
+			col.truncate(1)
+			if got := col.rows(); got != 1 {
+				t.Fatalf("rows() = %d after truncate(1), want 1", got)
+			}
+
+			// Appending after a truncate must land in row 1, not on top of
+			// data the truncate should have dropped.
+			if err := col.appendRow(tc.vals[3]); err != nil {
+				t.Fatalf("appendRow after truncate: %v", err)
+			}
+			if got := col.rows(); got != 2 {
+				t.Fatalf("rows() = %d after the follow-up append, want 2", got)
+			}
+
+			// Compare against a column that only ever saw the surviving rows.
+			want, err := newColumn("v", tc.typ)
+			if err != nil {
+				t.Fatalf("newColumn: %v", err)
+			}
+			for _, v := range []interface{}{tc.vals[0], tc.vals[3]} {
+				if err := want.appendRow(v); err != nil {
+					t.Fatalf("appendRow(%v): %v", v, err)
+				}
+			}
+			got := fmt.Sprint(col.parquetValues(0))
+			exp := fmt.Sprint(want.parquetValues(0))
+			if got != exp {
+				t.Errorf("values after truncate:\n got %s\nwant %s", got, exp)
+			}
+		})
+	}
+
+	// truncate(0) must leave a reusable, empty column.
+	col, err := newColumn("v", "array(text null)")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	if err := col.appendRow([]interface{}{"a", nil}); err != nil {
+		t.Fatalf("appendRow: %v", err)
+	}
+	col.truncate(0)
+	if col.rows() != 0 {
+		t.Fatalf("rows() = %d after truncate(0), want 0", col.rows())
+	}
+	if err := col.appendRow([]interface{}{"z"}); err != nil {
+		t.Fatalf("appendRow after truncate(0): %v", err)
+	}
+	if v := col.parquetValues(0); len(v) != 1 || v[0].String() != "z" {
+		t.Errorf("values = %v, want just z", v)
 	}
 }

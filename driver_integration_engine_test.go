@@ -163,31 +163,54 @@ func TestIncorrectQueryThrowingStructuredError(t *testing.T) {
 }
 
 func TestParametrisedQuery(t *testing.T) {
-	const engineNameMock = "firebolt-engine-name"
+	const (
+		engineNameMock = "firebolt-engine-name"
+		statusMock     = "RUNNING"
+	)
 
 	ctx := context.TODO()
 	db, err := sql.Open("firebolt", dsnNoDatabaseMock)
 	if err != nil {
-		t.Errorf("failed unexpectedly with %v", err)
+		t.Fatalf("failed to open database: %v", err)
 	}
-	query := "SELECT engine_name, status from information_schema.engines WHERE engine_name = ? AND status = ?"
+	t.Cleanup(func() {
+		if err := db.Close(); err != nil {
+			t.Errorf("failed to close database: %v", err)
+		}
+	})
+
+	// The standalone Engine image does not expose the cloud-only
+	// information_schema.engines table. Selecting the parameters directly
+	// exercises the same placeholder binding without relying on that table.
+	query := "SELECT ? AS engine_name, ? AS status"
 	stmt, err := db.PrepareContext(ctx, query)
 	if err != nil {
-		t.Errorf("The query %s returned an error: %v", query, err)
+		t.Fatalf("prepare %q: %v", query, err)
 	}
-	rows, err := stmt.QueryContext(ctx, engineNameMock, "RUNNING")
+	t.Cleanup(func() {
+		if err := stmt.Close(); err != nil {
+			t.Errorf("failed to close statement: %v", err)
+		}
+	})
+
+	rows, err := stmt.QueryContext(ctx, engineNameMock, statusMock)
 	if err != nil {
-		t.Errorf("The query %s returned an error: %v", query, err)
+		t.Fatalf("query %q: %v", query, err)
 	}
+	t.Cleanup(func() {
+		if err := rows.Close(); err != nil {
+			t.Errorf("failed to close rows: %v", err)
+		}
+	})
 	if !rows.Next() {
-		t.Errorf("Next returned end of output")
+		t.Fatalf("query returned no rows: %v", rows.Err())
 	}
 	var engineName, status string
 	if err := rows.Scan(&engineName, &status); err != nil {
-		t.Errorf("Scan returned an error: %v", err)
+		t.Fatalf("scan query result: %v", err)
 	}
-	if engineName != "firebolt-engine-name" || status != "RUNNING" {
-		t.Errorf("Results not equal: %s %s", engineName, status)
+	if engineName != engineNameMock || status != statusMock {
+		t.Errorf("results = (%q, %q), want (%q, %q)", engineName, status, engineNameMock, statusMock)
 	}
 }
 

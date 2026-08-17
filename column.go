@@ -1,10 +1,13 @@
 package fireboltgosdk
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"time"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/parquet-go/parquet-go"
@@ -23,6 +26,10 @@ type column interface {
 	reset()
 	parquetNode() parquet.Node
 	parquetValues(colIdx int) []parquet.Value
+
+	// truncate drops all rows after the first n, so a partially applied
+	// multi-column append can be undone. n is never greater than rows().
+	truncate(n int)
 }
 
 // appendColumnFallback iterates over any slice/array via reflection and
@@ -32,8 +39,10 @@ func appendColumnFallback(col column, v interface{}) error {
 	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
 		return fmt.Errorf("AppendColumn requires a slice or array, got %T", v)
 	}
+	before := col.rows()
 	for i := 0; i < rv.Len(); i++ {
 		if err := col.appendRow(rv.Index(i).Interface()); err != nil {
+			col.truncate(before)
 			return fmt.Errorf("element [%d]: %w", i, err)
 		}
 	}
@@ -51,7 +60,14 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 		if err != nil {
 			return nil, err
 		}
-		return &nullableColumn{colName: colName, inner: inner}, nil
+		nc := &nullableColumn{colName: colName, inner: inner}
+		if _, isArray := inner.(*arrayColumn); isArray && containsJSONColumn(inner) {
+			// The legacy repeated-leaf encoding cannot distinguish a null
+			// array from an empty one. Reject the value instead of silently
+			// changing SQL NULL to [].
+			nc.nilErr = errNullJSONArray
+		}
+		return nc, nil
 	}
 
 	if strings.HasPrefix(fireboltType, "array(") && strings.HasSuffix(fireboltType, ")") {
@@ -59,6 +75,34 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 		inner, err := newColumnFromType("", elemType)
 		if err != nil {
 			return nil, err
+		}
+		if isArrayContainingJSON(inner) {
+			// The repeated-leaf encoding used by arrayColumn has no group level
+			// at which to preserve a nested array's boundaries. Accepting this
+			// shape would flatten the arrays and can drop values during Parquet
+			// serialization, so fail while preparing the batch instead.
+			return nil, errNestedJSONArray
+		}
+		// A null element is not representable. parquet.Repeated overrides the
+		// element's repetition type, so Repeated(Optional(x)) collapses to a
+		// single definition level: 0 already means "empty array" and 1 means
+		// "element present". Nothing is left to encode "element present and
+		// null" with, and the writer emits a null at level 1 as the type's
+		// zero value -- for json that is "", which the engine rejects on
+		// ingest with "Failed to parse JSON: Empty input".
+		//
+		// The type itself must still be accepted: a plain ARRAY(JSON) column
+		// reports as "array(json null) null" in query metadata, which is what
+		// PrepareBatch discovers, so refusing it here would fail every such
+		// table even for callers that never insert a null. Only the null
+		// element is refused, and only for json -- every other element type
+		// loses null elements the same way, but their zero value at least
+		// ingests, and changing that is a wire-format change beyond this
+		// type's scope.
+		if nc, ok := inner.(*nullableColumn); ok {
+			if _, isJSON := nc.inner.(*jsonColumn); isJSON {
+				nc.nilErr = errNullJSONArrayElement
+			}
 		}
 		return &arrayColumn{colName: colName, elem: inner}, nil
 	}
@@ -74,6 +118,8 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 		return &float64Column{colName: colName}, nil
 	case "text", "geography":
 		return &stringColumn{colName: colName}, nil
+	case "json":
+		return &jsonColumn{colName: colName}, nil
 	case "boolean":
 		return &boolColumn{colName: colName}, nil
 	case "date", "pgdate":
@@ -89,6 +135,27 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 	default:
 		return nil, fmt.Errorf("unsupported column type for batch insert: %s", fireboltType)
 	}
+}
+
+func containsJSONColumn(col column) bool {
+	switch c := col.(type) {
+	case *jsonColumn:
+		return true
+	case *nullableColumn:
+		return containsJSONColumn(c.inner)
+	case *arrayColumn:
+		return containsJSONColumn(c.elem)
+	default:
+		return false
+	}
+}
+
+func isArrayContainingJSON(col column) bool {
+	if nullable, ok := col.(*nullableColumn); ok {
+		return isArrayContainingJSON(nullable.inner)
+	}
+	array, ok := col.(*arrayColumn)
+	return ok && containsJSONColumn(array)
 }
 
 // ---------------------------------------------------------------------------
@@ -221,6 +288,7 @@ func (c *int32Column) appendColumn(v interface{}) error {
 
 func (c *int32Column) appendZero()               { c.data = append(c.data, 0) }
 func (c *int32Column) reset()                    { c.data = c.data[:0] }
+func (c *int32Column) truncate(n int)            { c.data = c.data[:n] }
 func (c *int32Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.Int32Type) }
 func (c *int32Column) parquetValues(colIdx int) []parquet.Value {
 	vals := make([]parquet.Value, len(c.data))
@@ -261,6 +329,7 @@ func (c *int64Column) appendColumn(v interface{}) error {
 
 func (c *int64Column) appendZero()               { c.data = append(c.data, 0) }
 func (c *int64Column) reset()                    { c.data = c.data[:0] }
+func (c *int64Column) truncate(n int)            { c.data = c.data[:n] }
 func (c *int64Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.Int64Type) }
 func (c *int64Column) parquetValues(colIdx int) []parquet.Value {
 	vals := make([]parquet.Value, len(c.data))
@@ -301,6 +370,7 @@ func (c *float32Column) appendColumn(v interface{}) error {
 
 func (c *float32Column) appendZero()               { c.data = append(c.data, 0) }
 func (c *float32Column) reset()                    { c.data = c.data[:0] }
+func (c *float32Column) truncate(n int)            { c.data = c.data[:n] }
 func (c *float32Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.FloatType) }
 func (c *float32Column) parquetValues(colIdx int) []parquet.Value {
 	vals := make([]parquet.Value, len(c.data))
@@ -341,6 +411,7 @@ func (c *float64Column) appendColumn(v interface{}) error {
 
 func (c *float64Column) appendZero()               { c.data = append(c.data, 0) }
 func (c *float64Column) reset()                    { c.data = c.data[:0] }
+func (c *float64Column) truncate(n int)            { c.data = c.data[:n] }
 func (c *float64Column) parquetNode() parquet.Node { return parquet.Leaf(parquet.DoubleType) }
 func (c *float64Column) parquetValues(colIdx int) []parquet.Value {
 	vals := make([]parquet.Value, len(c.data))
@@ -382,6 +453,7 @@ func (c *stringColumn) appendColumn(v interface{}) error {
 
 func (c *stringColumn) appendZero()               { c.data = append(c.data, "") }
 func (c *stringColumn) reset()                    { c.data = c.data[:0] }
+func (c *stringColumn) truncate(n int)            { c.data = c.data[:n] }
 func (c *stringColumn) parquetNode() parquet.Node { return parquet.String() }
 func (c *stringColumn) parquetValues(colIdx int) []parquet.Value {
 	vals := make([]parquet.Value, len(c.data))
@@ -389,6 +461,111 @@ func (c *stringColumn) parquetValues(colIdx int) []parquet.Value {
 		// unsafe.Slice avoids allocating+copying a []byte per string; the
 		// column buffer copies the data during WriteValues so the reference
 		// only needs to survive that call.
+		var b []byte
+		if len(s) > 0 {
+			b = unsafe.Slice(unsafe.StringData(s), len(s))
+		}
+		vals[i] = parquet.ByteArrayValue(b).Level(0, 0, colIdx)
+	}
+	return vals
+}
+
+// ---------------------------------------------------------------------------
+// jsonColumn
+// ---------------------------------------------------------------------------
+
+// jsonColumn buffers values destined for a Firebolt JSON column.
+//
+// Values are accepted as JSON text (string or []byte) and written as a Parquet
+// leaf carrying the JSON logical type, which is how Parquet represents
+// semi-structured data in a byte array. The engine reads that back into its
+// native JSON type.
+//
+// Values are validated before they are buffered. Parquet's JSON logical type
+// requires UTF-8 encoded valid JSON, and rejecting bad input here preserves the
+// offending row or element index instead of deferring an opaque error to Send.
+type jsonColumn struct {
+	colName string
+	data    []string
+}
+
+// errEmptyJSON is shared by both append paths so they reject identically.
+// errNullJSONArrayElement is returned for a null element of a json array,
+// which the Parquet encoding cannot represent.
+var errNullJSONArrayElement = errors.New("cannot store a null element in a json array: " +
+	"the encoding cannot represent it, pass {} for an absent document")
+
+var errNullJSONArray = errors.New("cannot store a null json array: " +
+	"the encoding cannot distinguish it from an empty array, pass an empty slice for []")
+
+var errNestedJSONArray = errors.New("nested arrays containing json are not supported by batch inserts")
+
+var errEmptyJSON = errors.New("cannot store an empty value in a json column: " +
+	"pass a JSON document such as {}, or untyped nil for a nullable column")
+
+var errInvalidJSON = errors.New("cannot store invalid json: pass a UTF-8 encoded JSON document")
+
+func (c *jsonColumn) name() string { return c.colName }
+func (c *jsonColumn) rows() int    { return len(c.data) }
+
+func validateJSONDocument(doc string) error {
+	if doc == "" {
+		return errEmptyJSON
+	}
+	if !utf8.ValidString(doc) || !json.Valid([]byte(doc)) {
+		return errInvalidJSON
+	}
+	return nil
+}
+
+func (c *jsonColumn) appendRow(v interface{}) error {
+	var doc string
+	switch val := v.(type) {
+	case string:
+		doc = val
+	case []byte:
+		// Common when the caller already has marshalled JSON in hand.
+		doc = string(val)
+	case json.RawMessage:
+		doc = string(val)
+	default:
+		return fmt.Errorf("cannot convert %T to json; pass JSON text as string, []byte, or json.RawMessage", v)
+	}
+
+	if err := validateJSONDocument(doc); err != nil {
+		return err
+	}
+
+	c.data = append(c.data, doc)
+	return nil
+}
+
+func (c *jsonColumn) appendColumn(v interface{}) error {
+	if vals, ok := v.([]string); ok {
+		// The same validation appendRow makes, hoisted out of the bulk copy
+		// so the fast path stays a single append. Skipping it here would let
+		// the columnar API buffer an invalid JSON logical value.
+		for i, s := range vals {
+			if err := validateJSONDocument(s); err != nil {
+				return fmt.Errorf("element [%d]: %w", i, err)
+			}
+		}
+		c.data = append(c.data, vals...)
+		return nil
+	}
+	return appendColumnFallback(c, v)
+}
+
+// appendZero writes an empty JSON object rather than an empty string, because
+// "" is not a valid JSON document and would fail on ingest.
+func (c *jsonColumn) appendZero()               { c.data = append(c.data, "{}") }
+func (c *jsonColumn) reset()                    { c.data = c.data[:0] }
+func (c *jsonColumn) truncate(n int)            { c.data = c.data[:n] }
+func (c *jsonColumn) parquetNode() parquet.Node { return parquet.JSON() }
+func (c *jsonColumn) parquetValues(colIdx int) []parquet.Value {
+	vals := make([]parquet.Value, len(c.data))
+	for i, s := range c.data {
+		// See stringColumn.parquetValues for why unsafe.Slice is safe here.
 		var b []byte
 		if len(s) > 0 {
 			b = unsafe.Slice(unsafe.StringData(s), len(s))
@@ -430,6 +607,7 @@ func (c *boolColumn) appendColumn(v interface{}) error {
 
 func (c *boolColumn) appendZero()               { c.data = append(c.data, false) }
 func (c *boolColumn) reset()                    { c.data = c.data[:0] }
+func (c *boolColumn) truncate(n int)            { c.data = c.data[:n] }
 func (c *boolColumn) parquetNode() parquet.Node { return parquet.Leaf(parquet.BooleanType) }
 func (c *boolColumn) parquetValues(colIdx int) []parquet.Value {
 	vals := make([]parquet.Value, len(c.data))
@@ -473,6 +651,7 @@ func (c *dateColumn) appendColumn(v interface{}) error {
 
 func (c *dateColumn) appendZero()               { c.data = append(c.data, 0) }
 func (c *dateColumn) reset()                    { c.data = c.data[:0] }
+func (c *dateColumn) truncate(n int)            { c.data = c.data[:n] }
 func (c *dateColumn) parquetNode() parquet.Node { return parquet.Date() }
 func (c *dateColumn) parquetValues(colIdx int) []parquet.Value {
 	vals := make([]parquet.Value, len(c.data))
@@ -514,8 +693,9 @@ func (c *timestampColumn) appendColumn(v interface{}) error {
 	return appendColumnFallback(c, v)
 }
 
-func (c *timestampColumn) appendZero() { c.data = append(c.data, 0) }
-func (c *timestampColumn) reset()      { c.data = c.data[:0] }
+func (c *timestampColumn) appendZero()    { c.data = append(c.data, 0) }
+func (c *timestampColumn) reset()         { c.data = c.data[:0] }
+func (c *timestampColumn) truncate(n int) { c.data = c.data[:n] }
 
 func (c *timestampColumn) parquetNode() parquet.Node {
 	return parquet.TimestampAdjusted(parquet.Microsecond, c.adjusted)
@@ -564,6 +744,7 @@ func (c *byteaColumn) appendColumn(v interface{}) error {
 
 func (c *byteaColumn) appendZero()               { c.data = append(c.data, nil) }
 func (c *byteaColumn) reset()                    { c.data = c.data[:0] }
+func (c *byteaColumn) truncate(n int)            { c.data = c.data[:n] }
 func (c *byteaColumn) parquetNode() parquet.Node { return parquet.Leaf(parquet.ByteArrayType) }
 func (c *byteaColumn) parquetValues(colIdx int) []parquet.Value {
 	vals := make([]parquet.Value, len(c.data))
@@ -581,25 +762,37 @@ type nullableColumn struct {
 	colName string
 	nulls   []bool
 	inner   column
+
+	// nilErr, when set, is returned instead of recording a null whose meaning
+	// the Parquet encoding cannot preserve; see newColumnFromType.
+	nilErr error
 }
 
 func (c *nullableColumn) name() string { return c.colName }
 func (c *nullableColumn) rows() int    { return len(c.nulls) }
 
 func (c *nullableColumn) appendRow(v interface{}) error {
-	if v == nil {
+	isNil := v == nil
+	if !isNil {
+		rv := reflect.ValueOf(v)
+		isNil = rv.Kind() == reflect.Ptr && rv.IsNil()
+	}
+	if isNil {
+		if c.nilErr != nil {
+			return c.nilErr
+		}
 		c.nulls = append(c.nulls, true)
 		c.inner.appendZero()
 		return nil
 	}
-	rv := reflect.ValueOf(v)
-	if rv.Kind() == reflect.Ptr && rv.IsNil() {
-		c.nulls = append(c.nulls, true)
-		c.inner.appendZero()
-		return nil
+	// Delegate before recording. Appending the null flag first would leave it
+	// behind when the inner column rejects the value, and rows() counts flags,
+	// so the column would silently report one row more than it holds.
+	if err := c.inner.appendRow(v); err != nil {
+		return err
 	}
 	c.nulls = append(c.nulls, false)
-	return c.inner.appendRow(v)
+	return nil
 }
 
 func (c *nullableColumn) appendColumn(v interface{}) error {
@@ -614,6 +807,11 @@ func (c *nullableColumn) appendZero() {
 func (c *nullableColumn) reset() {
 	c.nulls = c.nulls[:0]
 	c.inner.reset()
+}
+
+func (c *nullableColumn) truncate(n int) {
+	c.nulls = c.nulls[:n]
+	c.inner.truncate(n)
 }
 
 func (c *nullableColumn) parquetNode() parquet.Node {

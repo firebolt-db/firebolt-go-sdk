@@ -6,6 +6,7 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
@@ -262,7 +263,7 @@ func TestBatchInsertMixed(t *testing.T) {
 // Nullable columns: row-wise with NULL and non-NULL values
 // ---------------------------------------------------------------------------
 
-func TestBatchInsertNullable(t *testing.T) {
+func TestBatchInsertNullable(t *testing.T) { // NOSONAR - the integration assertions belong in one lifecycle.
 	db := openBatchTestDB(t)
 	defer db.Close()
 
@@ -719,7 +720,7 @@ func TestBatchAbortIntegration(t *testing.T) {
 // Type coercion: plain Go int to INT column
 // ---------------------------------------------------------------------------
 
-func TestBatchInsertTypeCoercion(t *testing.T) {
+func TestBatchInsertTypeCoercion(t *testing.T) { // NOSONAR - the coercion matrix is clearer as one integration test.
 	db := openBatchTestDB(t)
 	defer db.Close()
 
@@ -902,5 +903,180 @@ func TestBatchInsertNullableColumnar(t *testing.T) {
 	}
 	if i != 3 {
 		t.Fatalf("row count = %d, want 3", i)
+	}
+}
+
+// ---------------------------------------------------------------------------
+// JSON round-trip
+// ---------------------------------------------------------------------------
+
+// TestBatchInsertJSON covers the json column type against a live engine.
+//
+// The unit tests assert what the Parquet writer emits; only the engine says
+// whether it accepts it. Every serious defect found in this type so far was of
+// that kind -- an empty document rejected at ingest, and null array elements
+// encoded at a definition level the reader resolves differently -- and none of
+// them is visible from a local round-trip.
+func TestBatchInsertJSON(t *testing.T) { // NOSONAR - the JSON matrix shares one Engine-backed lifecycle.
+	db := openBatchTestDB(t)
+	defer db.Close()
+
+	const table = "test_batch_json"
+	execOrFatal(t, db, fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+	execOrFatal(t, db, fmt.Sprintf(`CREATE TABLE %s (
+		id   INT  NOT NULL,
+		doc  JSON NULL,
+		docs ARRAY(JSON)
+	)`, table))
+	defer execOrFatal(t, db, fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+
+	ctx := context.Background()
+	doBatch(t, db, func(bc BatchConnection) error {
+		batch, err := bc.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (id, doc, docs)", table))
+		if err != nil {
+			return err
+		}
+		// A scalar, a nested document, an empty array, and a null column.
+		if err := batch.Append(int32(1), `{"a":1,"s":"hi"}`, []interface{}{`{"x":1}`, `{"y":2}`}); err != nil {
+			return err
+		}
+		if err := batch.Append(int32(2), `{"nested":{"b":[1,2,3]}}`, []interface{}{}); err != nil {
+			return err
+		}
+		if err := batch.Append(int32(3), nil, []interface{}{`{"z":3}`}); err != nil {
+			return err
+		}
+		// []byte and json.RawMessage are accepted for the scalar column.
+		if err := batch.Append(int32(4), []byte(`{"c":4}`), []interface{}{}); err != nil {
+			return err
+		}
+		if err := batch.Append(int32(5), json.RawMessage(`{"raw":5}`), []interface{}{}); err != nil {
+			return err
+		}
+		return batch.Send(ctx)
+	})
+
+	// Read the documents back through the engine's own JSON accessor, which
+	// only works if what was written parses as JSON.
+	// Both accessors: _EXTRACT returns the raw JSON value, _EXTRACT_TEXT only
+	// resolves JSON strings and yields NULL for a number.
+	rows, err := db.Query(fmt.Sprintf(`SELECT id,
+		JSON_POINTER_EXTRACT(doc::TEXT, '/a'),
+		JSON_POINTER_EXTRACT_TEXT(doc::TEXT, '/s'),
+		JSON_POINTER_EXTRACT(doc::TEXT, '/nested/b'),
+		JSON_POINTER_EXTRACT(doc::TEXT, '/c'),
+		JSON_POINTER_EXTRACT(doc::TEXT, '/raw'),
+		LENGTH(docs)
+		FROM %s ORDER BY id`, table))
+	if err != nil {
+		t.Fatalf("SELECT: %v", err)
+	}
+	defer rows.Close()
+
+	type row struct {
+		id      int
+		a       sql.NullString
+		s       sql.NullString
+		nested  sql.NullString
+		c       sql.NullString
+		raw     sql.NullString
+		numDocs int
+	}
+	want := []row{
+		{id: 1, a: sql.NullString{String: "1", Valid: true}, s: sql.NullString{String: "hi", Valid: true}, numDocs: 2},
+		{id: 2, nested: sql.NullString{String: "[1,2,3]", Valid: true}},
+		{id: 3, numDocs: 1},
+		{id: 4, c: sql.NullString{String: "4", Valid: true}},
+		{id: 5, raw: sql.NullString{String: "5", Valid: true}},
+	}
+
+	var got []row
+	for rows.Next() {
+		var r row
+		if err := rows.Scan(&r.id, &r.a, &r.s, &r.nested, &r.c, &r.raw, &r.numDocs); err != nil {
+			t.Fatalf("Scan: %v", err)
+		}
+		got = append(got, r)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterating: %v", err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("row count = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("row %d = %+v, want %+v", i, got[i], want[i])
+		}
+	}
+
+	// Verify the JSON documents inside the arrays, not only their lengths.
+	var x, y string
+	if err := db.QueryRow(fmt.Sprintf(`SELECT
+		JSON_POINTER_EXTRACT(docs[1]::TEXT, '/x'),
+		JSON_POINTER_EXTRACT(docs[2]::TEXT, '/y')
+		FROM %s WHERE id = 1`, table)).Scan(&x, &y); err != nil {
+		t.Fatalf("array documents for id 1: %v", err)
+	}
+	if x != "1" || y != "2" {
+		t.Errorf("array documents for id 1 = (%q, %q), want (1, 2)", x, y)
+	}
+	var z string
+	if err := db.QueryRow(fmt.Sprintf(`SELECT
+		JSON_POINTER_EXTRACT(docs[1]::TEXT, '/z')
+		FROM %s WHERE id = 3`, table)).Scan(&z); err != nil {
+		t.Fatalf("array document for id 3: %v", err)
+	}
+	if z != "3" {
+		t.Errorf("array document for id 3 = %q, want 3", z)
+	}
+
+	// The null json column must read back as NULL, not as an empty document.
+	var nulls int
+	if err := db.QueryRow(fmt.Sprintf(
+		"SELECT count(*) FROM %s WHERE doc IS NULL", table)).Scan(&nulls); err != nil {
+		t.Fatalf("null count: %v", err)
+	}
+	if nulls != 1 {
+		t.Errorf("rows with a null doc = %d, want 1", nulls)
+	}
+}
+
+// TestBatchInsertJSONColumnar covers the columnar API, which has a []string
+// fast path that bypasses the per-row append entirely.
+func TestBatchInsertJSONColumnar(t *testing.T) {
+	db := openBatchTestDB(t)
+	defer db.Close()
+
+	const table = "test_batch_json_columnar"
+	execOrFatal(t, db, fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+	execOrFatal(t, db, fmt.Sprintf(`CREATE TABLE %s (
+		id  INT  NOT NULL,
+		doc JSON NOT NULL
+	)`, table))
+	defer execOrFatal(t, db, fmt.Sprintf("DROP TABLE IF EXISTS %s", table))
+
+	ctx := context.Background()
+	doBatch(t, db, func(bc BatchConnection) error {
+		batch, err := bc.PrepareBatch(ctx, fmt.Sprintf("INSERT INTO %s (id, doc)", table))
+		if err != nil {
+			return err
+		}
+		if err := batch.Column(0).Append([]int32{1, 2, 3}); err != nil {
+			return err
+		}
+		if err := batch.Column(1).Append([]string{`{"n":1}`, `{"n":2}`, `{"n":3}`}); err != nil {
+			return err
+		}
+		return batch.Send(ctx)
+	})
+
+	var total int
+	if err := db.QueryRow(fmt.Sprintf(
+		"SELECT SUM(JSON_POINTER_EXTRACT(doc::TEXT, '/n')::INT) FROM %s", table)).Scan(&total); err != nil {
+		t.Fatalf("SELECT: %v", err)
+	}
+	if total != 6 {
+		t.Errorf("sum of /n = %d, want 6: documents did not round-trip", total)
 	}
 }

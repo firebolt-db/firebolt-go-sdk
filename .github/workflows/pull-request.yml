@@ -15,3 +15,8 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
   code-checkers:
     uses: ./.github/workflows/code-check.yml
+  engine-integration-tests:
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/integration-test-engine.yml
