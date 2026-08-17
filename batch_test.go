@@ -205,14 +205,18 @@ func valuesFor(row parquet.Row, colIdx int) []parquet.Value {
 	return out
 }
 
-// colIndex returns the leaf column index for a given field name in the schema.
-func colIndex(f *parquet.File, name string) int {
-	for i, field := range f.Schema().Fields() {
-		if field.Name() == name {
-			return i
-		}
+// colIndex returns the leaf column index for a field path in the schema.
+//
+// Resolved through Lookup rather than by walking top-level fields: once the
+// schema contains a nested group, a field's position among the top-level fields
+// is no longer its leaf column index. Variadic so nested leaves can be
+// addressed as colIndex(f, "events", "name").
+func colIndex(f *parquet.File, path ...string) int {
+	leaf, ok := f.Schema().Lookup(path...)
+	if !ok {
+		return -1
 	}
-	return -1
+	return leaf.ColumnIndex
 }
 
 // ---------------------------------------------------------------------------
@@ -1256,6 +1260,57 @@ func TestByteaRoundTrip(t *testing.T) {
 	got2 := rows[2][0].ByteArray()
 	if len(got2) != 1 || got2[0] != 0x42 {
 		t.Errorf("row 2 = %x, want 42", got2)
+	}
+}
+
+func TestByteaAppendCopiesInput(t *testing.T) {
+	tests := map[string]func(*testing.T, []byte) []byte{
+		"row": func(t *testing.T, input []byte) []byte {
+			col := &byteaColumn{}
+			if err := col.appendRow(input); err != nil {
+				t.Fatal(err)
+			}
+			return col.data[0]
+		},
+		"column": func(t *testing.T, input []byte) []byte {
+			col := &byteaColumn{}
+			if err := col.appendColumn([][]byte{input}); err != nil {
+				t.Fatal(err)
+			}
+			return col.data[0]
+		},
+		"array fast path": func(t *testing.T, input []byte) []byte {
+			elem := &byteaColumn{}
+			col := &arrayColumn{elem: elem}
+			if err := col.appendRow([][]byte{input}); err != nil {
+				t.Fatal(err)
+			}
+			return elem.data[0]
+		},
+		"struct field": func(t *testing.T, input []byte) []byte {
+			col, err := newColumn("events", "array(struct(payload bytea null) null) null")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := col.appendRow([]interface{}{
+				map[string]interface{}{"payload": input},
+			}); err != nil {
+				t.Fatal(err)
+			}
+			field := col.(*structArrayColumn).elems[0].elem.(*nullableColumn)
+			return field.inner.(*byteaColumn).data[0]
+		},
+	}
+
+	for name, buffer := range tests {
+		t.Run(name, func(t *testing.T) {
+			input := []byte("before")
+			buffered := buffer(t, input)
+			copy(input, "AFTER!")
+			if got := string(buffered); got != "before" {
+				t.Fatalf("buffered value changed after caller mutation: got %q, want before", got)
+			}
+		})
 	}
 }
 
