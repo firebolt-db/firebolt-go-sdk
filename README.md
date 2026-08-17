@@ -26,13 +26,13 @@ firebolt://[/database]?account_name=account_name&client_id=client_id&client_secr
 - **account_name** - the name of Firebolt account to log in to.
 - **database** - (optional) the name of the database to connect to.
 - **engine** - (optional) the name of the engine to run SQL on.
-#### Core instance
-For the core instance, the DSN string has the following format:
+#### Engine instance
+For an Engine instance, the DSN string has the following format:
 ```
-firebolt://[/database]?url=core_instance_url[&client_side_lb=false]
+firebolt://[/database]?url=engine_instance_url[&client_side_lb=false]
 ```
 
-- **url** - the URL of the core instance to connect to. It should contain the full URL, including schema. E.g. `http://localhost:3473`.
+- **url** - the URL of the Engine instance to connect to. It should contain the full URL, including schema. E.g. `http://localhost:3473`.
 - **database** - (optional) the name of the database to connect to.
 - **client_side_lb** - (optional, default `true`) enables client-side round-robin load balancing. The SDK resolves the hostname in **url** to its underlying IP addresses and distributes requests across them. This prevents Go's default connection pooling from pinning all requests to a single pod when **url** points to a Kubernetes service. Set to `false` to disable.
 - **client_side_lb_dns_ttl** - (optional, default `30s`) how often the round-robin resolver re-resolves the hostname to discover new or removed nodes. Accepts any Go duration string (e.g. `5s`, `500ms`, `2m`). Lower values give faster failover; higher values reduce DNS traffic. Only takes effect when `client_side_lb` is enabled.

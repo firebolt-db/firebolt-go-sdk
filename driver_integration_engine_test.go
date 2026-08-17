@@ -1,5 +1,5 @@
-//go:build integration_core
-// +build integration_core
+//go:build integration_engine
+// +build integration_engine
 
 package fireboltgosdk
 
@@ -163,7 +163,7 @@ func TestIncorrectQueryThrowingStructuredError(t *testing.T) {
 }
 
 func TestParametrisedQuery(t *testing.T) {
-	const engineNameMock = "firebolt-core-engine-name"
+	const engineNameMock = "firebolt-engine-name"
 
 	ctx := context.TODO()
 	db, err := sql.Open("firebolt", dsnNoDatabaseMock)
@@ -186,7 +186,7 @@ func TestParametrisedQuery(t *testing.T) {
 	if err := rows.Scan(&engineName, &status); err != nil {
 		t.Errorf("Scan returned an error: %v", err)
 	}
-	if engineName != "firebolt-core-engine-name" || status != "RUNNING" {
+	if engineName != "firebolt-engine-name" || status != "RUNNING" {
 		t.Errorf("Results not equal: %s %s", engineName, status)
 	}
 }

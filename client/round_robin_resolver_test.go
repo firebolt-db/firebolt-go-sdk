@@ -274,7 +274,7 @@ func TestRoundRobinResolver_EndToEnd(t *testing.T) {
 		t.Fatalf("NewRoundRobinResolver: %v", err)
 	}
 
-	coreClient := &ClientImplCore{
+	engineClient := &ClientImplEngine{
 		BaseClient: BaseClient{
 			ApiEndpoint: fmt.Sprintf("http://my-service:%s", port),
 			UserAgent:   "test",
@@ -282,11 +282,11 @@ func TestRoundRobinResolver_EndToEnd(t *testing.T) {
 			URLResolver: resolver,
 		},
 	}
-	coreClient.AccessTokenGetter = coreClient.getAccessToken
-	coreClient.ParameterGetter = coreClient.GetQueryParams
+	engineClient.AccessTokenGetter = engineClient.getAccessToken
+	engineClient.ParameterGetter = engineClient.GetQueryParams
 
 	ctx := context.Background()
-	_, err = coreClient.Query(ctx, fmt.Sprintf("http://my-service:%s", port), "SELECT 1", map[string]string{}, ConnectionControl{
+	_, err = engineClient.Query(ctx, fmt.Sprintf("http://my-service:%s", port), "SELECT 1", map[string]string{}, ConnectionControl{
 		UpdateParameters: func(string, string) {},
 		SetEngineURL:     func(string) {},
 		ResetParameters:  func(*[]string) {},
@@ -323,7 +323,7 @@ func TestRoundRobinResolver_HostHeaderOverride(t *testing.T) {
 		t.Fatalf("NewRoundRobinResolver: %v", err)
 	}
 
-	coreClient := &ClientImplCore{
+	engineClient := &ClientImplEngine{
 		BaseClient: BaseClient{
 			ApiEndpoint: fmt.Sprintf("http://%s", originalHost),
 			UserAgent:   "test",
@@ -331,11 +331,11 @@ func TestRoundRobinResolver_HostHeaderOverride(t *testing.T) {
 			URLResolver: resolver,
 		},
 	}
-	coreClient.AccessTokenGetter = coreClient.getAccessToken
-	coreClient.ParameterGetter = coreClient.GetQueryParams
+	engineClient.AccessTokenGetter = engineClient.getAccessToken
+	engineClient.ParameterGetter = engineClient.GetQueryParams
 
 	ctx := context.Background()
-	_, err = coreClient.Query(ctx, fmt.Sprintf("http://%s", originalHost), "SELECT 1", map[string]string{}, ConnectionControl{
+	_, err = engineClient.Query(ctx, fmt.Sprintf("http://%s", originalHost), "SELECT 1", map[string]string{}, ConnectionControl{
 		UpdateParameters: func(string, string) {},
 		SetEngineURL:     func(string) {},
 		ResetParameters:  func(*[]string) {},
@@ -386,7 +386,7 @@ func TestRoundRobinResolver_BypassedAfterEngineURLChange(t *testing.T) {
 		t.Fatalf("NewRoundRobinResolver: %v", err)
 	}
 
-	coreClient := &ClientImplCore{
+	engineClient := &ClientImplEngine{
 		BaseClient: BaseClient{
 			ApiEndpoint: originalServiceURL,
 			UserAgent:   "test",
@@ -394,8 +394,8 @@ func TestRoundRobinResolver_BypassedAfterEngineURLChange(t *testing.T) {
 			URLResolver: resolver,
 		},
 	}
-	coreClient.AccessTokenGetter = coreClient.getAccessToken
-	coreClient.ParameterGetter = coreClient.GetQueryParams
+	engineClient.AccessTokenGetter = engineClient.getAccessToken
+	engineClient.ParameterGetter = engineClient.GetQueryParams
 
 	noop := ConnectionControl{
 		UpdateParameters: func(string, string) {},
@@ -406,7 +406,7 @@ func TestRoundRobinResolver_BypassedAfterEngineURLChange(t *testing.T) {
 	ctx := context.Background()
 
 	// First request goes through the resolver (original service).
-	_, err = coreClient.Query(ctx, originalServiceURL, "SELECT 1", map[string]string{}, noop)
+	_, err = engineClient.Query(ctx, originalServiceURL, "SELECT 1", map[string]string{}, noop)
 	if err != nil {
 		t.Fatalf("Query to original: %v", err)
 	}
@@ -418,7 +418,7 @@ func TestRoundRobinResolver_BypassedAfterEngineURLChange(t *testing.T) {
 	newURL := newServer.URL
 
 	// Request with the NEW URL must bypass the resolver entirely.
-	_, err = coreClient.Query(ctx, newURL, "SELECT 1", map[string]string{}, noop)
+	_, err = engineClient.Query(ctx, newURL, "SELECT 1", map[string]string{}, noop)
 	if err != nil {
 		t.Fatalf("Query to new endpoint: %v", err)
 	}

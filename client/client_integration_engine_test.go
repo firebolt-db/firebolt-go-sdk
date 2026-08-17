@@ -1,5 +1,5 @@
-//go:build integration_core
-// +build integration_core
+//go:build integration_engine
+// +build integration_engine
 
 package client
 
@@ -14,7 +14,7 @@ import (
 var (
 	engineUrlMock string
 	databaseMock  string
-	clientMock    *ClientImplCore
+	clientMock    *ClientImplEngine
 )
 
 // init populates mock variables and client for integration tests
@@ -27,7 +27,7 @@ func init() {
 		Url:        engineUrlMock,
 		NewVersion: true,
 	}, GetHostNameURL())
-	clientMock = client.(*ClientImplCore)
+	clientMock = client.(*ClientImplEngine)
 }
 
 // TestQuery with set statements
