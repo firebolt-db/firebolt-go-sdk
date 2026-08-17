@@ -34,18 +34,25 @@ type QueryStatusResponse struct {
 	retries       *int64
 }
 
-func getAsyncQueryStatus(db *sql.DB, token rows.AsyncResult) (*QueryStatusResponse, error) {
+func getAsyncQueryStatus(db *sql.DB, token rows.AsyncResult) (queryStatus *QueryStatusResponse, err error) {
 	asyncQueryStatusError := "failed to get async query status"
 	if token.IsEmpty() {
 		return nil, errorUtils.ConstructNestedError(asyncQueryStatusError, errors.New("async query token is empty"))
 	}
-	rows, err := db.Query(token.GetMonitorSQL())
+	resultRows, err := db.Query(token.GetMonitorSQL())
 	if err != nil {
 		return nil, errorUtils.ConstructNestedError(asyncQueryStatusError, err)
 	}
-	var queryStatus QueryStatusResponse
-	if rows.Next() {
-		err = rows.Scan(
+	defer func() {
+		if closeErr := resultRows.Close(); closeErr != nil {
+			queryStatus = nil
+			err = errors.Join(err, errorUtils.ConstructNestedError("failed to close async query status rows", closeErr))
+		}
+	}()
+
+	queryStatus = &QueryStatusResponse{}
+	if resultRows.Next() {
+		err = resultRows.Scan(
 			&queryStatus.accountName, &queryStatus.userName, &queryStatus.submittedTime,
 			&queryStatus.startTime, &queryStatus.endTime, &queryStatus.status,
 			&queryStatus.requestId, &queryStatus.queryId, &queryStatus.errorMessage,
@@ -54,11 +61,13 @@ func getAsyncQueryStatus(db *sql.DB, token rows.AsyncResult) (*QueryStatusRespon
 		if err != nil {
 			return nil, errorUtils.ConstructNestedError(asyncQueryStatusError, err)
 		}
-		logging.Infolog.Printf("Async query status: %v", queryStatus)
-		return &queryStatus, nil
-	} else {
-		return nil, errorUtils.ConstructNestedError(asyncQueryStatusError, errors.New("no rows found"))
+		logging.Infolog.Printf("Async query status: %v", *queryStatus)
+		return queryStatus, nil
 	}
+	if err := resultRows.Err(); err != nil {
+		return nil, errorUtils.ConstructNestedError(asyncQueryStatusError, err)
+	}
+	return nil, errorUtils.ConstructNestedError(asyncQueryStatusError, errors.New("no rows found"))
 }
 
 func IsAsyncQueryRunning(db *sql.DB, token rows.AsyncResult) (bool, error) {
@@ -87,11 +96,11 @@ const cancelSQL = "CANCEL QUERY WHERE query_id=?"
 
 func CancelAsyncQuery(db *sql.DB, token rows.AsyncResult) error {
 	queryStatus, err := getAsyncQueryStatus(db, token)
-	if queryStatus.queryId == nil {
-		return errorUtils.ConstructNestedError("failed to cancel async query", errors.New("query ID is nil"))
-	}
 	if err != nil {
 		return errorUtils.ConstructNestedError("failed to cancel async query", err)
+	}
+	if queryStatus.queryId == nil {
+		return errorUtils.ConstructNestedError("failed to cancel async query", errors.New("query ID is nil"))
 	}
 	_, err = db.Exec(cancelSQL, *queryStatus.queryId)
 	return err

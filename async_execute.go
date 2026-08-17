@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/firebolt-db/firebolt-go-sdk/logging"
 	"github.com/firebolt-db/firebolt-go-sdk/rows"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
@@ -33,7 +34,7 @@ func ExecAsync(db *sql.DB, query string, args ...any) (rows.AsyncResult, error) 
 	return ExecAsyncContext(context.Background(), db, query, args...)
 }
 
-func ExecAsyncContext(ctx context.Context, db *sql.DB, query string, args ...any) (rows.AsyncResult, error) {
+func ExecAsyncContext(ctx context.Context, db *sql.DB, query string, args ...any) (result rows.AsyncResult, err error) {
 	// This function should execute an asynchronous query with a context and return a token.
 	// For the purpose of this example, we will return a dummy token.
 	asyncContext := contextUtils.WithAsync(ctx)
@@ -41,6 +42,11 @@ func ExecAsyncContext(ctx context.Context, db *sql.DB, query string, args ...any
 	if err != nil {
 		return rows.AsyncResult{}, fmt.Errorf("failed to get database connection: %w", err)
 	}
+	defer func() {
+		if closeErr := conn.Close(); closeErr != nil {
+			logging.Errorlog.Printf("Failed to release async query connection after execution: %v", closeErr)
+		}
+	}()
 	var res driver.Result
 	err = conn.Raw(func(driverConn any) error {
 		if driverConn == nil {
