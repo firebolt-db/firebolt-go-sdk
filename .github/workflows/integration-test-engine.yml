@@ -90,7 +90,7 @@ jobs:
           exit 1
 
       - name: Run integration tests
-        run: go test ./... -timeout=30m -v --tags=integration_engine
+        run: go test ./... -timeout=30m -v --tags=integration_engine,integration_batch
 
       - name: Stop container
         if: always()

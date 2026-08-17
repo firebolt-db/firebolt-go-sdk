@@ -6,6 +6,7 @@ package fireboltgosdk
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"math"
 	"testing"
@@ -949,6 +950,9 @@ func TestBatchInsertJSON(t *testing.T) {
 		if err := batch.Append(int32(4), []byte(`{"c":4}`), []interface{}{}); err != nil {
 			return err
 		}
+		if err := batch.Append(int32(5), json.RawMessage(`{"raw":5}`), []interface{}{}); err != nil {
+			return err
+		}
 		return batch.Send(ctx)
 	})
 
@@ -959,6 +963,9 @@ func TestBatchInsertJSON(t *testing.T) {
 	rows, err := db.Query(fmt.Sprintf(`SELECT id,
 		JSON_POINTER_EXTRACT(doc::TEXT, '/a'),
 		JSON_POINTER_EXTRACT_TEXT(doc::TEXT, '/s'),
+		JSON_POINTER_EXTRACT(doc::TEXT, '/nested/b'),
+		JSON_POINTER_EXTRACT(doc::TEXT, '/c'),
+		JSON_POINTER_EXTRACT(doc::TEXT, '/raw'),
 		LENGTH(docs)
 		FROM %s ORDER BY id`, table))
 	if err != nil {
@@ -970,19 +977,23 @@ func TestBatchInsertJSON(t *testing.T) {
 		id      int
 		a       sql.NullString
 		s       sql.NullString
+		nested  sql.NullString
+		c       sql.NullString
+		raw     sql.NullString
 		numDocs int
 	}
 	want := []row{
-		{1, sql.NullString{String: "1", Valid: true}, sql.NullString{String: "hi", Valid: true}, 2},
-		{2, sql.NullString{}, sql.NullString{}, 0},
-		{3, sql.NullString{}, sql.NullString{}, 1},
-		{4, sql.NullString{}, sql.NullString{}, 0},
+		{id: 1, a: sql.NullString{String: "1", Valid: true}, s: sql.NullString{String: "hi", Valid: true}, numDocs: 2},
+		{id: 2, nested: sql.NullString{String: "[1,2,3]", Valid: true}},
+		{id: 3, numDocs: 1},
+		{id: 4, c: sql.NullString{String: "4", Valid: true}},
+		{id: 5, raw: sql.NullString{String: "5", Valid: true}},
 	}
 
 	var got []row
 	for rows.Next() {
 		var r row
-		if err := rows.Scan(&r.id, &r.a, &r.s, &r.numDocs); err != nil {
+		if err := rows.Scan(&r.id, &r.a, &r.s, &r.nested, &r.c, &r.raw, &r.numDocs); err != nil {
 			t.Fatalf("Scan: %v", err)
 		}
 		got = append(got, r)
@@ -997,6 +1008,27 @@ func TestBatchInsertJSON(t *testing.T) {
 		if got[i] != want[i] {
 			t.Errorf("row %d = %+v, want %+v", i, got[i], want[i])
 		}
+	}
+
+	// Verify the JSON documents inside the arrays, not only their lengths.
+	var x, y string
+	if err := db.QueryRow(fmt.Sprintf(`SELECT
+		JSON_POINTER_EXTRACT(docs[1]::TEXT, '/x'),
+		JSON_POINTER_EXTRACT(docs[2]::TEXT, '/y')
+		FROM %s WHERE id = 1`, table)).Scan(&x, &y); err != nil {
+		t.Fatalf("array documents for id 1: %v", err)
+	}
+	if x != "1" || y != "2" {
+		t.Errorf("array documents for id 1 = (%q, %q), want (1, 2)", x, y)
+	}
+	var z string
+	if err := db.QueryRow(fmt.Sprintf(`SELECT
+		JSON_POINTER_EXTRACT(docs[1]::TEXT, '/z')
+		FROM %s WHERE id = 3`, table)).Scan(&z); err != nil {
+		t.Fatalf("array document for id 3: %v", err)
+	}
+	if z != "3" {
+		t.Errorf("array document for id 3 = %q, want 3", z)
 	}
 
 	// The null json column must read back as NULL, not as an empty document.
