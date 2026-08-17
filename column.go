@@ -76,6 +76,13 @@ func newColumnFromType(colName, fireboltType string) (column, error) {
 		if err != nil {
 			return nil, err
 		}
+		if isArrayContainingJSON(inner) {
+			// The repeated-leaf encoding used by arrayColumn has no group level
+			// at which to preserve a nested array's boundaries. Accepting this
+			// shape would flatten the arrays and can drop values during Parquet
+			// serialization, so fail while preparing the batch instead.
+			return nil, errNestedJSONArray
+		}
 		// A null element is not representable. parquet.Repeated overrides the
 		// element's repetition type, so Repeated(Optional(x)) collapses to a
 		// single definition level: 0 already means "empty array" and 1 means
@@ -141,6 +148,14 @@ func containsJSONColumn(col column) bool {
 	default:
 		return false
 	}
+}
+
+func isArrayContainingJSON(col column) bool {
+	if nullable, ok := col.(*nullableColumn); ok {
+		return isArrayContainingJSON(nullable.inner)
+	}
+	array, ok := col.(*arrayColumn)
+	return ok && containsJSONColumn(array)
 }
 
 // ---------------------------------------------------------------------------
@@ -482,6 +497,8 @@ var errNullJSONArrayElement = errors.New("cannot store a null element in a json 
 
 var errNullJSONArray = errors.New("cannot store a null json array: " +
 	"the encoding cannot distinguish it from an empty array, pass an empty slice for []")
+
+var errNestedJSONArray = errors.New("nested arrays containing json are not supported by batch inserts")
 
 var errEmptyJSON = errors.New("cannot store an empty value in a json column: " +
 	"pass a JSON document such as {}, or untyped nil for a nullable column")

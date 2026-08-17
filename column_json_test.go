@@ -350,6 +350,32 @@ func TestNullableJSONArrayRejectsNullArray(t *testing.T) {
 	}
 }
 
+func TestNestedJSONArrayIsUnsupported(t *testing.T) {
+	types := []string{
+		"array(array(json))",
+		"array(array(json null))",
+		"array(array(json) null)",
+		"array(array(json null) null) null",
+		"array(array(array(json)))",
+	}
+	for _, typ := range types {
+		t.Run(typ, func(t *testing.T) {
+			_, err := newColumn("docs", typ)
+			if !errors.Is(err, errNestedJSONArray) {
+				t.Fatalf("newColumn error = %v, want errNestedJSONArray", err)
+			}
+		})
+	}
+
+	for _, typ := range []string{"array(json)", "array(json null) null", "array(array(int))"} {
+		t.Run("supported_"+typ, func(t *testing.T) {
+			if _, err := newColumn("docs", typ); err != nil {
+				t.Fatalf("newColumn(%q): %v", typ, err)
+			}
+		})
+	}
+}
+
 // TestJSONColumnRejectsEmptyValuesColumnar covers the columnar API, which has a
 // []string fast path that bypasses appendRow.
 func TestJSONColumnRejectsEmptyValuesColumnar(t *testing.T) {
