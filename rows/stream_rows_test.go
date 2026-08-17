@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
+	stderrors "errors"
 	"io"
 	"log"
 	"os"
@@ -15,6 +16,17 @@ import (
 	"github.com/firebolt-db/firebolt-go-sdk/types"
 	"github.com/firebolt-db/firebolt-go-sdk/utils"
 )
+
+type closeTrackingBody struct {
+	err    error
+	closes int
+}
+
+func (*closeTrackingBody) Read([]byte) (int, error) { return 0, io.EOF }
+func (b *closeTrackingBody) Close() error {
+	b.closes++
+	return b.err
+}
 
 const queryId = "16FF2A0300ECA753"
 
@@ -155,4 +167,34 @@ func TestStreamRowsError(t *testing.T) {
 	utils.AssertEqual(rows.Next(dest), io.EOF, t, "Expected io.EOF")
 	utils.AssertEqual(rows.HasNextResultSet(), false, t, "Expected false for HasNextResultSet")
 	utils.AssertEqual(rows.NextResultSet(), io.EOF, t, "Expected io.EOF for NextResultSet")
+}
+
+func TestStreamRowsReadsFinalLineWithoutNewline(t *testing.T) {
+	rows := &StreamRows{responses: []*client.Response{client.MakeResponse(
+		io.NopCloser(strings.NewReader(`{"message_type":"FINISH_SUCCESSFULLY"}`)), 200, nil, nil,
+	)}}
+
+	record, err := rows.readJsonLine()
+	if err != nil || record.MessageType != types.MessageTypeSuccess {
+		t.Fatalf("readJsonLine() = %#v, %v", record, err)
+	}
+}
+
+func TestStreamRowsCloseAttemptsEveryResponse(t *testing.T) {
+	firstErr := stderrors.New("first close failed")
+	secondErr := stderrors.New("second close failed")
+	first := &closeTrackingBody{err: firstErr}
+	second := &closeTrackingBody{err: secondErr}
+	rows := &StreamRows{responses: []*client.Response{
+		client.MakeResponse(first, 200, nil, nil),
+		client.MakeResponse(second, 200, nil, nil),
+	}}
+
+	err := rows.Close()
+	if !stderrors.Is(err, firstErr) || !stderrors.Is(err, secondErr) {
+		t.Fatalf("Close() error = %v, want both response errors", err)
+	}
+	if first.closes != 1 || second.closes != 1 {
+		t.Fatalf("Close() calls = %d, %d; want 1, 1", first.closes, second.closes)
+	}
 }
