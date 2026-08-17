@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 
@@ -29,11 +30,11 @@ func (r *StreamRows) readJsonLine() (types.JSONLinesRecord, error) {
 
 	var record types.JSONLinesRecord
 	rawJsonLine, err := reader.ReadBytes('\n')
-	if err == io.EOF || rawJsonLine == nil {
-		return types.JSONLinesRecord{}, io.EOF
-	}
-	if err != nil {
+	if err != nil && err != io.EOF {
 		return record, errorUtils.ConstructNestedError("Error reading JSON line:", err)
+	}
+	if len(rawJsonLine) == 0 {
+		return types.JSONLinesRecord{}, io.EOF
 	}
 	err = json.Unmarshal(rawJsonLine, &record)
 	if err != nil {
@@ -56,16 +57,19 @@ func (r *StreamRows) reader() *bufio.Reader {
 
 // Close makes the rows unusable
 func (r *StreamRows) Close() error {
+	var closeErr error
 	for i := r.resultSetPosition; i < len(r.responses); i++ {
-		err := r.responses[i].Body().Close()
-		if err != nil {
-			return errorUtils.ConstructNestedError("Error closing response body:", err)
+		if body := r.responses[i].Body(); body != nil {
+			closeErr = errors.Join(closeErr, body.Close())
 		}
 	}
 	r.resultSetPosition = len(r.responses)
 	r.dataBuffer = nil
 	r.dataBufferCursor = 0
 	r.consumedResponse = true
+	if closeErr != nil {
+		return errorUtils.ConstructNestedError("Error closing response body:", closeErr)
+	}
 	return nil
 }
 

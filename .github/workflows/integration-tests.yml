@@ -8,28 +8,12 @@ on:
         required: false
       FIREBOLT_CLIENT_SECRET_STG_NEW_IDN:
         required: false
-      FIREBOLT_STG_USERNAME:
-        required: false
-      FIREBOLT_STG_PASSWORD:
-        required: false
-      SERVICE_ID_STG:
-        required: false
-      SERVICE_SECRET_STG:
-        required: false
 
 permissions:
   contents: read
   packages: read
 
 jobs:
-  integration-tests-v1:
-    uses: ./.github/workflows/integration-tests-v1.yml
-    secrets:
-        FIREBOLT_STG_USERNAME: ${{ secrets.FIREBOLT_STG_USERNAME }}
-        FIREBOLT_STG_PASSWORD: ${{ secrets.FIREBOLT_STG_PASSWORD }}
-        SERVICE_ID_STG: ${{ secrets.SERVICE_ID_STG }}
-        SERVICE_SECRET_STG: ${{ secrets.SERVICE_SECRET_STG }}
-
   integration-tests-v2:
     uses: ./.github/workflows/integration-tests-v2.yml
     secrets:

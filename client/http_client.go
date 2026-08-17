@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"strings"
+	"sync"
 	"time"
 
 	contextUtils "github.com/firebolt-db/firebolt-go-sdk/context"
@@ -89,15 +90,22 @@ func NewHttpClientForLBWithTransport(rt http.RoundTripper, tlsServerName string)
 }
 
 type Response struct {
-	body       io.ReadCloser
-	content    []byte
-	statusCode int
-	headers    http.Header
-	err        error
+	body        io.ReadCloser
+	content     []byte
+	contentErr  error
+	contentOnce sync.Once
+	statusCode  int
+	headers     http.Header
+	err         error
 }
 
 func MakeResponse(body io.ReadCloser, statusCode int, headers http.Header, err error) *Response {
-	response := &Response{body, nil, statusCode, headers, err}
+	response := &Response{
+		body:       body,
+		statusCode: statusCode,
+		headers:    headers,
+		err:        err,
+	}
 
 	if response.err == nil && (statusCode < 200 || statusCode >= 300) {
 		if err := checkErrorResponse(response); err != nil {
@@ -116,18 +124,16 @@ func (r *Response) Body() io.ReadCloser {
 }
 
 func (r *Response) Content() ([]byte, error) {
-	var err error
-	if r.content == nil {
+	r.contentOnce.Do(func() {
 		if r.body == nil {
 			r.content = []byte{}
 		} else {
-			r.content, err = io.ReadAll(r.body)
-			if err != nil {
-				err = r.body.Close()
-			}
+			var readErr error
+			r.content, readErr = io.ReadAll(r.body)
+			r.contentErr = errors.Join(readErr, r.body.Close())
 		}
-	}
-	return r.content, err
+	})
+	return r.content, r.contentErr
 }
 
 func (r *Response) IsAsyncResponse() bool {
@@ -269,14 +275,17 @@ func DoHttpRequestMultipart(httpClient *http.Client, reqParams requestParameters
 	bw := multipart.NewWriter(&prefix)
 	boundary := bw.Boundary()
 
-	// bytes.Buffer.Write never fails; discard errors explicitly.
-	_ = bw.WriteField("sql", reqParams.sql)
+	if err := bw.WriteField("sql", reqParams.sql); err != nil {
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating multipart SQL field", err))
+	}
 
 	partHeader := make(textproto.MIMEHeader)
 	partHeader.Set("Content-Disposition",
 		fmt.Sprintf(`form-data; name="%s"; filename="%s%s"`, reqParams.fileName, reqParams.fileName, reqParams.fileExt))
 	partHeader.Set("Content-Type", "application/octet-stream")
-	_, _ = bw.CreatePart(partHeader)
+	if _, err := bw.CreatePart(partHeader); err != nil {
+		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error creating multipart file field", err))
+	}
 
 	suffix := []byte(fmt.Sprintf("\r\n--%s--\r\n", boundary))
 

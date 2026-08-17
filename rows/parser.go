@@ -248,6 +248,23 @@ func parseSingleValue(columnType string, val interface{}) (driver.Value, error) 
 	return nil, fmt.Errorf("type not known: %s", columnType)
 }
 
+func parseArrayValue(elemType string, val interface{}) (driver.Value, error) {
+	s := reflect.ValueOf(val)
+	if s.Kind() != reflect.Array && s.Kind() != reflect.Slice {
+		return nil, fmt.Errorf("unexpected value for array type: %T", val)
+	}
+	res := make([]driver.Value, s.Len())
+
+	for i := 0; i < s.Len(); i++ {
+		var err error
+		res[i], err = parseValue(elemType, s.Index(i).Interface())
+		if err != nil {
+			return nil, fmt.Errorf("error parsing array element %d: %w", i, err)
+		}
+	}
+	return res, nil
+}
+
 // parseValue treating the val according to the column type and casts it to one of the go native types:
 // uint8, uint32, uint64, int32, int64, float32, float64, string, Time or []driver.Value for arrays
 func parseValue(columnType string, val interface{}) (driver.Value, error) {
@@ -259,13 +276,8 @@ func parseValue(columnType string, val interface{}) (driver.Value, error) {
 	isNullableType := strings.HasSuffix(columnType, nullableSuffix)
 
 	if strings.HasPrefix(columnType, arrayPrefix) && strings.HasSuffix(columnType, complexTypeSuffix) {
-		s := reflect.ValueOf(val)
-		res := make([]driver.Value, s.Len())
-
-		for i := 0; i < s.Len(); i++ {
-			res[i], _ = parseValue(columnType[len(arrayPrefix):len(columnType)-len(complexTypeSuffix)], s.Index(i).Interface())
-		}
-		return res, nil
+		elemType := columnType[len(arrayPrefix) : len(columnType)-len(complexTypeSuffix)]
+		return parseArrayValue(elemType, val)
 	} else if (strings.HasPrefix(columnType, decimalPrefix) || strings.HasPrefix(columnType, numericPrefix)) && strings.HasSuffix(columnType, complexTypeSuffix) {
 		// Store decimals in FireboltNullDecimal, so that they are decomposable for scanning
 		if isNullableType {
