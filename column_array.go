@@ -47,9 +47,9 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 		if sc, ok := c.elem.(*stringColumn); ok {
 			sc.data = append(sc.data, vals...)
 		} else {
-			for _, s := range vals {
+			for i, s := range vals {
 				if err := c.elem.appendRow(s); err != nil {
-					return err
+					return fmt.Errorf("element [%d]: %w", i, err)
 				}
 			}
 		}
@@ -58,9 +58,9 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 		if ic, ok := c.elem.(*int32Column); ok {
 			ic.data = append(ic.data, vals...)
 		} else {
-			for _, val := range vals {
+			for i, val := range vals {
 				if err := c.elem.appendRow(val); err != nil {
-					return err
+					return fmt.Errorf("element [%d]: %w", i, err)
 				}
 			}
 		}
@@ -69,9 +69,9 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 		if ic, ok := c.elem.(*int64Column); ok {
 			ic.data = append(ic.data, vals...)
 		} else {
-			for _, val := range vals {
+			for i, val := range vals {
 				if err := c.elem.appendRow(val); err != nil {
-					return err
+					return fmt.Errorf("element [%d]: %w", i, err)
 				}
 			}
 		}
@@ -80,9 +80,9 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 		if fc, ok := c.elem.(*float32Column); ok {
 			fc.data = append(fc.data, vals...)
 		} else {
-			for _, val := range vals {
+			for i, val := range vals {
 				if err := c.elem.appendRow(val); err != nil {
-					return err
+					return fmt.Errorf("element [%d]: %w", i, err)
 				}
 			}
 		}
@@ -91,9 +91,9 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 		if fc, ok := c.elem.(*float64Column); ok {
 			fc.data = append(fc.data, vals...)
 		} else {
-			for _, val := range vals {
+			for i, val := range vals {
 				if err := c.elem.appendRow(val); err != nil {
-					return err
+					return fmt.Errorf("element [%d]: %w", i, err)
 				}
 			}
 		}
@@ -102,17 +102,17 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 		if bc, ok := c.elem.(*boolColumn); ok {
 			bc.data = append(bc.data, vals...)
 		} else {
-			for _, val := range vals {
+			for i, val := range vals {
 				if err := c.elem.appendRow(val); err != nil {
-					return err
+					return fmt.Errorf("element [%d]: %w", i, err)
 				}
 			}
 		}
 	case []time.Time:
 		n = len(vals)
-		for _, val := range vals {
+		for i, val := range vals {
 			if err := c.elem.appendRow(val); err != nil {
-				return err
+				return fmt.Errorf("element [%d]: %w", i, err)
 			}
 		}
 	case [][]byte:
@@ -120,9 +120,9 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 		if bc, ok := c.elem.(*byteaColumn); ok {
 			bc.data = append(bc.data, vals...)
 		} else {
-			for _, val := range vals {
+			for i, val := range vals {
 				if err := c.elem.appendRow(val); err != nil {
-					return err
+					return fmt.Errorf("element [%d]: %w", i, err)
 				}
 			}
 		}
@@ -134,7 +134,7 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 		n = rv.Len()
 		for i := 0; i < n; i++ {
 			if err := c.elem.appendRow(rv.Index(i).Interface()); err != nil {
-				return err
+				return fmt.Errorf("element [%d]: %w", i, err)
 			}
 		}
 	}
@@ -146,66 +146,82 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 	return nil
 }
 
-func (c *arrayColumn) appendColumn(v interface{}) error {
+func (c *arrayColumn) appendColumn(v interface{}) (err error) {
+	before := c.rows()
+	defer func() {
+		if err != nil {
+			c.truncate(before)
+		}
+	}()
+
 	switch vals := v.(type) {
 	case [][]string:
-		for _, row := range vals {
+		for i, row := range vals {
 			if err := c.appendRow(row); err != nil {
-				return err
+				return fmt.Errorf("row [%d]: %w", i, err)
 			}
 		}
 		return nil
 	case [][]int32:
-		for _, row := range vals {
+		for i, row := range vals {
 			if err := c.appendRow(row); err != nil {
-				return err
+				return fmt.Errorf("row [%d]: %w", i, err)
 			}
 		}
 		return nil
 	case [][]int64:
-		for _, row := range vals {
+		for i, row := range vals {
 			if err := c.appendRow(row); err != nil {
-				return err
+				return fmt.Errorf("row [%d]: %w", i, err)
 			}
 		}
 		return nil
 	case [][]float32:
-		for _, row := range vals {
+		for i, row := range vals {
 			if err := c.appendRow(row); err != nil {
-				return err
+				return fmt.Errorf("row [%d]: %w", i, err)
 			}
 		}
 		return nil
 	case [][]float64:
-		for _, row := range vals {
+		for i, row := range vals {
 			if err := c.appendRow(row); err != nil {
-				return err
+				return fmt.Errorf("row [%d]: %w", i, err)
 			}
 		}
 		return nil
 	case [][]bool:
-		for _, row := range vals {
+		for i, row := range vals {
 			if err := c.appendRow(row); err != nil {
-				return err
+				return fmt.Errorf("row [%d]: %w", i, err)
 			}
 		}
 		return nil
 	case [][]time.Time:
-		for _, row := range vals {
+		for i, row := range vals {
 			if err := c.appendRow(row); err != nil {
-				return err
+				return fmt.Errorf("row [%d]: %w", i, err)
 			}
 		}
 		return nil
 	case [][][]byte:
-		for _, row := range vals {
+		for i, row := range vals {
 			if err := c.appendRow(row); err != nil {
-				return err
+				return fmt.Errorf("row [%d]: %w", i, err)
 			}
 		}
 		return nil
 	default:
-		return appendColumnFallback(c, v)
+		rv := reflect.ValueOf(v)
+		if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
+			return fmt.Errorf("AppendColumn requires a slice or array, got %T", v)
+		}
+		for i := 0; i < rv.Len(); i++ {
+			if err := c.appendRow(rv.Index(i).Interface()); err != nil {
+				return fmt.Errorf("row [%d]: %w", i, err)
+			}
+		}
+		return nil
 	}
 }
 

@@ -1975,6 +1975,34 @@ func TestArrayAppendIsAtomic(t *testing.T) {
 	}
 }
 
+// TestBlockAppendIsAtomic covers a later column rejecting a row after earlier
+// columns have already accepted their values. A failed public Batch.Append must
+// not leave those earlier columns one row ahead.
+func TestBlockAppendIsAtomic(t *testing.T) {
+	blk, err := newBlock(
+		[]string{"id", "doc"},
+		[]string{"int", "json"})
+	if err != nil {
+		t.Fatalf("newBlock: %v", err)
+	}
+
+	if err := blk.appendRow([]interface{}{int32(1), ""}); err == nil {
+		t.Fatal("expected the empty json document to be rejected")
+	}
+	for i, col := range blk.columns {
+		if got := col.rows(); got != 0 {
+			t.Errorf("column %d retained %d rows after failed append, want 0", i, got)
+		}
+	}
+
+	if err := blk.appendRow([]interface{}{int32(2), `{"ok":true}`}); err != nil {
+		t.Fatalf("append after rollback: %v", err)
+	}
+	if err := blk.validate(); err != nil {
+		t.Fatalf("block is not reusable after rollback: %v", err)
+	}
+}
+
 // TestArrayTruncateDropsElements pins that truncate trims the element column
 // even when the row count is unchanged, so a struct-array rollback cannot leave
 // an array field holding elements no offset covers.

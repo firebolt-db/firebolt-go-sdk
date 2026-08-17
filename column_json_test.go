@@ -325,3 +325,45 @@ func TestJSONColumnRejectsEmptyValuesColumnar(t *testing.T) {
 		t.Errorf("got %d rows, want 2", col.rows())
 	}
 }
+
+func TestJSONColumnFallbackAppendIsAtomic(t *testing.T) {
+	col, err := newColumn("doc", "json")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	values := []json.RawMessage{
+		json.RawMessage(`{"ok":true}`),
+		nil,
+	}
+	if err := col.appendColumn(values); err == nil {
+		t.Fatal("expected the nil raw message to be rejected")
+	} else if !strings.Contains(err.Error(), "element [1]") {
+		t.Errorf("error does not identify the rejected element: %v", err)
+	}
+	if got := col.rows(); got != 0 {
+		t.Errorf("failed append retained %d rows, want 0", got)
+	}
+}
+
+func TestJSONArrayColumnAppendIsAtomic(t *testing.T) {
+	col, err := newColumn("docs", "array(json null)")
+	if err != nil {
+		t.Fatalf("newColumn: %v", err)
+	}
+	values := [][]interface{}{
+		{`{"first":true}`},
+		{`{"second":true}`, nil},
+	}
+	err = col.appendColumn(values)
+	if err == nil {
+		t.Fatal("expected the null json array element to be rejected")
+	}
+	for _, index := range []string{"row [1]", "element [1]"} {
+		if !strings.Contains(err.Error(), index) {
+			t.Errorf("error does not contain %q: %v", index, err)
+		}
+	}
+	if got := col.rows(); got != 0 {
+		t.Errorf("failed append retained %d complete rows, want 0", got)
+	}
+}

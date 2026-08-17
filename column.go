@@ -38,8 +38,10 @@ func appendColumnFallback(col column, v interface{}) error {
 	if rv.Kind() != reflect.Slice && rv.Kind() != reflect.Array {
 		return fmt.Errorf("AppendColumn requires a slice or array, got %T", v)
 	}
+	before := col.rows()
 	for i := 0; i < rv.Len(); i++ {
 		if err := col.appendRow(rv.Index(i).Interface()); err != nil {
+			col.truncate(before)
 			return fmt.Errorf("element [%d]: %w", i, err)
 		}
 	}
