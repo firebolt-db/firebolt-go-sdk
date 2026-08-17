@@ -49,7 +49,7 @@ func testRowsNext(t *testing.T, rowsFactory func(isMultiStatement bool) driver.R
 
 	// First row
 	err := rows.Next(dest)
-	loc, _ := time.LoadLocation("UTC")
+	loc := time.UTC
 
 	utils.AssertEqual(err, nil, t, "Next shouldn't return an error at row 1")
 	utils.AssertEqual(dest[0], nil, t, "results not equal for int32 at row 1")
@@ -75,7 +75,7 @@ func testRowsNext(t *testing.T, rowsFactory func(isMultiStatement bool) driver.R
 	utils.AssertEqual(dest[1], int64(37237366456), t, "results not equal for int64 at row 2")
 	// Creating custom timezone with no name (e.g. Europe/Berlin)
 	// similar to Firebolt's return format
-	timezone, _ := time.LoadLocation("Asia/Calcutta")
+	timezone := time.FixedZone("", 5*60*60+30*60)
 	utils.AssertEqual(dest[9].(time.Time), time.Date(1989, 04, 15, 1, 2, 3, 123400000, timezone), t, "results not equal for time at row 2")
 	utils.AssertEqual(dest[13], true, t, "results not equal for boolean at row 2")
 	utils.AssertEqual(dest[14], decimal.NewFromFloat(-123.12345678), t, "results not equal for decimal at row 2")
@@ -203,7 +203,10 @@ func testRowsNextStructWithNestedSpaces(t *testing.T, rowsFactory func(isMultiSt
 
 func testRowsQuotedLong(t *testing.T, rowsFactorySingleValue func(interface{}, string) driver.RowsNextResultSet) {
 	intRaw := "-9223372036854775808"
-	intValue, _ := strconv.ParseInt(intRaw, 10, 64)
+	intValue, err := strconv.ParseInt(intRaw, 10, 64)
+	if err != nil {
+		t.Fatal(err)
+	}
 	rows := rowsFactorySingleValue(intRaw, "long")
 	var dest = make([]driver.Value, 1)
 	if err := rows.Next(dest); err != nil {
@@ -215,7 +218,10 @@ func testRowsQuotedLong(t *testing.T, rowsFactorySingleValue func(interface{}, s
 func testRowsDecimalType(t *testing.T, rowsFactorySingleValue func(interface{}, string) driver.RowsNextResultSet) {
 	floatValue := 123456789.123456789
 	stringValue := "1234567890123456789012345678901234567890"
-	stringDecimalValue, _ := decimal.NewFromString(stringValue)
+	stringDecimalValue, err := decimal.NewFromString(stringValue)
+	if err != nil {
+		t.Fatal(err)
+	}
 	cases := [][]interface{}{
 		{nil, nil},
 		{floatValue, decimal.NewFromFloat(floatValue)},
