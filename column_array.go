@@ -146,7 +146,7 @@ func (c *arrayColumn) appendRow(v interface{}) (err error) {
 	return nil
 }
 
-func (c *arrayColumn) appendColumn(v interface{}) (err error) {
+func (c *arrayColumn) appendColumn(v interface{}) (err error) { // NOSONAR - explicit fast paths avoid reflection for common inputs.
 	before := c.rows()
 	defer func() {
 		if err != nil {

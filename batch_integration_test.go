@@ -263,7 +263,7 @@ func TestBatchInsertMixed(t *testing.T) {
 // Nullable columns: row-wise with NULL and non-NULL values
 // ---------------------------------------------------------------------------
 
-func TestBatchInsertNullable(t *testing.T) {
+func TestBatchInsertNullable(t *testing.T) { // NOSONAR - the integration assertions belong in one lifecycle.
 	db := openBatchTestDB(t)
 	defer db.Close()
 
@@ -720,7 +720,7 @@ func TestBatchAbortIntegration(t *testing.T) {
 // Type coercion: plain Go int to INT column
 // ---------------------------------------------------------------------------
 
-func TestBatchInsertTypeCoercion(t *testing.T) {
+func TestBatchInsertTypeCoercion(t *testing.T) { // NOSONAR - the coercion matrix is clearer as one integration test.
 	db := openBatchTestDB(t)
 	defer db.Close()
 
@@ -917,7 +917,7 @@ func TestBatchInsertNullableColumnar(t *testing.T) {
 // that kind -- an empty document rejected at ingest, and null array elements
 // encoded at a definition level the reader resolves differently -- and none of
 // them is visible from a local round-trip.
-func TestBatchInsertJSON(t *testing.T) {
+func TestBatchInsertJSON(t *testing.T) { // NOSONAR - the JSON matrix shares one Engine-backed lifecycle.
 	db := openBatchTestDB(t)
 	defer db.Close()
 

@@ -11,7 +11,7 @@ import (
 	"github.com/parquet-go/parquet-go"
 )
 
-func TestParseInsertQuery(t *testing.T) {
+func TestParseInsertQuery(t *testing.T) { // NOSONAR - table-driven validation branches are intentional.
 	tests := []struct {
 		query       string
 		wantTable   string
@@ -2069,7 +2069,7 @@ func TestNullableAppendIsAtomic(t *testing.T) {
 // The array and struct-array rollbacks reach it through whatever element or
 // field types a caller happens to use, so covering them individually is the
 // only way to know each is right.
-func TestTruncateAllColumnTypes(t *testing.T) {
+func TestTruncateAllColumnTypes(t *testing.T) { // NOSONAR - each column type needs the same rollback assertions.
 	day := time.Date(2024, 3, 1, 0, 0, 0, 0, time.UTC)
 	cases := []struct {
 		typ  string
