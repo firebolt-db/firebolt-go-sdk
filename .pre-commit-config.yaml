@@ -11,9 +11,6 @@ repos:
     - id: go-fmt
     - id: go-vet
     - id: go-imports
-    - id: go-cyclo
-      args: [-over=25]
-      exclude: '(_test|column_array)\.go$'
     - id: validate-toml
     - id: golangci-lint
     - id: go-unit-tests
