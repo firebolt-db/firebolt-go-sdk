@@ -12,6 +12,9 @@ concurrency:
 
 jobs:
   integration-tests:
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/integration-tests.yml
     secrets: inherit
 
