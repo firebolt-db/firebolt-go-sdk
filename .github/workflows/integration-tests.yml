@@ -9,16 +9,19 @@ on:
       FIREBOLT_CLIENT_SECRET_STG_NEW_IDN:
         required: false
 
-permissions:
-  contents: read
-  packages: read
+permissions: {}
 
 jobs:
   integration-tests-v2:
+    permissions:
+      contents: read
     uses: ./.github/workflows/integration-tests-v2.yml
     secrets:
         FIREBOLT_CLIENT_ID_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
         FIREBOLT_CLIENT_SECRET_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
 
   integration-tests-engine:
+    permissions:
+      contents: read
+      packages: read
     uses: ./.github/workflows/integration-test-engine.yml

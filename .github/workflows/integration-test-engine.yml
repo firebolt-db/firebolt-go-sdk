@@ -4,14 +4,18 @@ on:
   workflow_dispatch:
     inputs:
       os_name:
-        description: 'The operating system'
+        description: 'GitHub-hosted runner label (ubuntu-latest, macos-latest, or windows-latest)'
         required: false
-        type: string
+        type: choice
+        options:
+          - ubuntu-latest
+          - macos-latest
+          - windows-latest
         default: 'ubuntu-latest'
   workflow_call:
     inputs:
       os_name:
-        description: 'Operating system'
+        description: 'GitHub-hosted runner label (ubuntu-latest, macos-latest, or windows-latest)'
         required: false
         type: string
         default: 'ubuntu-latest'
@@ -22,25 +26,29 @@ permissions:
 
 jobs:
   integration-tests:
-    runs-on: ${{ inputs.os_name }}
+    # Allowlist runner labels so an unexpected workflow_call input cannot
+    # target a self-hosted runner. Unknown values fall back to ubuntu-latest.
+    runs-on: ${{ inputs.os_name == 'macos-latest' && 'macos-latest' || inputs.os_name == 'windows-latest' && 'windows-latest' || 'ubuntu-latest' }}
     env:
-      DOCKER_COMPOSE_FILE: ${{ github.workspace }}/.github/workflows/engine/docker-compose.yaml
+      DOCKER_COMPOSE_FILE: ${{ github.workspace }}/.github/engine/docker-compose.yaml
       SERVICE_PORT: 3473
       SERVICE_URL: http://localhost:3473
       MAX_RETRIES: 30
       RETRY_INTERVAL: 2
     steps:
       - name: Check out code
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Set up Go
-        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: "stable"
           check-latest: true
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -48,16 +56,16 @@ jobs:
 
       - name: Generate localhost certificate
         run: |
-          mkdir "${{ github.workspace }}/.github/workflows/engine/certs"
+          mkdir "${{ github.workspace }}/.github/engine/certs"
           openssl req -x509 -newkey rsa:2048 -nodes -sha256 -days 1 \
-            -keyout "${{ github.workspace }}/.github/workflows/engine/certs/localhost-key.pem" \
-            -out "${{ github.workspace }}/.github/workflows/engine/certs/localhost.pem" \
+            -keyout "${{ github.workspace }}/.github/engine/certs/localhost-key.pem" \
+            -out "${{ github.workspace }}/.github/engine/certs/localhost.pem" \
             -subj "/CN=localhost" \
             -addext "subjectAltName=DNS:localhost"
 
       - name: Trust self-signed cert
         run: |
-          sudo cp "${{ github.workspace }}/.github/workflows/engine/certs/localhost.pem" /usr/local/share/ca-certificates/localhost.crt
+          sudo cp "${{ github.workspace }}/.github/engine/certs/localhost.pem" /usr/local/share/ca-certificates/localhost.crt
           sudo update-ca-certificates
 
       - name: Prepare docker-compose.yml
@@ -77,13 +85,13 @@ jobs:
 
       - name: Wait for service to be ready
         run: |
-          for i in $(seq 1 $MAX_RETRIES); do
+          for i in $(seq 1 "$MAX_RETRIES"); do
             if curl --silent --fail "$SERVICE_URL" --data-binary "SELECT 1" | grep -q "1"; then
               echo "Service is up and responding!"
               exit 0
             fi
             echo "Waiting for service... ($i/$MAX_RETRIES)"
-            sleep $RETRY_INTERVAL
+            sleep "$RETRY_INTERVAL"
           done
           echo "Error: Service failed to start within timeout"
           docker compose -f "$DOCKER_COMPOSE_FILE" logs
