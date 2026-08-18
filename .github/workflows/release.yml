@@ -1,79 +1,44 @@
-name: Release new version
+name: Release (main)
 
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      pre-release-tag:
-        required: false
-        description: 'Tag for pre-release (optional)'
-      major-release:
-        required: false
-        description: 'Trigger a major release (optional). Leave empty for regular release.'
+
+permissions: {}
+
+concurrency:
+  group: release-main-${{ github.ref }}
 
 jobs:
   integration-tests:
     uses: ./.github/workflows/integration-tests.yml
     secrets: inherit
 
-  publish:
+  release:
+    needs: integration-tests
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    needs: integration-tests
-    steps:    
-    - name: Check out code
-      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-      with:
-        fetch-depth: 0 
-        ref: main
-        token: ${{ secrets.RELEASE_PAT }}
-   
-    - name: Setup git config
-      run: |
-        git config user.name "GitHub Actions Bot"
-        git config user.email "<>"
-      shell: bash
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          show-progress: "false"
+          fetch-depth: 0
+          persist-credentials: false
 
-    - name: Get changes since last release
-      id: changes
-      run: |
-        OLD_TAG=$(git describe --tags --abbrev=0)
-        CHANGES=$(git log $OLD_TAG..HEAD --pretty=format:%s)
-        echo "changes<<EOF" >> $GITHUB_OUTPUT
-        echo "$CHANGES" >> $GITHUB_OUTPUT
-        echo "EOF" >> $GITHUB_OUTPUT
-        # Strip 'v' prefix from the old tag if it exists
-        echo "old_tag=$(echo $OLD_TAG | sed 's/^v//')" >> $GITHUB_OUTPUT
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          client-id: ${{ secrets.GH_APP_FB_DB_CI_WRITER_CLIENT_ID }}
+          private-key: ${{ secrets.GH_APP_FB_DB_CI_WRITER_APP_KEY_PEM }}
+          permission-contents: write
+          permission-pull-requests: write
 
-    - name: Generate version
-      id: version
-      uses: firebolt-db/action-generate-version@85a57bc1dd3f164506c87f2a951b4c037a351d3a # v1
-      with:
-        changes: ${{ steps.changes.outputs.changes }}
-        old-tag: ${{ steps.changes.outputs.old_tag }}
-
-    - name: Version bump
-      run: |
-        # Bump version = <number> in version file
-        sed -i "s/SdkVersion string = .*/SdkVersion string = \"v${STEPS_VERSION_OUTPUTS_NEW_TAG}\"/g" version/version.go
-        git add version/version.go
-        git commit -m "Automatic version bump to v${STEPS_VERSION_OUTPUTS_NEW_TAG}"
-        git push origin main
-      shell: bash
-      env:
-        STEPS_VERSION_OUTPUTS_NEW_TAG: ${{ steps.version.outputs.new-tag }}
-        
-    - name: Publish tag on github
-      run: |
-        git tag v${STEPS_VERSION_OUTPUTS_NEW_TAG}
-        git push origin v${STEPS_VERSION_OUTPUTS_NEW_TAG}
-      shell: bash
-      env:
-        STEPS_VERSION_OUTPUTS_NEW_TAG: ${{ steps.version.outputs.new-tag }}
-        
-    - name: Run go list
-      run: |
-        GOPROXY=proxy.golang.org go list -m github.com/firebolt-db/firebolt-go-sdk@v${STEPS_VERSION_OUTPUTS_NEW_TAG}
-      shell: bash
-      env:
-        STEPS_VERSION_OUTPUTS_NEW_TAG: ${{ steps.version.outputs.new-tag }}
+      - name: Release Please
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
+        with:
+          token: ${{ steps.app-token.outputs.token }}
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
