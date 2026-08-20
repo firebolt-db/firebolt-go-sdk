@@ -16,7 +16,9 @@ jobs:
       contents: read
       packages: read
     uses: ./.github/workflows/integration-tests.yml
-    secrets: inherit
+    secrets:
+      FIREBOLT_CLIENT_ID_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
+      FIREBOLT_CLIENT_SECRET_STG_NEW_IDN: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
 
   release:
     needs: integration-tests
