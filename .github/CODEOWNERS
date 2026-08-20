@@ -1,7 +1,2 @@
-# Ecosystem engineering are default owners for everything in the repo.
-*       @firebolt-db/ecosystem-engineering
-
-# Workflow and CI fixture changes require infrastructure review.
-.github/workflows/ @firebolt-db/team_infrastructure
-.github/engine/ @firebolt-db/team_infrastructure
-.github/CODEOWNERS @firebolt-db/team_infrastructure
+# Infrastructure owns everything in the repo.
+*       @firebolt-db/team_infrastructure
