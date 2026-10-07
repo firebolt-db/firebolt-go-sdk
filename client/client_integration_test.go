@@ -14,15 +14,14 @@ import (
 )
 
 var (
-	clientIdMock             string
-	clientSecretMock         string
-	databaseMock             string
-	engineNameMock           string
-	engineUrlMock            string
-	accountName              string
-	serviceAccountNoUserName string
-	clientMock               *ClientImpl
-	clientMockWithAccount    *ClientImpl
+	clientIdMock          string
+	clientSecretMock      string
+	databaseMock          string
+	engineNameMock        string
+	engineUrlMock         string
+	accountName           string
+	clientMock            *ClientImpl
+	clientMockWithAccount *ClientImpl
 )
 
 // init populates mock variables and client for integration tests
@@ -62,7 +61,6 @@ func init() {
 	}
 	clientMockWithAccount = clientWithAccount.(*ClientImpl)
 	clientMockWithAccount.ConnectedToSystemEngine = true
-	serviceAccountNoUserName = databaseMock + "_sa_no_user"
 }
 
 // TestGetEnginePropsByName test getting system engine url, as well as engine url, status and database by name

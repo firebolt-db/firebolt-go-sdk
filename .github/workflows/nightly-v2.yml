@@ -77,6 +77,8 @@ jobs:
           ACCOUNT_NAME: ${{ vars.FIREBOLT_ACCOUNT }}
           CLIENT_ID: ${{ secrets.FIREBOLT_CLIENT_ID_STG_NEW_IDN }}
           CLIENT_SECRET: ${{ secrets.FIREBOLT_CLIENT_SECRET_STG_NEW_IDN }}
+          CLIENT_ID_NO_USER: ${{ secrets.ECOSYSTEM_FIREBOLT_SA_NO_USER_CLIENT_ID_STG }}
+          CLIENT_SECRET_NO_USER: ${{ secrets.ECOSYSTEM_FIREBOLT_SA_NO_USER_CLIENT_SECRET_STG }}
           LONG_TEST_VALUE: ${{ vars.LONG_TEST_VALUE }}
         run: |
           go test ./... -timeout=30m -v -coverprofile cover.out --tags=integration

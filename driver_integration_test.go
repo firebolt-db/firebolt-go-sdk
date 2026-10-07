@@ -28,7 +28,8 @@ var (
 	databaseMock                    string
 	engineNameMock                  string
 	accountName                     string
-	serviceAccountNoUserName        string
+	clientIdNoUserMock              string
+	clientSecretNoUserMock          string
 )
 
 const scanErrorMessage = "Scan returned an error"
@@ -39,7 +40,9 @@ func init() {
 	databaseMock = os.Getenv("DATABASE_NAME")
 	engineNameMock = os.Getenv("ENGINE_NAME")
 	accountName = os.Getenv("ACCOUNT_NAME")
-	serviceAccountNoUserName = databaseMock + "_sa_no_user"
+	// Pre-provisioned service account that has no user attached
+	clientIdNoUserMock = os.Getenv("CLIENT_ID_NO_USER")
+	clientSecretNoUserMock = os.Getenv("CLIENT_SECRET_NO_USER")
 
 	dsnMock = fmt.Sprintf("firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s", databaseMock, accountName, engineNameMock, clientIdMock, clientSecretMock)
 	dsnNoDatabaseMock = fmt.Sprintf("firebolt://?account_name=%s&engine=%s&client_id=%s&client_secret=%s", accountName, engineNameMock, clientIdMock, clientSecretMock)
@@ -165,67 +168,11 @@ func TestDriverSystemEngineDbContext(t *testing.T) {
 	}
 }
 
-// function that creates a service account and returns its id and secret
-func createServiceAccountNoUser(t *testing.T, serviceAccountName string) (string, string) {
-	serviceAccountDescription := "test_service_account_description"
-
-	db, err := sql.Open("firebolt", dsnSystemEngineMock)
-	if err != nil {
-		t.Errorf("failed unexpectedly with %v", err)
-	}
-	// create service account
-	createServiceAccountQuery := fmt.Sprintf("CREATE SERVICE ACCOUNT \"%s\" WITH DESCRIPTION = '%s'", serviceAccountName, serviceAccountDescription)
-	_, err = db.Query(createServiceAccountQuery)
-	if err != nil {
-		t.Errorf("The query %s returned an error: %v", createServiceAccountQuery, err)
-	}
-	// generate credentials for service account
-	generateServiceAccountKeyQuery := fmt.Sprintf("CALL fb_GENERATESERVICEACCOUNTKEY('%s')", serviceAccountName)
-	// get service account id and secret from the result
-	rows, err := db.Query(generateServiceAccountKeyQuery)
-	var serviceAccountNameReturned, serviceAccountID, serviceAccountSecret string
-	for rows.Next() {
-		if err := rows.Scan(&serviceAccountNameReturned, &serviceAccountID, &serviceAccountSecret); err != nil {
-			t.Errorf("Failed to retrieve service account id and secret: %v", err)
-		}
-	}
-	// Currently this is bugged so retrieve id via a query if not returned otherwise. FIR-28719
-	if serviceAccountID == "" {
-		getServiceAccountIDQuery := fmt.Sprintf("SELECT service_account_id FROM information_schema.service_accounts WHERE service_account_name = '%s'", serviceAccountName)
-		rows, err := db.Query(getServiceAccountIDQuery)
-		if err != nil {
-			t.Errorf("Failed to retrieve service account id: %v", err)
-		}
-		for rows.Next() {
-			if err := rows.Scan(&serviceAccountID); err != nil {
-				t.Errorf("Failed to retrieve service account id: %v", err)
-			}
-		}
-	}
-	return serviceAccountID, serviceAccountSecret
-}
-
-func deleteServiceAccount(t *testing.T, serviceAccountName string) {
-	db, err := sql.Open("firebolt", dsnSystemEngineMock)
-	if err != nil {
-		t.Errorf("failed unexpectedly with %v", err)
-	}
-	// delete service account
-	deleteServiceAccountQuery := fmt.Sprintf("DROP SERVICE ACCOUNT \"%s\"", serviceAccountName)
-	_, err = db.Query(deleteServiceAccountQuery)
-	if err != nil {
-		t.Errorf("The query %s returned an error: %v", deleteServiceAccountQuery, err)
-	}
-}
-
 // test authentication with service account without a user fails
 func TestServiceAccountAuthentication(t *testing.T) {
-	serviceAccountID, serviceAccountSecret := createServiceAccountNoUser(t, serviceAccountNoUserName)
-	defer deleteServiceAccount(t, serviceAccountNoUserName) // Delete service account after the test
-
 	dsnNoUser := fmt.Sprintf(
 		"firebolt:///%s?account_name=%s&engine=%s&client_id=%s&client_secret=%s",
-		databaseMock, accountName, engineNameMock, serviceAccountID, serviceAccountSecret)
+		databaseMock, accountName, engineNameMock, clientIdNoUserMock, clientSecretNoUserMock)
 
 	_, err := sql.Open("firebolt", dsnNoUser)
 	if err == nil {
