@@ -1,15 +1,36 @@
+---
 version: 2
 updates:
-  # Keep GitHub Actions up to date
+
   - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
+      time: "08:17"
+      timezone: "Etc/UTC"
+    commit-message:
+      prefix: "build(NoTicket)"
+    open-pull-requests-limit: 20
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns:
+          - "*"
+
+  - package-ecosystem: "gomod"
     directory: "/"
     schedule:
       interval: "weekly"
       day: "monday"
-      time: "03:00"
-      timezone: "UTC"
-    open-pull-requests-limit: 5
+      time: "08:30"
+      timezone: "Etc/UTC"
     commit-message:
       prefix: "build(NoTicket)"
+    open-pull-requests-limit: 10
     cooldown:
       default-days: 7
+    groups:
+      go:
+        patterns:
+          - "*"
