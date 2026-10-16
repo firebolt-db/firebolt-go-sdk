@@ -10,28 +10,53 @@ on:
   push:
     branches: [ main, 1.x ]
 
+permissions: {}
+
 jobs:
   check-code:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ inputs.branch }}
+        persist-credentials: false
     
     - name: Set up Go
-      uses: actions/setup-go@v3
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version: '1.18.0'
     
-    - name: Install goling
-      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.50.1
+    # golangci-lint v1.50.1 needs Go 1.19 to build from source, so install the release binary and
+    # verify it against the checksum published with the release before running it.
+    - name: Install golangci-lint
+      env:
+        GOLANGCI_LINT_VERSION: 1.50.1
+        GOLANGCI_LINT_SHA256: 4ba1dc9dbdf05b7bdc6f0e04bdfe6f63aa70576f51817be1b2540bbce017b69a
+      run: |
+        archive="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64"
+        curl --proto '=https' --tlsv1.2 -sSfL -o "$RUNNER_TEMP/golangci-lint.tar.gz" \
+          "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/${archive}.tar.gz"
+        echo "${GOLANGCI_LINT_SHA256}  $RUNNER_TEMP/golangci-lint.tar.gz" | sha256sum -c -
+        tar -xzf "$RUNNER_TEMP/golangci-lint.tar.gz" -C "$RUNNER_TEMP" "${archive}/golangci-lint"
+        install -m 0755 "$RUNNER_TEMP/${archive}/golangci-lint" "$(go env GOPATH)/bin/golangci-lint"
     
     - name: Install gocyclo
-      run: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+      run: go install github.com/fzipp/gocyclo/cmd/gocyclo@62aa1f84d9ea7d68ecc499a74e98f188f63b650e # NOSONAR(githubactions:S8545) v0.6.0, last for Go 1.18
 
     - name: Install goimports 
-      run: go install golang.org/x/tools/cmd/goimports@latest
+      run: go install golang.org/x/tools/cmd/goimports@c5643e9baf7fed6936d70e3abf925f86fa895ca1 # NOSONAR(githubactions:S8545) v0.18.0, last for Go 1.18
+
+    - name: Set up Python
+      uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+      with:
+        python-version: '3.11'
+
+    # pre-commit/action is not on this repo's list of allowed actions; run pre-commit directly, as on main.
+    - name: Install pre-commit
+      run: pip install pre-commit==3.7.1
 
     - name: Run pre-commit checks
-      uses: pre-commit/action@v3.0.0
+      run: pre-commit run --all-files
