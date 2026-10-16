@@ -29,14 +29,25 @@ jobs:
       with:
         go-version: '1.18.0'
     
-    - name: Install goling
-      run: curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b "$(go env GOPATH)/bin" v1.50.1
+    # golangci-lint v1.50.1 needs Go 1.19 to build from source, so install the release binary and
+    # verify it against the checksum published with the release before running it.
+    - name: Install golangci-lint
+      env:
+        GOLANGCI_LINT_VERSION: 1.50.1
+        GOLANGCI_LINT_SHA256: 4ba1dc9dbdf05b7bdc6f0e04bdfe6f63aa70576f51817be1b2540bbce017b69a
+      run: |
+        archive="golangci-lint-${GOLANGCI_LINT_VERSION}-linux-amd64"
+        curl --proto '=https' --tlsv1.2 -sSfL -o "$RUNNER_TEMP/golangci-lint.tar.gz" \
+          "https://github.com/golangci/golangci-lint/releases/download/v${GOLANGCI_LINT_VERSION}/${archive}.tar.gz"
+        echo "${GOLANGCI_LINT_SHA256}  $RUNNER_TEMP/golangci-lint.tar.gz" | sha256sum -c -
+        tar -xzf "$RUNNER_TEMP/golangci-lint.tar.gz" -C "$RUNNER_TEMP" "${archive}/golangci-lint"
+        install -m 0755 "$RUNNER_TEMP/${archive}/golangci-lint" "$(go env GOPATH)/bin/golangci-lint"
     
     - name: Install gocyclo
-      run: go install github.com/fzipp/gocyclo/cmd/gocyclo@latest
+      run: go install github.com/fzipp/gocyclo/cmd/gocyclo@v0.6.0 # last version for Go 1.18
 
     - name: Install goimports 
-      run: go install golang.org/x/tools/cmd/goimports@latest
+      run: go install golang.org/x/tools/cmd/goimports@v0.18.0 # last version for Go 1.18
 
     - name: Set up Python
       uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
