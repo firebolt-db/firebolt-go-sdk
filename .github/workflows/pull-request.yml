@@ -4,13 +4,10 @@ on:
   pull_request:
     branches: [ main, 1.x ]
 
+permissions: {}
+
 jobs:
-  check-title:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check title name convention
-        uses: jef/conventional-commits-pr-action@v1.0.0
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
   code-checkers:
+    permissions:
+      contents: read
     uses: ./.github/workflows/code-check.yml
