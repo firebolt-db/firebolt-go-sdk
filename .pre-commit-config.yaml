@@ -1,12 +1,12 @@
 repos:
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.3.0
+    rev: 3298ddab3c13dd77d6ce1fc0baf97691430d84b0  # frozen: v4.3.0
     hooks:
       - id: check-merge-conflict
 
   - repo: https://github.com/dnephin/pre-commit-golang
-    rev: master
+    rev: c17f835cf9f04b8b5ed1c1f7757cedc6728d8a21  # frozen: master
     hooks:
     - id: go-fmt
     - id: go-vet
