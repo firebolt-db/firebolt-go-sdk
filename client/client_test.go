@@ -71,11 +71,13 @@ func TestCacheAccessToken(t *testing.T) {
 func TestRefreshTokenOn401(t *testing.T) {
 	var fetchTokenCount = 0
 	var totalCount = 0
+	var requestContentTypes []string
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == ServiceAccountLoginURLSuffix {
 			fetchTokenCount++
 			_, _ = w.Write(utils.GetAuthResponse(10000))
 		} else {
+			requestContentTypes = append(requestContentTypes, r.Header.Get("Content-Type"))
 			w.WriteHeader(http.StatusUnauthorized)
 		}
 		totalCount++
@@ -86,7 +88,16 @@ func TestRefreshTokenOn401(t *testing.T) {
 		BaseClient: BaseClient{ClientID: "client_id", ClientSecret: "client_secret", ApiEndpoint: server.URL, UserAgent: "userAgent"},
 	}
 	client.AccessTokenGetter = client.getAccessToken
-	_ = client.requestWithAuthRetry(context.TODO(), "GET", server.URL, nil, "")
+	_ = client.requestWithAuthRetry(context.TODO(), "POST", server.URL, nil, selectOne)
+
+	if len(requestContentTypes) != 2 {
+		t.Errorf("expected the query to be sent twice, got %d", len(requestContentTypes))
+	}
+	for i, contentType := range requestContentTypes {
+		if contentType != ContentTypeText {
+			t.Errorf("query attempt %d: expected Content-Type %q, got %q", i+1, ContentTypeText, contentType)
+		}
+	}
 
 	if getCachedAccessToken("client_id", server.URL) != "aMysteriousToken" {
 		t.Errorf("Did not fetch missing token")

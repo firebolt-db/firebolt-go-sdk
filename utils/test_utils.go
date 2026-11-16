@@ -53,7 +53,7 @@ func AssertGeographyPoint(testVal interface{}, expectedX, expectedY float64, t *
 	x, y, parseErr := parseWKBPoint(testVal)
 	if parseErr != "" {
 		t.Log(string(debug.Stack()))
-		t.Errorf("%s%s: %v", err, parseErr, testVal)
+		t.Errorf("%s: %s: %v", err, parseErr, testVal)
 		return
 	}
 	if math.Abs(x-expectedX) > tolerance || math.Abs(y-expectedY) > tolerance {
@@ -63,7 +63,11 @@ func AssertGeographyPoint(testVal interface{}, expectedX, expectedY float64, t *
 }
 
 func parseWKBPoint(val interface{}) (float64, float64, string) {
-	const ewkbSRIDFlag = 0x20000000
+	const (
+		ewkbZFlag    = 0x80000000
+		ewkbMFlag    = 0x40000000
+		ewkbSRIDFlag = 0x20000000
+	)
 	str, ok := val.(string)
 	if !ok {
 		return 0, 0, "geography value is not a string"
@@ -72,16 +76,21 @@ func parseWKBPoint(val interface{}) (float64, float64, string) {
 	if decodeErr != nil || len(raw) < 5 {
 		return 0, 0, "geography value is not hex-encoded WKB"
 	}
-	var order binary.ByteOrder = binary.BigEndian
-	if raw[0] == 1 {
+	var order binary.ByteOrder
+	switch raw[0] {
+	case 0:
+		order = binary.BigEndian
+	case 1:
 		order = binary.LittleEndian
+	default:
+		return 0, 0, "geography value has an invalid WKB byte order"
 	}
 	geomType := order.Uint32(raw[1:5])
 	offset := 5
 	if geomType&ewkbSRIDFlag != 0 {
 		offset += 4
 	}
-	if geomType&0xFFFF != 1 || len(raw) < offset+16 {
+	if geomType&^ewkbSRIDFlag != 1 || geomType&(ewkbZFlag|ewkbMFlag) != 0 || len(raw) < offset+16 {
 		return 0, 0, "geography value is not a 2D WKB point"
 	}
 	x := math.Float64frombits(order.Uint64(raw[offset : offset+8]))
