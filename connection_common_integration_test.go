@@ -414,28 +414,25 @@ func TestConnectionQueryByteaType(t *testing.T) {
 }
 
 func TestLongQuery(t *testing.T) {
-	var maxValue = longTestValue
+	db, err := sql.Open("firebolt", dsnMock)
+	if err != nil {
+		t.Fatalf("failed unexpectedly with %v", err)
+	}
+	defer db.Close()
 
-	finished_in := make(chan time.Duration, 1)
-	go func() {
-		started := time.Now()
-		db, err := sql.Open("firebolt", dsnMock)
-		if err != nil {
-			t.Errorf("failed unexpectedly with %v", err)
-		}
-		_, err = db.Query("SELECT checksum(*) FROM generate_series(1, ?)", maxValue)
-		if err != nil {
-			t.Errorf("failed to run long query %v", err)
-		}
-		finished_in <- time.Since(started)
-	}()
-	select {
-	case elapsed := <-finished_in:
-		if elapsed < 350*time.Second {
-			t.Errorf("Expected execution time to be more than 350 sec but was %.2f sec", elapsed.Seconds())
-		}
-	case <-time.After(10 * time.Minute):
-		t.Errorf("Long query didn't finish in 10 minutes")
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
+
+	started := time.Now()
+	rows, err := db.QueryContext(ctx, "SELECT checksum(*) FROM generate_series(1, ?)", longTestValue)
+	elapsed := time.Since(started)
+	if err != nil {
+		t.Fatalf("failed to run long query after %.2f sec: %v", elapsed.Seconds(), err)
+	}
+	defer rows.Close()
+
+	if elapsed < 350*time.Second {
+		t.Errorf("Expected execution time to be more than 350 sec but was %.2f sec", elapsed.Seconds())
 	}
 }
 

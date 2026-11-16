@@ -36,6 +36,8 @@ jobs:
       SERVICE_URL: http://localhost:3473
       MAX_RETRIES: 30
       RETRY_INTERVAL: 2
+      # TestLongQuery must run past 350s; the default size finished in ~313s on a fast runner.
+      LONG_TEST_VALUE: "600000000000"
     steps:
       - name: Check out code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

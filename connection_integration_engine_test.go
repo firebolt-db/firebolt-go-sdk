@@ -202,7 +202,6 @@ func TestConnectionPreparedStatement(t *testing.T) {
 		tstz := time.Date(2021, 1, 1, 2, 10, 20, 3000, loc)
 		ba := []byte("hello_world_123ツ\n\u0048")
 		ge := "POINT(1 1)"
-		geEncoded := "0101000020E6100000FEFFFFFFFFFFEF3F000000000000F03F"
 
 		var sql string
 		if contextUtils.GetPreparedStatementsStyle(ctx) == contextUtils.PreparedStatementsStyleNative {
@@ -272,7 +271,7 @@ func TestConnectionPreparedStatement(t *testing.T) {
 				break
 			}
 		}
-		utils.AssertEqual(dest[10], geEncoded, t, "geography results are not equal")
+		utils.AssertGeographyPoint(dest[10], 1, 1, t, "geography results are not equal")
 	})
 }
 
