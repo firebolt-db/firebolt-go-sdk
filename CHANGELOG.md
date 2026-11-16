@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.21.1](https://github.com/firebolt-db/firebolt-go-sdk/compare/v1.21.0...v1.21.1) (2026-11-16)
+
+
+### Bug Fixes
+
+* send queries as text/plain instead of application/json (FB-5787) ([#241](https://github.com/firebolt-db/firebolt-go-sdk/issues/241)) ([eb4df58](https://github.com/firebolt-db/firebolt-go-sdk/commit/eb4df58a0c3d2783f43e54617df0bd126b5d7ebb))
+
 ## [1.21.0](https://github.com/firebolt-db/firebolt-go-sdk/compare/v1.20.1...v1.21.0) (2026-08-18)
 
 
