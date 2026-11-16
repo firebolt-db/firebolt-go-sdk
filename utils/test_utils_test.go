@@ -18,6 +18,9 @@ func TestParseWKBPoint(t *testing.T) {
 		{name: "linestring", value: "0102000000", wantErr: true},
 		{name: "truncated point", value: "0101000000000000000000F03F", wantErr: true},
 		{name: "invalid byte order", value: "0201000000000000000000F03F000000000000F03F", wantErr: true},
+		{name: "POINT EMPTY", value: "0101000000000000000000F87F000000000000F87F", wantErr: true},
+		{name: "POINT EMPTY EWKB", value: "0101000020E6100000000000000000F87F000000000000F87F", wantErr: true},
+		{name: "infinite coordinate", value: "0101000000000000000000F07F000000000000F03F", wantErr: true},
 		{name: "3D EWKB point", value: "01010000A0E6100000000000000000F03F000000000000F03F0000000000001440", wantErr: true},
 	}
 	for _, c := range cases {

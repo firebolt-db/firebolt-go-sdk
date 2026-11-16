@@ -95,6 +95,11 @@ func parseWKBPoint(val interface{}) (float64, float64, string) {
 	}
 	x := math.Float64frombits(order.Uint64(raw[offset : offset+8]))
 	y := math.Float64frombits(order.Uint64(raw[offset+8 : offset+16]))
+	// POINT EMPTY is encoded as NaN coordinates, which would slip through the
+	// tolerance comparison since every comparison with NaN is false.
+	if math.IsNaN(x) || math.IsNaN(y) || math.IsInf(x, 0) || math.IsInf(y, 0) {
+		return 0, 0, "geography value has non-finite coordinates"
+	}
 	return x, y, ""
 }
 
