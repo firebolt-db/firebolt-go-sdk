@@ -179,6 +179,11 @@ func clientFactory(apiEndpoint string) Client {
 	return client
 }
 
+// TestQueryContentType tests that a query is sent as plain text, not JSON
+func TestQueryContentType(t *testing.T) {
+	testQueryContentType(t, clientFactory)
+}
+
 // TestProtocolVersion tests that protocol version is correctly set on request
 func TestProtocolVersion(t *testing.T) {
 	testProtocolVersion(t, clientFactory)

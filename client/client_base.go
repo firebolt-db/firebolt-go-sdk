@@ -249,7 +249,7 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 	if err != nil {
 		return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 	}
-	resp := DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeJSON, hostOverride})
+	resp := DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeText, hostOverride})
 	if resp.statusCode == http.StatusUnauthorized {
 		deleteAccessTokenFromCache(c.ClientID, c.ApiEndpoint)
 
@@ -257,7 +257,7 @@ func (c *BaseClient) requestWithAuthRetry(ctx context.Context, method string, ur
 		if err != nil {
 			return MakeResponse(nil, 0, nil, errorUtils.ConstructNestedError("error while getting access token", err))
 		}
-		resp = DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeJSON, hostOverride})
+		resp = DoHttpRequest(c.HttpClient, requestParameters{ctx, accessToken, method, resolvedURL, c.UserAgent, params, bodyStr, ContentTypeText, hostOverride})
 
 		if resp.statusCode == http.StatusUnauthorized {
 			resp.err = errorUtils.Wrap(errorUtils.AuthorizationError, resp.err)
