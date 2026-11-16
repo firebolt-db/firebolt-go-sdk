@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -152,5 +153,34 @@ func TestDoHttpRequestMalformedURLWithPercent2(t *testing.T) {
 	errorMsg := resp.err.Error()
 	if !strings.Contains(errorMsg, "POST") {
 		t.Errorf("Expected error message to contain method 'POST', got: %s", errorMsg)
+	}
+}
+
+func TestDoHttpRequestContentType(t *testing.T) {
+	var contentType string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		contentType = r.Header.Get("Content-Type")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	cases := []struct {
+		name, requested, expected string
+	}{
+		{name: "defaults to plain text", requested: "", expected: ContentTypeText},
+		{name: "keeps explicit JSON", requested: ContentTypeJSON, expected: ContentTypeJSON},
+		{name: "keeps explicit form", requested: ContentTypeForm, expected: ContentTypeForm},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			contentType = ""
+			resp := DoHttpRequest(nil, requestParameters{ctx: context.TODO(), method: "GET", url: server.URL, contentType: c.requested})
+			if resp.err != nil {
+				t.Fatalf("request failed: %v", resp.err)
+			}
+			if contentType != c.expected {
+				t.Errorf("expected Content-Type %q, got %q", c.expected, contentType)
+			}
+		})
 	}
 }

@@ -34,12 +34,14 @@ func testProtocolVersion(t *testing.T, clientFactory func(string) Client) {
 
 func testQueryContentType(t *testing.T, clientFactory func(string) Client) {
 	var contentType = ""
+	var queryReceived = false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ServiceAccountLoginURLSuffix, UsernamePasswordURLSuffix:
 			_, _ = w.Write(utils.GetAuthResponse(10000))
 		default:
 			if body, _ := io.ReadAll(r.Body); string(body) == selectOne {
+				queryReceived = true
 				contentType = r.Header.Get("Content-Type")
 			}
 			w.WriteHeader(http.StatusOK)
@@ -51,6 +53,9 @@ func testQueryContentType(t *testing.T, clientFactory func(string) Client) {
 	client := clientFactory(server.URL)
 
 	_, _ = client.Query(context.TODO(), server.URL, selectOne, map[string]string{}, ConnectionControl{})
+	if !queryReceived {
+		t.Fatalf("server never received a request with body %q", selectOne)
+	}
 	if contentType != ContentTypeText {
 		t.Errorf("expected Content-Type %q on a query request, got %q", ContentTypeText, contentType)
 	}

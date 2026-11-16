@@ -239,9 +239,11 @@ func DoHttpRequest(httpClient *http.Client, reqParams requestParameters) *Respon
 		req.Header.Add("Authorization", bearer)
 	}
 
-	if len(reqParams.contentType) > 0 {
-		req.Header.Set("Content-Type", reqParams.contentType)
+	contentType := reqParams.contentType
+	if contentType == "" {
+		contentType = ContentTypeText
 	}
+	req.Header.Set("Content-Type", contentType)
 
 	for key, value := range extractAdditionalHeaders(reqParams.ctx) {
 		req.Header.Set(key, value)
