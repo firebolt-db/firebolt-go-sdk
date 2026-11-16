@@ -4,6 +4,9 @@ import (
 	"bytes"
 	"context"
 	"database/sql/driver"
+	"encoding/binary"
+	"encoding/hex"
+	"math"
 	"os"
 	"reflect"
 	"runtime"
@@ -40,6 +43,50 @@ func AssertEqual(testVal interface{}, expectedVal interface{}, t *testing.T, err
 		t.Log(string(debug.Stack()))
 		t.Errorf(err+assertErrorMessage, expectedVal, testVal)
 	}
+}
+
+// AssertGeographyPoint compares a hex-encoded (E)WKB point by coordinates. The
+// engine's geography round trip is not bit-exact: POINT(1 1) has come back with
+// X as both 0.9999999999999998 and 0.9999999999999997 depending on the build.
+func AssertGeographyPoint(testVal interface{}, expectedX, expectedY float64, t *testing.T, err string) {
+	const tolerance = 1e-9
+	x, y, parseErr := parseWKBPoint(testVal)
+	if parseErr != "" {
+		t.Log(string(debug.Stack()))
+		t.Errorf("%s%s: %v", err, parseErr, testVal)
+		return
+	}
+	if math.Abs(x-expectedX) > tolerance || math.Abs(y-expectedY) > tolerance {
+		t.Log(string(debug.Stack()))
+		t.Errorf(err+assertErrorMessage, [2]float64{expectedX, expectedY}, [2]float64{x, y})
+	}
+}
+
+func parseWKBPoint(val interface{}) (float64, float64, string) {
+	const ewkbSRIDFlag = 0x20000000
+	str, ok := val.(string)
+	if !ok {
+		return 0, 0, "geography value is not a string"
+	}
+	raw, decodeErr := hex.DecodeString(str)
+	if decodeErr != nil || len(raw) < 5 {
+		return 0, 0, "geography value is not hex-encoded WKB"
+	}
+	var order binary.ByteOrder = binary.BigEndian
+	if raw[0] == 1 {
+		order = binary.LittleEndian
+	}
+	geomType := order.Uint32(raw[1:5])
+	offset := 5
+	if geomType&ewkbSRIDFlag != 0 {
+		offset += 4
+	}
+	if geomType&0xFFFF != 1 || len(raw) < offset+16 {
+		return 0, 0, "geography value is not a 2D WKB point"
+	}
+	x := math.Float64frombits(order.Uint64(raw[offset : offset+8]))
+	y := math.Float64frombits(order.Uint64(raw[offset+8 : offset+16]))
+	return x, y, ""
 }
 
 func assertArrays(testVal interface{}, expectedVal interface{}, t *testing.T, err string) {
